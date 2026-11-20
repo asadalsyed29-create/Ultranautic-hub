@@ -1017,20 +1017,39 @@ const easeOutElastic = p => p === 0 || p === 1 ? p : Math.pow(2, -10 * p) * Math
 // The settings on a keyframe control the segment that LEAVES it (towards the next keyframe).
 const LIN_BEZ = [0.333, 0.333, 0.667, 0.667];
 function bezKey(mode) { return mode === 'hold' ? 'bezH' : mode === 'smooth' ? 'bez' : 'bezL'; }
-function copySeg(to, from) { to.mode = from.mode; for (const f of ['bez', 'bezL', 'bezH']) if (from[f]) to[f] = from[f].slice(); else delete to[f]; to.speed = from.speed; to.over = from.over; to.steps = from.steps; }
+function spKey(mode) { return mode === 'hold' ? 'hold' : mode === 'smooth' ? 'smooth' : 'linear'; }
+const SP_DEFAULT = { linear: [[0, 1], [0.5, 1], [1, 1]], smooth: [[0, 0], [0.5, 2], [1, 0]], hold: [[0, 1], [0.5, 1], [1, 1]] };
+// speed at time x (0..1) between the points: straight lines for Regular/Choppy, eased for Smooth
+function spVal(pts, smooth, x) {
+  for (let i = 0; i < pts.length - 1; i++) { const [x0, a] = pts[i], [x1, b] = pts[i + 1]; if (x <= x1 || i === pts.length - 2) { const t = clamp((x - x0) / Math.max(1e-9, x1 - x0), 0, 1); return a + (b - a) * (smooth ? t * t * (3 - 2 * t) : t); } }
+  return 1;
+}
+// how far along (area under the speed line); a flat 1x line gives exactly 1 at the end
+function spInt(pts, smooth, p) {
+  let acc = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, a] = pts[i], [x1, b] = pts[i + 1], w = x1 - x0; if (p <= x0 || w <= 0) { if (p <= x0) break; continue; }
+    const t = Math.min(1, (p - x0) / w);
+    acc += w * (a * t + (b - a) * (smooth ? t * t * t - t * t * t * t / 2 : t * t / 2));
+  }
+  return acc;
+}
+function copySeg(to, from) { to.mode = from.mode; if (from.sp) to.sp = JSON.parse(JSON.stringify(from.sp)); else delete to.sp; for (const f of ['bez', 'bezL', 'bezH']) if (from[f]) to[f] = from[f].slice(); else delete to[f]; to.speed = from.speed; to.over = from.over; to.steps = from.steps; }
 function newKey(t, v) { return { t, v, mode: 'linear', bez: [0.42, 0, 0.58, 1], speed: 1, over: 'clamp', steps: 1 }; }
 function segProgress(k, p) {
   // fixed-window speed multiplier: the window between the two keys never moves; speed only remaps progress inside it
   const sp = k.speed == null ? 1 : k.speed;
-  const q = p * sp;
+  // speed graph (per mode): 1x everywhere = normal; higher = faster, lower = slower
+  const pts = k.sp && k.sp[spKey(k.mode)];
+  const q = (pts ? spInt(pts, k.mode === 'smooth', p) : p) * sp;
   let f;
   if (k.over === 'loop') { f = q - Math.floor(q); if (f === 0 && q > 0) f = 1; }
   else if (k.over === 'pingpong') { const m = q % 2; f = m <= 1 ? m : 2 - m; }
   else f = Math.min(q, 1);
   // every mode has its own adjustable curve; Choppy jumps in steps along its curve
-  if (k.mode === 'hold') { const st = Math.max(1, k.steps || 1); return f >= 1 ? 1 : bezierY(k.bezH || LIN_BEZ, Math.floor(f * st) / st); }
-  if (k.mode === 'smooth') return bezierY(k.bez || [0.42, 0, 0.58, 1], f);
-  return k.bezL ? bezierY(k.bezL, f) : f;
+  if (k.mode === 'hold') { const st = Math.max(1, k.steps || 1); return f >= 1 ? 1 : Math.floor(f * st) / st; }
+  if (k.mode === 'smooth' && !pts) return bezierY(k.bez || [0.42, 0, 0.58, 1], f);
+  return f;
 }
 function evalProp(c, prop, lt) {
   const ks = c.kf && c.kf[prop];
@@ -3250,8 +3269,8 @@ function insKeys(b, c) {
     b.append(h('div', { class: 'hint', style: { marginTop: '12px' } }, into ? `This is the last keyframe. Settings below shape the motion coming into it from the keyframe before (${round(nextT - segT, 3)}s).` : `Settings below shape the motion from this keyframe to the next one (${round(nextT - kt, 3)}s later).`));
     const g = h('div', { class: 'grp' }, h('h4', null, 'Interpolation'));
     g.append(row('Mode', segBox({ options: [{ v: 'linear', l: 'Regular' }, { v: 'smooth', l: 'Smooth' }, { v: 'hold', l: 'Choppy' }], value: k0.mode, onChange: v => { all(k => k.mode = v); chg(true); renderInspector(); } })));
-    { const bf = bezKey(k0.mode); if (!k0[bf]) k0[bf] = (bf === 'bez' ? [0.42, 0, 0.58, 1] : LIN_BEZ).slice();
-      g.append(curveEditor(k0, (bz, f) => { all(k => k[bf] = bz.slice()); chg(f); drawMotion(); }, bf)); }
+    { const sk = spKey(k0.mode); k0.sp = k0.sp || {}; if (!k0.sp[sk]) k0.sp[sk] = JSON.parse(JSON.stringify(SP_DEFAULT[sk]));
+      g.append(speedEditor(k0.sp[sk], k0.mode === 'smooth', (pts, f) => { all(k => { k.sp = k.sp || {}; k.sp[sk] = JSON.parse(JSON.stringify(pts)); }); chg(f); drawMotion(); })); }
     if (k0.mode === 'hold') g.append(nrow('Steps', { value: k0.steps || 1, min: 1, max: 240, dec: 0, onInput: (v, f) => { all(k => k.steps = Math.round(v)); chg(f); drawMotion(); } }), h('div', { class: 'hint' }, '1 holds the value, then jumps at the next keyframe. More steps give a choppy, stepped move.'));
     b.append(g);
     // fixed-window speed multiplier
@@ -3314,6 +3333,51 @@ function curveEditor(k, onChange, bf = 'bez') {
   });
   requestAnimationFrame(draw);
   new ResizeObserver(draw).observe(box);
+  return wrap;
+}
+/* speed graph: time left to right, speed up and down. The dashed line is normal (1x). Three points: start, middle (moves both ways), end. */
+const SP_MAX = 5;
+const SP_PRESETS = [{ n: 'Normal', p: [[0, 1], [0.5, 1], [1, 1]] }, { n: 'Speed up', p: [[0, 0], [0.5, 1], [1, 2]] }, { n: 'Slow down', p: [[0, 2], [0.5, 1], [1, 0]] }, { n: 'Slow - fast - slow', p: [[0, 0], [0.5, 2], [1, 0]] }, { n: 'Fast - slow - fast', p: [[0, 2], [0.5, 0], [1, 2]] }];
+function speedEditor(pts, smooth, onChange) {
+  const box = h('div', { class: 'curve speedg' }), cv = h('canvas'); box.append(cv);
+  const info = h('div', { class: 'hint' });
+  const pre = h('div', { class: 'presets' });
+  const same = a => a.every((q, i) => Math.abs(q[0] - pts[i][0]) < 1e-3 && Math.abs(q[1] - pts[i][1]) < 1e-3);
+  const mkPre = () => { pre.innerHTML = ''; for (const e of SP_PRESETS) pre.append(h('button', { class: same(e.p) ? 'on' : '', onclick: () => { e.p.forEach((q, i) => { pts[i][0] = q[0]; pts[i][1] = q[1]; }); onChange(pts, true); draw(); mkPre(); } }, e.n)); };
+  const wrap = h('div', null, box, info, pre);
+  const M = 16, ML = 34; let W = 0, H = 0;
+  const toPx = (x, y) => [ML + x * (W - ML - M), H - M - y / SP_MAX * (H - 2 * M)];
+  const fromPx = (px, py) => [clamp((px - ML) / (W - ML - M), 0, 1), clamp((H - M - py) / (H - 2 * M) * SP_MAX, 0, SP_MAX)];
+  function draw() {
+    const r = box.getBoundingClientRect(); if (!r.width) return;
+    const dpr = devicePixelRatio || 1; W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr;
+    const x = cv.getContext('2d'); x.scale(dpr, dpr); x.clearRect(0, 0, W, H);
+    x.font = '11px system-ui'; x.textBaseline = 'middle';
+    for (let s = 0; s <= SP_MAX; s++) { const [, gy] = toPx(0, s); x.strokeStyle = '#2b2d33'; x.lineWidth = 1; x.beginPath(); x.moveTo(ML, gy); x.lineTo(W - M, gy); x.stroke(); x.fillStyle = s === 1 ? '#c9ccd2' : '#62666e'; x.fillText(s + 'x', 6, gy); }
+    const [, ny] = toPx(0, 1); x.strokeStyle = '#8d919a'; x.setLineDash([5, 4]); x.beginPath(); x.moveTo(ML, ny); x.lineTo(W - M, ny); x.stroke(); x.setLineDash([]);
+    x.fillStyle = '#8d919a'; x.fillText('normal', W - M - 40, ny - 9);
+    // area under the line (how far it gets)
+    x.beginPath(); const N = 160; for (let i = 0; i <= N; i++) { const [px, py] = toPx(i / N, spVal(pts, smooth, i / N)); i ? x.lineTo(px, py) : x.moveTo(px, py); }
+    const path = new Path2D(); for (let i = 0; i <= N; i++) { const [px, py] = toPx(i / N, spVal(pts, smooth, i / N)); i ? path.lineTo(px, py) : path.moveTo(px, py); }
+    const fill = new Path2D(path); const [ex, ey0] = toPx(1, 0), [sx] = toPx(0, 0); fill.lineTo(ex, ey0); fill.lineTo(sx, ey0); fill.closePath();
+    x.fillStyle = 'rgba(63,214,192,.12)'; x.fill(fill);
+    x.strokeStyle = '#3fd6c0'; x.lineWidth = 2.4; x.stroke(path);
+    pts.forEach((q, i) => { const [px, py] = toPx(q[0], q[1]); x.fillStyle = i === 1 ? '#3fd6c0' : '#e4e5e8'; x.fillRect(px - 7, py - 7, 14, 14); x.strokeStyle = '#000'; x.lineWidth = 1; x.strokeRect(px - 7, py - 7, 14, 14); x.fillStyle = '#e4e5e8'; x.fillText(round(q[1], 2) + 'x', clamp(px - 12, ML, W - 40), py < 24 ? py + 18 : py - 16); });
+    x.fillStyle = '#62666e'; x.fillText('time →', W - M - 42, H - 7);
+    const end = spInt(pts, smooth, 1);
+    info.textContent = Math.abs(end - 1) < 0.02 ? 'Up = faster, down = slower. It reaches the next keyframe right on time.' : end > 1 ? `Up = faster, down = slower. It gets there early (${round(end * 100, 0)}% of the way), then “When it ends” decides what happens.` : `Up = faster, down = slower. It only gets ${round(end * 100, 0)}% of the way before the next keyframe, then jumps.`;
+  }
+  box.addEventListener('pointerdown', e => {
+    e.preventDefault(); box.setPointerCapture(e.pointerId);
+    const r = box.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+    let which = 0, best = 1e9; pts.forEach((q, i) => { const [qx, qy] = toPx(q[0], q[1]); const d = Math.hypot(px - qx, py - qy); if (d < best) { best = d; which = i; } });
+    const mv = ev => { const [vx, vy] = fromPx(ev.clientX - r.left, ev.clientY - r.top); pts[which][1] = round(vy, 2); if (which === 1) pts[1][0] = round(clamp(vx, 0.05, 0.95), 3); onChange(pts, false); draw(); };
+    mv(e);
+    const up = () => { box.removeEventListener('pointermove', mv); box.removeEventListener('pointerup', up); onChange(pts, true); mkPre(); };
+    box.addEventListener('pointermove', mv); box.addEventListener('pointerup', up);
+  });
+  mkPre();
+  new ResizeObserver(() => draw()).observe(box); requestAnimationFrame(draw);
   return wrap;
 }
 function drawMotionGraph(cv, k, t0, t1) {
@@ -3610,7 +3674,7 @@ function snapshotPNG() {
   prepFrame(T).then(() => { renderFrame(cv.getContext('2d'), T, w, hh); cv.toBlob(b => { const a = h('a', { href: URL.createObjectURL(b), download: 'frame-' + fmtTime(T, P.fps).replace(/:/g, '-') + '.png' }); document.body.append(a); a.click(); a.remove(); }, 'image/png'); });
 }
 
-const APP_VER = 8;
+const APP_VER = 9;
 /* ================= wiring ================= */
 let zoomSlider = null, EXPORTING = false;
 function refreshAll() {

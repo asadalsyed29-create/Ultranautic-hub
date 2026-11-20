@@ -300,8 +300,8 @@ function insKeys(b, c) {
     b.append(h('div', { class: 'hint', style: { marginTop: '12px' } }, into ? `This is the last keyframe. Settings below shape the motion coming into it from the keyframe before (${round(nextT - segT, 3)}s).` : `Settings below shape the motion from this keyframe to the next one (${round(nextT - kt, 3)}s later).`));
     const g = h('div', { class: 'grp' }, h('h4', null, 'Interpolation'));
     g.append(row('Mode', segBox({ options: [{ v: 'linear', l: 'Regular' }, { v: 'smooth', l: 'Smooth' }, { v: 'hold', l: 'Choppy' }], value: k0.mode, onChange: v => { all(k => k.mode = v); chg(true); renderInspector(); } })));
-    { const bf = bezKey(k0.mode); if (!k0[bf]) k0[bf] = (bf === 'bez' ? [0.42, 0, 0.58, 1] : LIN_BEZ).slice();
-      g.append(curveEditor(k0, (bz, f) => { all(k => k[bf] = bz.slice()); chg(f); drawMotion(); }, bf)); }
+    { const sk = spKey(k0.mode); k0.sp = k0.sp || {}; if (!k0.sp[sk]) k0.sp[sk] = JSON.parse(JSON.stringify(SP_DEFAULT[sk]));
+      g.append(speedEditor(k0.sp[sk], k0.mode === 'smooth', (pts, f) => { all(k => { k.sp = k.sp || {}; k.sp[sk] = JSON.parse(JSON.stringify(pts)); }); chg(f); drawMotion(); })); }
     if (k0.mode === 'hold') g.append(nrow('Steps', { value: k0.steps || 1, min: 1, max: 240, dec: 0, onInput: (v, f) => { all(k => k.steps = Math.round(v)); chg(f); drawMotion(); } }), h('div', { class: 'hint' }, '1 holds the value, then jumps at the next keyframe. More steps give a choppy, stepped move.'));
     b.append(g);
     // fixed-window speed multiplier
@@ -364,6 +364,51 @@ function curveEditor(k, onChange, bf = 'bez') {
   });
   requestAnimationFrame(draw);
   new ResizeObserver(draw).observe(box);
+  return wrap;
+}
+/* speed graph: time left to right, speed up and down. The dashed line is normal (1x). Three points: start, middle (moves both ways), end. */
+const SP_MAX = 5;
+const SP_PRESETS = [{ n: 'Normal', p: [[0, 1], [0.5, 1], [1, 1]] }, { n: 'Speed up', p: [[0, 0], [0.5, 1], [1, 2]] }, { n: 'Slow down', p: [[0, 2], [0.5, 1], [1, 0]] }, { n: 'Slow - fast - slow', p: [[0, 0], [0.5, 2], [1, 0]] }, { n: 'Fast - slow - fast', p: [[0, 2], [0.5, 0], [1, 2]] }];
+function speedEditor(pts, smooth, onChange) {
+  const box = h('div', { class: 'curve speedg' }), cv = h('canvas'); box.append(cv);
+  const info = h('div', { class: 'hint' });
+  const pre = h('div', { class: 'presets' });
+  const same = a => a.every((q, i) => Math.abs(q[0] - pts[i][0]) < 1e-3 && Math.abs(q[1] - pts[i][1]) < 1e-3);
+  const mkPre = () => { pre.innerHTML = ''; for (const e of SP_PRESETS) pre.append(h('button', { class: same(e.p) ? 'on' : '', onclick: () => { e.p.forEach((q, i) => { pts[i][0] = q[0]; pts[i][1] = q[1]; }); onChange(pts, true); draw(); mkPre(); } }, e.n)); };
+  const wrap = h('div', null, box, info, pre);
+  const M = 16, ML = 34; let W = 0, H = 0;
+  const toPx = (x, y) => [ML + x * (W - ML - M), H - M - y / SP_MAX * (H - 2 * M)];
+  const fromPx = (px, py) => [clamp((px - ML) / (W - ML - M), 0, 1), clamp((H - M - py) / (H - 2 * M) * SP_MAX, 0, SP_MAX)];
+  function draw() {
+    const r = box.getBoundingClientRect(); if (!r.width) return;
+    const dpr = devicePixelRatio || 1; W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr;
+    const x = cv.getContext('2d'); x.scale(dpr, dpr); x.clearRect(0, 0, W, H);
+    x.font = '11px system-ui'; x.textBaseline = 'middle';
+    for (let s = 0; s <= SP_MAX; s++) { const [, gy] = toPx(0, s); x.strokeStyle = '#2b2d33'; x.lineWidth = 1; x.beginPath(); x.moveTo(ML, gy); x.lineTo(W - M, gy); x.stroke(); x.fillStyle = s === 1 ? '#c9ccd2' : '#62666e'; x.fillText(s + 'x', 6, gy); }
+    const [, ny] = toPx(0, 1); x.strokeStyle = '#8d919a'; x.setLineDash([5, 4]); x.beginPath(); x.moveTo(ML, ny); x.lineTo(W - M, ny); x.stroke(); x.setLineDash([]);
+    x.fillStyle = '#8d919a'; x.fillText('normal', W - M - 40, ny - 9);
+    // area under the line (how far it gets)
+    x.beginPath(); const N = 160; for (let i = 0; i <= N; i++) { const [px, py] = toPx(i / N, spVal(pts, smooth, i / N)); i ? x.lineTo(px, py) : x.moveTo(px, py); }
+    const path = new Path2D(); for (let i = 0; i <= N; i++) { const [px, py] = toPx(i / N, spVal(pts, smooth, i / N)); i ? path.lineTo(px, py) : path.moveTo(px, py); }
+    const fill = new Path2D(path); const [ex, ey0] = toPx(1, 0), [sx] = toPx(0, 0); fill.lineTo(ex, ey0); fill.lineTo(sx, ey0); fill.closePath();
+    x.fillStyle = 'rgba(63,214,192,.12)'; x.fill(fill);
+    x.strokeStyle = '#3fd6c0'; x.lineWidth = 2.4; x.stroke(path);
+    pts.forEach((q, i) => { const [px, py] = toPx(q[0], q[1]); x.fillStyle = i === 1 ? '#3fd6c0' : '#e4e5e8'; x.fillRect(px - 7, py - 7, 14, 14); x.strokeStyle = '#000'; x.lineWidth = 1; x.strokeRect(px - 7, py - 7, 14, 14); x.fillStyle = '#e4e5e8'; x.fillText(round(q[1], 2) + 'x', clamp(px - 12, ML, W - 40), py < 24 ? py + 18 : py - 16); });
+    x.fillStyle = '#62666e'; x.fillText('time →', W - M - 42, H - 7);
+    const end = spInt(pts, smooth, 1);
+    info.textContent = Math.abs(end - 1) < 0.02 ? 'Up = faster, down = slower. It reaches the next keyframe right on time.' : end > 1 ? `Up = faster, down = slower. It gets there early (${round(end * 100, 0)}% of the way), then “When it ends” decides what happens.` : `Up = faster, down = slower. It only gets ${round(end * 100, 0)}% of the way before the next keyframe, then jumps.`;
+  }
+  box.addEventListener('pointerdown', e => {
+    e.preventDefault(); box.setPointerCapture(e.pointerId);
+    const r = box.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+    let which = 0, best = 1e9; pts.forEach((q, i) => { const [qx, qy] = toPx(q[0], q[1]); const d = Math.hypot(px - qx, py - qy); if (d < best) { best = d; which = i; } });
+    const mv = ev => { const [vx, vy] = fromPx(ev.clientX - r.left, ev.clientY - r.top); pts[which][1] = round(vy, 2); if (which === 1) pts[1][0] = round(clamp(vx, 0.05, 0.95), 3); onChange(pts, false); draw(); };
+    mv(e);
+    const up = () => { box.removeEventListener('pointermove', mv); box.removeEventListener('pointerup', up); onChange(pts, true); mkPre(); };
+    box.addEventListener('pointermove', mv); box.addEventListener('pointerup', up);
+  });
+  mkPre();
+  new ResizeObserver(() => draw()).observe(box); requestAnimationFrame(draw);
   return wrap;
 }
 function drawMotionGraph(cv, k, t0, t1) {

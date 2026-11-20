@@ -1,4 +1,4 @@
-const APP_VER = 8;
+const APP_VER = 9;
 /* ================= wiring ================= */
 let zoomSlider = null, EXPORTING = false;
 function refreshAll() {
