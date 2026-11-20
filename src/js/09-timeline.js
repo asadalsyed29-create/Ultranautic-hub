@@ -82,7 +82,7 @@ function clipEl(c, tr) {
     const kts = clipKeyTimes(c);
     // a button in each gap between two keyframes opens the motion settings for that gap
     for (let i = 0; i + 1 < kts.length; i++) {
-      const a = kts[i], b = kts[i + 1]; if ((b - a) * pps < 34) continue;
+      const a = kts[i], b = kts[i + 1]; if ((b - a) * pps < 26) continue;
       const g = h('button', { class: 'kfg' + (SELKF && Math.abs(SELKF.t - a) < 1e-4 ? ' sel' : ''), title: 'Motion between these keyframes', html: icon('curve'), style: { left: (a + b) / 2 * pps + 'px' } });
       g.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); });
       g.addEventListener('click', e => { e.stopPropagation(); if (PLAY.on) pause(); SELKF = { t: a }; seek(c.start + a); selectClip(c.id, true); openKeyPanel(true); });

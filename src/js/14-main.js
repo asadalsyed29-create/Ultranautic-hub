@@ -127,6 +127,12 @@ async function installApp() {
     location.protocol.startsWith('http') ? 'Open your browser menu (the ⋮ button in Chrome) and tap “Install app” or “Add to Home screen”.' : 'Installing works when the editor is opened from its web link (for example your GitHub Pages link), not from a downloaded file.'), [{ l: 'OK', pri: 1 }]);
 }
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { }));
+  // pick up new versions: check when the app comes back to the screen, and reload once the new version takes over
+  const hadCtl = !!navigator.serviceWorker.controller; let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (!hadCtl || reloading || EXPORTING) return; reloading = true; location.reload(); });
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => {
+    r.update();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) r.update().catch(() => { }); });
+  }).catch(() => { }));
 }
 main();
