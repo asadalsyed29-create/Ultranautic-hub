@@ -22,6 +22,24 @@ function kvRow(c, path, label, o) {
   r.append(...kfButtons(c, path));
   return r;
 }
+// like rrow, but for a number stored on the clip: it gets keyframe buttons too
+function krow(c, label, obj, key, o) {
+  const dp = objPathOf(c, obj, key);
+  if (!dp) return rrow(label, obj, key, o);
+  const r = kvRow(c, 'o:' + dp, label, o);
+  if (o.after) r.addEventListener('input', () => o.after());
+  return r;
+}
+function objPathOf(c, obj, key) {
+  if (obj === c) return key;
+  for (const k of ['text', 'sticker', 'mask', 'crop', 'chroma', 'anim']) {
+    const o = c[k]; if (!o || typeof o !== 'object') continue;
+    if (o === obj) return k + '.' + key;
+    for (const k2 in o) if (o[k2] === obj) return k + '.' + k2 + '.' + key;
+  }
+  return null;
+}
+const O_LABEL = { 'vol': 'Volume', 'text.size': 'Text size', 'text.ls': 'Letter space', 'text.lh': 'Line height', 'text.curve': 'Text curve', 'text.gAng': 'Gradient angle' };
 function pathUI(c, p) {
   const [kind, a, b] = pathParts(p);
   if (kind === 'fx') {
@@ -32,6 +50,7 @@ function pathUI(c, p) {
   }
   if (kind === 'grade') { const g = GRADE_UI.find(x => x[0] === a); return { l: g ? g[1] : a, min: g && g[2] != null ? g[2] : -100, max: g && g[3] != null ? g[3] : 100, dec: 1 }; }
   if (kind === 'filter') return { l: 'Filter intensity', min: 0, max: 100, dec: 1, suf: '%' };
+  if (kind === 'o') return { l: O_LABEL[a] || a.split('.').map(w => w[0].toUpperCase() + w.slice(1)).join(' '), dec: 2 };
   return { l: p, dec: 2 };
 }
 function tabsFor(c) {
@@ -137,7 +156,7 @@ function insClip(b, c) {
   const BL = [['source-over', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['darken', 'Darken'], ['lighten', 'Lighten'], ['color-dodge', 'Color dodge'], ['color-burn', 'Color burn'], ['hard-light', 'Hard light'], ['soft-light', 'Soft light'], ['difference', 'Difference'], ['exclusion', 'Exclusion'], ['hue', 'Hue'], ['saturation', 'Saturation'], ['color', 'Color'], ['luminosity', 'Luminosity'], ['lighter', 'Add']];
   b.append(srow('Blend', BL.map(([v, l]) => ({ v, l })), c.blend || 'source-over', v => { c.blend = v; chg(true); }));
   if (c.type === 'video' || c.type === 'image') {
-    b.append(grp('Crop', [rrow('Left', c.crop, 'l', { min: 0, max: 95, suf: '%' }), rrow('Right', c.crop, 'r', { min: 0, max: 95, suf: '%' }), rrow('Top', c.crop, 't', { min: 0, max: 95, suf: '%' }), rrow('Bottom', c.crop, 'b', { min: 0, max: 95, suf: '%' })]));
+    b.append(grp('Crop', [krow(c, 'Left', c.crop, 'l', { min: 0, max: 95, suf: '%' }), krow(c, 'Right', c.crop, 'r', { min: 0, max: 95, suf: '%' }), krow(c, 'Top', c.crop, 't', { min: 0, max: 95, suf: '%' }), krow(c, 'Bottom', c.crop, 'b', { min: 0, max: 95, suf: '%' })]));
   }
   if (c.type === 'video' || c.type === 'image') b.append(grp('Timing', [speedRow(c), nrow('Duration', { value: c.dur, min: 1 / P.fps, max: c.type === 'video' ? (mediaDur(c) - c.in) / (c.speed || 1) : 36000, dec: 2, suf: 's', step: 0.1, onInput: (v, f) => { if (!f) return; c.dur = v; if (trackOf(c).main && TL.magnet) packMain(); chg(true); refreshAll(); } })]));
 }
@@ -167,7 +186,7 @@ function insAnim(b, c) {
     const tx = c.text;
     b.append(grp('Text animation', [
       ...animPair('In', TEXT_IN, tx.ain), ...animPair('Out', TEXT_OUT, tx.aout), ...animPair('Loop', TEXT_LOOP, tx.aloop),
-      tx.aloop.id !== 'none' ? rrow('Strength', tx.aloop, 'amt', { min: 0, max: 3, step: .05, dec: 2 }) : null,
+      tx.aloop.id !== 'none' ? krow(c, 'Strength', tx.aloop, 'amt', { min: 0, max: 3, step: .05, dec: 2 }) : null,
       tx.ain.id === 'typewriter' ? row('Cursor', checkBox('Blinking cursor while typing', tx.cursor, v => { tx.cursor = v; chg(true); })) : null
     ], { small: 'letters move' }));
   }
@@ -188,16 +207,16 @@ function insAdjust(b, c) {
   b.append(grp('Filter', filterRows(c)));
   b.append(grp('Adjust', [...gradeRows(c), h('button', { class: 'btn sm', onclick: () => { c.grade = defGrade(); chg(true); renderInspector(); } }, 'Reset adjustments')]));
   const k = c.chroma;
-  b.append(grp('Chroma key', k.on ? [crow('Key color', k, 'color'), h('div', { class: 'hint' }, 'Pick the green or blue of the backdrop.'), rrow('Strength', k, 'sim', { min: 0, max: 100 }), rrow('Edge softness', k, 'smooth', { min: 0, max: 100 }), rrow('Spill removal', k, 'spill', { min: 0, max: 100 })] : [h('div', { class: 'hint' }, 'Removes a green or blue background.')], { toggle: { get: () => k.on, set: v => k.on = v } }));
+  b.append(grp('Chroma key', k.on ? [crow('Key color', k, 'color'), h('div', { class: 'hint' }, 'Pick the green or blue of the backdrop.'), krow(c, 'Strength', k, 'sim', { min: 0, max: 100 }), krow(c, 'Edge softness', k, 'smooth', { min: 0, max: 100 }), krow(c, 'Spill removal', k, 'spill', { min: 0, max: 100 })] : [h('div', { class: 'hint' }, 'Removes a green or blue background.')], { toggle: { get: () => k.on, set: v => k.on = v } }));
 }
 function insMask(b, c) {
   const m = c.mask;
   b.append(row('Shape', selectBox({ options: Object.keys(MASKS).map(k => ({ v: k, l: MASKS[k] })), value: m.type, onChange: v => { m.type = v; chg(true); renderInspector(); } })));
   if (m.type === 'none') { b.append(h('div', { class: 'hint' }, 'Masks show only part of the clip.')); return; }
-  b.append(rrow('Move X', m, 'x', { min: -1, max: 1, step: .01, dec: 2, center: 0 }), rrow('Move Y', m, 'y', { min: -1, max: 1, step: .01, dec: 2, center: 0 }));
-  if (m.type !== 'linear') { b.append(rrow('Width', m, 'w', { min: .01, max: 2, step: .01, dec: 2 })); if (m.type !== 'band') {} b.append(rrow(m.type === 'band' ? 'Band size' : 'Height', m, 'h', { min: .01, max: 2, step: .01, dec: 2 })); }
-  b.append(rrow('Rotate', m, 'rot', { min: -180, max: 180, center: 0, suf: '°' }), rrow('Feather', m, 'feather', { min: 0, max: 100 }));
-  if (m.type === 'rect') b.append(rrow('Round corners', m, 'round', { min: 0, max: 100 }));
+  b.append(krow(c, 'Move X', m, 'x', { min: -1, max: 1, step: .01, dec: 2, center: 0 }), krow(c, 'Move Y', m, 'y', { min: -1, max: 1, step: .01, dec: 2, center: 0 }));
+  if (m.type !== 'linear') { b.append(krow(c, 'Width', m, 'w', { min: .01, max: 2, step: .01, dec: 2 })); if (m.type !== 'band') {} b.append(krow(c, m.type === 'band' ? 'Band size' : 'Height', m, 'h', { min: .01, max: 2, step: .01, dec: 2 })); }
+  b.append(krow(c, 'Rotate', m, 'rot', { min: -180, max: 180, center: 0, suf: '°' }), krow(c, 'Feather', m, 'feather', { min: 0, max: 100 }));
+  if (m.type === 'rect') b.append(krow(c, 'Round corners', m, 'round', { min: 0, max: 100 }));
   b.append(row('Invert', checkBox('Show the outside instead', m.invert, v => { m.invert = v; chg(true); })));
 }
 function effectList(b, c) {
@@ -237,7 +256,7 @@ function insLayer(b, c) {
 
 /* ---------- audio ---------- */
 function insAudio(b, c) {
-  b.append(rrow('Volume', c, 'vol', { min: 0, max: 400, suf: '%', def: 100 }));
+  b.append(krow(c, 'Volume', c, 'vol', { min: 0, max: 400, suf: '%', def: 100 }));
   b.append(row('Mute', checkBox('Mute this clip', c.muted, v => { c.muted = v; chg(true); renderTimeline(); })));
   b.append(rrow('Fade in', c, 'fadeIn', { min: 0, max: Math.min(10, c.dur), step: .05, dec: 2, suf: 's', after: scheduleTL }));
   b.append(rrow('Fade out', c, 'fadeOut', { min: 0, max: Math.min(10, c.dur), step: .05, dec: 2, suf: 's', after: scheduleTL }));
@@ -256,31 +275,31 @@ function insText(b, c) {
   b.append(row('', h('button', { class: 'btn sm', onclick: () => $('#fontIn').click() }, 'Import font'), window.queryLocalFonts ? h('button', { class: 'btn sm', onclick: async () => { await useLocalFonts(); renderInspector(); } }, 'Computer fonts') : null));
   b.append(srow('Weight', [[300, 'Light'], [400, 'Regular'], [600, 'Semibold'], [700, 'Bold'], [800, 'Extra bold'], [900, 'Black']].map(([v, l]) => ({ v, l })), tx.weight, v => { tx.weight = v; chg(true); }));
   b.append(row('Style', checkBox('Italic', tx.italic, v => { tx.italic = v; chg(true); }), checkBox('CAPS', tx.upper, v => { tx.upper = v; chg(true); })));
-  b.append(rrow('Size', tx, 'size', { min: 8, max: 600 }), rrow('Letter space', tx, 'ls', { min: -30, max: 120 }), rrow('Line height', tx, 'lh', { min: .6, max: 3, step: .05, dec: 2 }));
+  b.append(krow(c, 'Size', tx, 'size', { min: 8, max: 600 }), krow(c, 'Letter space', tx, 'ls', { min: -30, max: 120 }), krow(c, 'Line height', tx, 'lh', { min: .6, max: 3, step: .05, dec: 2 }));
   b.append(row('Align', segBox({ options: [{ v: 'left', l: 'Left' }, { v: 'center', l: 'Center' }, { v: 'right', l: 'Right' }], value: tx.align, onChange: v => { tx.align = v; chg(true); } })));
-  b.append(rrow('Curve', tx, 'curve', { min: -100, max: 100, center: 0, def: 0 }));
+  b.append(krow(c, 'Curve', tx, 'curve', { min: -100, max: 100, center: 0, def: 0 }));
   b.append(grp('Fill', [
     row('Type', segBox({ options: [{ v: 'solid', l: 'Color' }, { v: 'gradient', l: 'Gradient' }], value: tx.fillType, onChange: v => { tx.fillType = v; chg(true); renderInspector(); } })),
-    ...(tx.fillType === 'solid' ? [crow('Color', tx, 'color')] : [crow('From', tx, 'g1'), crow('To', tx, 'g2'), rrow('Angle', tx, 'gAng', { min: 0, max: 360, suf: '°' })])
+    ...(tx.fillType === 'solid' ? [crow('Color', tx, 'color')] : [crow('From', tx, 'g1'), crow('To', tx, 'g2'), krow(c, 'Angle', tx, 'gAng', { min: 0, max: 360, suf: '°' })])
   ]));
-  b.append(grp('Outline', tx.stroke.on ? [crow('Color', tx.stroke, 'color'), rrow('Width', tx.stroke, 'w', { min: 1, max: 60 })] : [], { toggle: { get: () => tx.stroke.on, set: v => tx.stroke.on = v } }));
-  b.append(grp('Shadow', tx.shadow.on ? [crow('Color', tx.shadow, 'color'), rrow('Blur', tx.shadow, 'blur', { min: 0, max: 100 }), rrow('Offset X', tx.shadow, 'x', { min: -80, max: 80, center: 0 }), rrow('Offset Y', tx.shadow, 'y', { min: -80, max: 80, center: 0 })] : [], { toggle: { get: () => tx.shadow.on, set: v => tx.shadow.on = v } }));
-  b.append(grp('Glow', tx.glow.on ? [crow('Color', tx.glow, 'color'), rrow('Size', tx.glow, 'size', { min: 1, max: 120 }), rrow('Strength', tx.glow, 'str', { min: 1, max: 5 })] : [], { toggle: { get: () => tx.glow.on, set: v => tx.glow.on = v } }));
-  b.append(grp('Background box', tx.box.on ? [crow('Color', tx.box, 'color'), rrow('Padding', tx.box, 'pad', { min: 0, max: 120 }), rrow('Round corners', tx.box, 'round', { min: 0, max: 120 })] : [], { toggle: { get: () => tx.box.on, set: v => tx.box.on = v } }));
+  b.append(grp('Outline', tx.stroke.on ? [crow('Color', tx.stroke, 'color'), krow(c, 'Width', tx.stroke, 'w', { min: 1, max: 60 })] : [], { toggle: { get: () => tx.stroke.on, set: v => tx.stroke.on = v } }));
+  b.append(grp('Shadow', tx.shadow.on ? [crow('Color', tx.shadow, 'color'), krow(c, 'Blur', tx.shadow, 'blur', { min: 0, max: 100 }), krow(c, 'Offset X', tx.shadow, 'x', { min: -80, max: 80, center: 0 }), krow(c, 'Offset Y', tx.shadow, 'y', { min: -80, max: 80, center: 0 })] : [], { toggle: { get: () => tx.shadow.on, set: v => tx.shadow.on = v } }));
+  b.append(grp('Glow', tx.glow.on ? [crow('Color', tx.glow, 'color'), krow(c, 'Size', tx.glow, 'size', { min: 1, max: 120 }), krow(c, 'Strength', tx.glow, 'str', { min: 1, max: 5 })] : [], { toggle: { get: () => tx.glow.on, set: v => tx.glow.on = v } }));
+  b.append(grp('Background box', tx.box.on ? [crow('Color', tx.box, 'color'), krow(c, 'Padding', tx.box, 'pad', { min: 0, max: 120 }), krow(c, 'Round corners', tx.box, 'round', { min: 0, max: 120 })] : [], { toggle: { get: () => tx.box.on, set: v => tx.box.on = v } }));
 }
 /* ---------- sticker ---------- */
 function insSticker(b, c) {
   const s = c.sticker, d = STK_BY[s.id] || {};
   b.append(crow('Line color', s, 'c1'), crow(d.cat === 'Shapes' ? 'Fill color' : 'Second color', s, 'c2'));
   if (d.cat === 'Shapes') b.append(row('Fill', checkBox('Fill the shape', s.fill, v => { s.fill = v; chg(true); })));
-  b.append(rrow('Line width', s, 'sw', { min: 2, max: 60 }));
+  b.append(krow(c, 'Line width', s, 'sw', { min: 2, max: 60 }));
   if (d.txt != null) {
     const ta = h('textarea', { class: 'txt', style: { height: '54px' } }); ta.value = s.txt || '';
     ta.addEventListener('input', () => { s.txt = ta.value; chg(false); }); ta.addEventListener('change', () => chg(true)); ta.addEventListener('keydown', e => e.stopPropagation());
     b.append(row('Label', ta), crow('Label color', s, 'tc'), row('Label font', selectBox({ options: fontOptions(), value: s.font || 'system-ui, sans-serif', onChange: v => { s.font = v; chg(true); } })));
   }
-  if (!d.anim) b.append(rrow('Draw-on time', s, 'drawOn', { min: 0, max: 5, step: .05, dec: 2, suf: 's' }), h('div', { class: 'hint' }, 'How long the line takes to draw itself. 0 shows it at once.'));
-  else b.append(rrow('Speed', s, 'speed', { min: .1, max: 5, step: .1, dec: 1, suf: 'x' }));
+  if (!d.anim) b.append(krow(c, 'Draw-on time', s, 'drawOn', { min: 0, max: 5, step: .05, dec: 2, suf: 's' }), h('div', { class: 'hint' }, 'How long the line takes to draw itself. 0 shows it at once.'));
+  else b.append(krow(c, 'Speed', s, 'speed', { min: .1, max: 5, step: .1, dec: 1, suf: 'x' }));
   b.append(row('Hand-drawn', h('button', { class: 'btn sm', onclick: () => { s.seed = (Math.random() * 1000) | 0; chg(true); } }, 'Redraw the line')));
 }
 

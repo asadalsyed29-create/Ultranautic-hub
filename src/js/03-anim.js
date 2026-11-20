@@ -91,13 +91,32 @@ function pathBase(c, p) {
   if (kind === 'fx') { const e = fxByUid(c, a); if (!e) return 0; if (b === 'amt') return e.amt == null ? 50 : e.amt; if (b === 'speed') return e.speed == null ? 1 : e.speed; const d = fxParamDef(e.id, b); return e.p && e.p[b] != null ? e.p[b] : d ? d[4] : 0; }
   if (kind === 'grade') return c.grade && c.grade[a] != null ? c.grade[a] : 0;
   if (kind === 'filter') return c.filter && c.filter.amount != null ? c.filter.amount : 100;
+  if (kind === 'o') { const v = objGet(c, a); return typeof v === 'number' ? v : (O_DEFAULTS[a] != null ? O_DEFAULTS[a] : 0); }
   return 0;
+}
+// 'o:<dotted path>' = any number stored on the clip (text size, mask feather, crop, volume, ...)
+const O_DEFAULTS = { vol: 100 };
+function objGet(o, dp) { for (const k of dp.split('.')) { if (o == null) return undefined; o = o[k]; } return o; }
+function objSet(o, dp, v) { const ks = dp.split('.'); for (let i = 0; i < ks.length - 1; i++) { if (o[ks[i]] == null) o[ks[i]] = {}; o = o[ks[i]]; } o[ks[ks.length - 1]] = v; }
+// a copy of the clip with every keyframed 'o:' number set to its value at clip time lt (the clip itself is untouched)
+function resolveAt(c, lt) {
+  if (!c || !c.kf) return c;
+  let out = null;
+  for (const p in c.kf) {
+    if (p[0] !== 'o' || p[1] !== ':' || !c.kf[p].length) continue;
+    if (!out) out = Object.assign({}, c);
+    const ks = p.slice(2).split('.'); let src = c, dst = out;
+    for (let i = 0; i < ks.length - 1; i++) { const nxt = src[ks[i]]; if (nxt == null || typeof nxt !== 'object') { dst = null; break; } if (dst[ks[i]] === nxt) dst[ks[i]] = Array.isArray(nxt) ? nxt.slice() : Object.assign({}, nxt); src = nxt; dst = dst[ks[i]]; }
+    if (dst) dst[ks[ks.length - 1]] = evalProp(c, p, lt);
+  }
+  return out || c;
 }
 function setPathBase(c, p, v) {
   const [kind, a, b] = pathParts(p);
   if (kind === 'fx') { const e = fxByUid(c, a); if (!e) return; if (b === 'amt') e.amt = v; else if (b === 'speed') e.speed = v; else { e.p = e.p || {}; e.p[b] = v; } }
   else if (kind === 'grade') { c.grade = c.grade || {}; c.grade[a] = v; }
   else if (kind === 'filter') c.filter.amount = v;
+  else if (kind === 'o') objSet(c, a, v);
 }
 function isPath(p) { return p.includes(':'); }
 function kfProps(c) { return Object.keys(c.kf || {}); }

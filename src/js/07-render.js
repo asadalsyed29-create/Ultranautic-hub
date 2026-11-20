@@ -25,6 +25,7 @@ function mediaSize(c) {
   return [m.w || 16, m.h || 9];
 }
 function contentSize(c) {
+  if (c.type === 'text' || c.type === 'sticker') c = resolveAt(c, clamp(T - c.start, 0, c.dur));
   if (c.type === 'video' || c.type === 'image') { const [sw, sh] = mediaSize(c); const bs = Math.min(P.w / sw, P.h / sh); return { w: sw * bs, h: sh * bs, x: -sw * bs / 2, y: -sh * bs / 2 }; }
   if (c.type === 'text') { const b = textBox(c.text); return b; }
   if (c.type === 'sticker') { const d = STK_BY[c.sticker.id] || { w: 200, h: 200 }; return { w: d.w, h: d.h, x: -d.w / 2, y: -d.h / 2 }; }
@@ -60,6 +61,7 @@ function strobeOn(st) { return (st.t * 12) % 2 < 2 * st.p.on / 100; }
 
 // draw one visual clip into ctx (ctx is in project units, k = output pixels per project unit)
 function drawClip(x, c, lt, k) {
+  c = resolveAt(c, lt);
   const p = propsAt(c, lt), s = clipAnimState(c, lt, P.w, P.h);
   let alpha = clamp(p.opacity / 100, 0, 1) * clamp(s.a, 0, 1);
   if (alpha <= 0.001) return;
@@ -134,6 +136,7 @@ function maskPath(x, mk, W, H, big) {
 }
 // filters / adjustments / effects as their own timeline clips: they change everything below them
 function applyLayerFx(x, c, lt, W, H, k) {
+  c = resolveAt(c, lt);
   const p = propsAt(c, lt); const alpha = clamp(p.opacity / 100, 0, 1);
   if (alpha <= 0.001) return;
   const q = gradeParams(c, lt);

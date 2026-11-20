@@ -28,7 +28,7 @@ const VP = {
 function dropMediaEls(mediaId) { for (const [id, e] of VP.els) if (e.media === mediaId) VP.drop(id); }
 function audioGainAt(c, lt, tr) {
   if (c.muted || (tr && tr.muted)) return 0;
-  let g = (c.vol == null ? 100 : c.vol) / 100;
+  let g = evalProp(c, 'o:vol', lt) / 100;
   if (c.fadeIn > 0 && lt < c.fadeIn) g *= lt / c.fadeIn;
   if (c.fadeOut > 0 && c.dur - lt < c.fadeOut) g *= Math.max(0, (c.dur - lt) / c.fadeOut);
   return g;

@@ -140,11 +140,11 @@ async function runExport(mbps) {
       for (const { c, tr } of sound) {
         const m = MEDIA[c.media]; if (!m.audio) continue;
         const src = oc.createBufferSource(); src.buffer = m.audio; src.playbackRate.value = c.speed || 1;
-        const g = oc.createGain(); const v = (c.vol == null ? 100 : c.vol) / 100;
-        const t0 = c.start, t1 = c.start + c.dur;
-        g.gain.setValueAtTime(c.fadeIn > 0 ? 0 : v, t0);
-        if (c.fadeIn > 0) g.gain.linearRampToValueAtTime(v, t0 + Math.min(c.fadeIn, c.dur));
-        if (c.fadeOut > 0) { g.gain.setValueAtTime(v, Math.max(t0, t1 - c.fadeOut)); g.gain.linearRampToValueAtTime(0, t1); }
+        const g = oc.createGain(); const t0 = c.start;
+        // volume (keyframes + fades) sampled 200 times a second
+        const n = Math.max(2, Math.ceil(c.dur * 200) + 1), curve = new Float32Array(n);
+        for (let i = 0; i < n; i++) curve[i] = audioGainAt(c, i / (n - 1) * c.dur, null);
+        g.gain.setValueCurveAtTime(curve, t0, Math.max(0.001, c.dur));
         src.connect(g).connect(oc.destination);
         src.start(t0, c.in, c.dur * (c.speed || 1));
       }
@@ -222,7 +222,7 @@ function soundClips() {
   const out = [];
   for (const tr of P.tracks) {
     if (tr.muted) continue;
-    for (const c of tr.clips) { if ((c.type === 'audio' || c.type === 'video') && !c.muted && MEDIA[c.media] && MEDIA[c.media].hasAudio && (c.vol == null || c.vol > 0)) out.push({ c, tr }); }
+    for (const c of tr.clips) { if ((c.type === 'audio' || c.type === 'video') && !c.muted && MEDIA[c.media] && MEDIA[c.media].hasAudio && (c.vol == null || c.vol > 0 || (c.kf && c.kf['o:vol'] && c.kf['o:vol'].length))) out.push({ c, tr }); }
   }
   return out;
 }
