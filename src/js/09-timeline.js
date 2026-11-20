@@ -79,9 +79,18 @@ function clipEl(c, tr) {
   if ((c.speed || 1) !== 1) el.append(h('div', { class: 'spd' }, round(c.speed, 3) + 'x'));
   if (c.trans && c.trans.id !== 'none') { const tb = h('div', { class: 'trn', title: TRANS[c.trans.id] ? TRANS[c.trans.id].n : '', html: icon('transition') }); el.append(tb); }
   if (c.id === SEL && VISUAL[c.type]) {
-    for (const kt of clipKeyTimes(c)) {
+    const kts = clipKeyTimes(c);
+    // a button in each gap between two keyframes opens the motion settings for that gap
+    for (let i = 0; i + 1 < kts.length; i++) {
+      const a = kts[i], b = kts[i + 1]; if ((b - a) * pps < 34) continue;
+      const g = h('button', { class: 'kfg' + (SELKF && Math.abs(SELKF.t - a) < 1e-4 ? ' sel' : ''), title: 'Motion between these keyframes', html: icon('curve'), style: { left: (a + b) / 2 * pps + 'px' } });
+      g.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); });
+      g.addEventListener('click', e => { e.stopPropagation(); if (PLAY.on) pause(); SELKF = { t: a }; seek(c.start + a); selectClip(c.id, true); openKeyPanel(true); });
+      el.append(g);
+    }
+    for (const kt of kts) {
       const d = h('div', { class: 'kfd' + (SELKF && Math.abs(SELKF.t - kt) < 1e-4 ? ' sel' : ''), style: { left: kt * pps + 'px' } });
-      d.addEventListener('pointerdown', e => kfDrag(e, c, kt, d));
+      d.dataset.kt = kt; d.addEventListener('pointerdown', e => kfDrag(e, c, kt, d));
       el.append(d);
     }
   }
@@ -233,7 +242,7 @@ function kfDrag(e, c, kt, d) {
     for (const p of KF_PROPS) c.kf[p].sort((a, b) => a.t - b.t);
     d.style.left = nt * TL.pps + 'px'; SELKF = { t: nt }; T = c.start + nt; requestRender(); updPlayhead();
   };
-  const up = () => { d.removeEventListener('pointermove', mv); d.removeEventListener('pointerup', up); if (moved) commit(); selectClip(c.id); openKeyPanel(); };
+  const up = () => { d.removeEventListener('pointermove', mv); d.removeEventListener('pointerup', up); if (moved) commit(); selectClip(c.id, true); openKeyPanel(!moved); };
   d.addEventListener('pointermove', mv); d.addEventListener('pointerup', up);
 }
 function selectClip(id, keepKf) {
@@ -257,6 +266,31 @@ function initTimelineEvents() {
     $('#ruler').setPointerCapture(e.pointerId); scrub(e);
     const mv = ev => scrub(ev), up = () => { $('#ruler').removeEventListener('pointermove', mv); $('#ruler').removeEventListener('pointerup', up); refreshInspectorValues(); };
     $('#ruler').addEventListener('pointermove', mv); $('#ruler').addEventListener('pointerup', up);
+  });
+  // drag the playhead itself (knob or line); a tap on the line still selects the clip under it
+  for (const part of $$('#playhead .phline, #playhead .phknob')) part.addEventListener('pointerdown', e => {
+    if (e.button > 0) return;
+    e.preventDefault(); e.stopPropagation(); if (PLAY.on) pause();
+    const ph = $('#playhead'); part.setPointerCapture(e.pointerId);
+    const x0 = e.clientX, y0 = e.clientY; let moved = false, raf = 0, lastE = e;
+    const edge = () => { // scroll the timeline when dragging near its edges
+      const r = tl.getBoundingClientRect(), x = lastE.clientX; let v = 0;
+      if (x < r.left + TL.hw + 24) v = -Math.min(18, (r.left + TL.hw + 24 - x) / 2); else if (x > r.right - 24) v = Math.min(18, (x - r.right + 24) / 2);
+      if (v) { tl.scrollLeft += v; scrub(lastE); } raf = requestAnimationFrame(edge);
+    };
+    const mv = ev => { lastE = ev; if (!moved && Math.abs(ev.clientX - x0) < 4) return; if (!moved) { moved = true; ph.classList.add('drag'); raf = requestAnimationFrame(edge); } scrub(ev); };
+    const up = ev => {
+      part.removeEventListener('pointermove', mv); part.removeEventListener('pointerup', up); part.removeEventListener('pointercancel', up);
+      cancelAnimationFrame(raf); ph.classList.remove('drag');
+      if (moved) { refreshInspectorValues(); return; }
+      if (part.classList.contains('phline')) {
+        ph.style.visibility = 'hidden'; const under = document.elementFromPoint(x0, y0); ph.style.visibility = '';
+        const kb = under && under.closest('.kfd,.kfg');
+        if (kb) { if (kb.classList.contains('kfd')) { const c = findClip(kb.closest('.clip').dataset.cid), t = +kb.dataset.kt; SELKF = { t }; seek(c.start + t); selectClip(c.id, true); openKeyPanel(true); } else kb.click(); return; }
+        const ce = under && under.closest('.clip'); if (ce) { const c = findClip(ce.dataset.cid); if (c) selectClip(c.id); }
+      }
+    };
+    part.addEventListener('pointermove', mv); part.addEventListener('pointerup', up); part.addEventListener('pointercancel', up);
   });
   // tap on empty lane: move playhead, clear selection
   let downAt = null;

@@ -19,24 +19,71 @@ function drawOverlay() {
   const k = ov.width / P.w, d = ov.width / VIEW.cssW;
   if (GUIDE.x != null) { x.strokeStyle = '#ff4fb0'; x.lineWidth = d; x.setLineDash([6 * d, 4 * d]); x.beginPath(); x.moveTo(GUIDE.x * k, 0); x.lineTo(GUIDE.x * k, ov.height); x.stroke(); x.setLineDash([]); }
   if (GUIDE.y != null) { x.strokeStyle = '#ff4fb0'; x.lineWidth = d; x.setLineDash([6 * d, 4 * d]); x.beginPath(); x.moveTo(0, GUIDE.y * k); x.lineTo(ov.width, GUIDE.y * k); x.stroke(); x.setLineDash([]); }
+  updStools();
   if (PLAY.on) return;
   const c = selVisible(); if (!c) return;
   const { pts, ctr } = clipCorners(c, k);
   x.strokeStyle = '#ffffff'; x.lineWidth = 1.5 * d;
   x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.stroke();
   x.strokeStyle = 'rgba(0,0,0,.5)'; x.lineWidth = .8 * d; x.stroke();
-  const hs = 9 * d;
-  for (const p of pts) { x.fillStyle = '#fff'; x.fillRect(p[0] - hs / 2, p[1] - hs / 2, hs, hs); x.strokeStyle = '#000'; x.lineWidth = d; x.strokeRect(p[0] - hs / 2, p[1] - hs / 2, hs, hs); }
-  const rh = rotHandle(pts, d);
-  x.strokeStyle = '#fff'; x.lineWidth = 1.2 * d; x.beginPath(); x.moveTo(rh.bx, rh.by); x.lineTo(rh.x, rh.y); x.stroke();
-  x.fillStyle = '#3fd6c0'; x.beginPath(); x.arc(rh.x, rh.y, 7 * d, 0, 7); x.fill(); x.strokeStyle = '#000'; x.lineWidth = d; x.stroke();
-  // little rotate arrow in the handle
-  x.strokeStyle = '#05231e'; x.lineWidth = 1.5 * d; x.beginPath(); x.arc(rh.x, rh.y, 3.6 * d, -2.4, 1.6); x.stroke();
+  if (TOOL === 'move') for (const hd of moveHandles(pts, d)) drawMoveHandle(x, hd, d);
+  else if (TOOL === 'size') for (const p of sizeHandles(pts, d)) drawCube(x, p[0], p[1], (isTouch ? 9 : 7) * d, d);
+  else if (TOOL === 'rot') {
+    const ring = rotRing(c, pts, ctr, d), a = (evalProp(c, 'rot', clamp(T - c.start, 0, c.dur)) - 90) * Math.PI / 180;
+    x.strokeStyle = 'rgba(0,0,0,.55)'; x.lineWidth = 5 * d; x.beginPath(); x.arc(ctr[0], ctr[1], ring, 0, 7); x.stroke();
+    x.strokeStyle = '#3fd6c0'; x.lineWidth = 2.5 * d; x.beginPath(); x.arc(ctr[0], ctr[1], ring, 0, 7); x.stroke();
+    // tick marks every 45 degrees so the turn is easy to read
+    x.strokeStyle = 'rgba(255,255,255,.7)'; x.lineWidth = 1.2 * d;
+    for (let i = 0; i < 8; i++) { const t = i * Math.PI / 4; x.beginPath(); x.moveTo(ctr[0] + Math.cos(t) * (ring - 5 * d), ctr[1] + Math.sin(t) * (ring - 5 * d)); x.lineTo(ctr[0] + Math.cos(t) * (ring + 5 * d), ctr[1] + Math.sin(t) * (ring + 5 * d)); x.stroke(); }
+    const kx = ctr[0] + Math.cos(a) * ring, ky = ctr[1] + Math.sin(a) * ring, kr = (isTouch ? 12 : 9) * d;
+    x.strokeStyle = 'rgba(255,255,255,.6)'; x.lineWidth = d; x.beginPath(); x.moveTo(ctr[0], ctr[1]); x.lineTo(kx, ky); x.stroke();
+    x.fillStyle = '#fff'; x.beginPath(); x.arc(kx, ky, kr, 0, 7); x.fill(); x.strokeStyle = '#000'; x.lineWidth = d; x.stroke();
+    x.strokeStyle = '#0b5c52'; x.lineWidth = 1.8 * d; x.beginPath(); x.arc(kx, ky, kr * .5, -2.6, 1.4); x.stroke();
+    x.fillStyle = '#0b5c52'; x.beginPath(); const ex = kx + Math.cos(1.4) * kr * .5, ey = ky + Math.sin(1.4) * kr * .5; x.moveTo(ex - 3.2 * d, ey); x.lineTo(ex + 1.6 * d, ey - 2.4 * d); x.lineTo(ex + 1.4 * d, ey + 3 * d); x.fill();
+    x.fillStyle = '#fff'; x.beginPath(); x.arc(ctr[0], ctr[1], 2.5 * d, 0, 7); x.fill();
+  }
   if (GUIDE.rotTxt) {
     x.font = `${12 * d}px system-ui`; const tw = x.measureText(GUIDE.rotTxt).width;
     x.fillStyle = 'rgba(0,0,0,.75)'; x.fillRect(ctr[0] - tw / 2 - 6 * d, ctr[1] - 11 * d, tw + 12 * d, 22 * d);
     x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(GUIDE.rotTxt, ctr[0], ctr[1]);
   }
+}
+let TOOL = 'move';
+function setTool(t) { TOOL = t; for (const b of $$('#stools button')) b.classList.toggle('on', b.dataset.t === t); drawOverlay(); }
+function updStools() { const s = $('#stools'); if (s) s.classList.toggle('off', !selVisible() || PLAY.on); }
+function moveHandles(pts, d) {
+  // one handle outside the middle of each side
+  const ctr = [(pts[0][0] + pts[2][0]) / 2, (pts[0][1] + pts[2][1]) / 2], out = [];
+  for (let i = 0; i < 4; i++) {
+    const a = pts[i], b = pts[(i + 1) % 4], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+    let vx = mx - ctr[0], vy = my - ctr[1]; const L = Math.hypot(vx, vy) || 1; vx /= L; vy /= L;
+    const off = (isTouch ? 24 : 18) * d; out.push({ ...inView(mx + vx * off, my + vy * off, 14 * d), vx, vy });
+  }
+  return out;
+}
+function inView(x, y, m) { return { x: clamp(x, m, VIEW.ov.width - m), y: clamp(y, m, VIEW.ov.height - m) }; }
+function sizeHandles(pts, d) { return pts.map(p => { const q = inView(p[0], p[1], 12 * d); return [q.x, q.y]; }); }
+function drawMoveHandle(x, hd, d) {
+  const r = (isTouch ? 12 : 9) * d;
+  x.fillStyle = '#fff'; x.beginPath(); x.arc(hd.x, hd.y, r, 0, 7); x.fill(); x.strokeStyle = '#000'; x.lineWidth = d; x.stroke();
+  // four little arrows: this handle drags the whole clip
+  x.save(); x.translate(hd.x, hd.y); x.strokeStyle = '#1b1d22'; x.fillStyle = '#1b1d22'; x.lineWidth = 1.4 * d; const a = r * .62, w = r * .26;
+  x.beginPath(); x.moveTo(-a, 0); x.lineTo(a, 0); x.moveTo(0, -a); x.lineTo(0, a); x.stroke();
+  for (let i = 0; i < 4; i++) { x.rotate(Math.PI / 2); x.beginPath(); x.moveTo(a + w * .2, 0); x.lineTo(a - w, -w); x.lineTo(a - w, w); x.fill(); }
+  x.restore();
+}
+function drawCube(x, cx, cy, s, d) {
+  // a small solid cube: front face plus top and side faces
+  const o = s * .55;
+  x.lineWidth = d; x.strokeStyle = '#000'; x.lineJoin = 'round';
+  x.fillStyle = '#d9dde3'; x.beginPath(); x.moveTo(cx - s, cy - s); x.lineTo(cx - s + o, cy - s - o); x.lineTo(cx + s + o, cy - s - o); x.lineTo(cx + s, cy - s); x.closePath(); x.fill(); x.stroke();
+  x.fillStyle = '#9aa1ab'; x.beginPath(); x.moveTo(cx + s, cy - s); x.lineTo(cx + s + o, cy - s - o); x.lineTo(cx + s + o, cy + s - o); x.lineTo(cx + s, cy + s); x.closePath(); x.fill(); x.stroke();
+  x.fillStyle = '#ffffff'; x.fillRect(cx - s, cy - s, s * 2, s * 2); x.strokeRect(cx - s, cy - s, s * 2, s * 2);
+}
+function rotRing(c, pts, ctr, d) {
+  const half = Math.min(Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]), Math.hypot(pts[3][0] - pts[0][0], pts[3][1] - pts[0][1])) / 2;
+  const maxR = Math.min(VIEW.ov.width, VIEW.ov.height) * .42;
+  return clamp(half * .9, 34 * d, Math.max(34 * d, maxR));
 }
 function rotHandle(pts, d) {
   // below the bottom edge middle, in the clip's own "down" direction
@@ -63,6 +110,8 @@ function hitClip(pt) {
 }
 function initStageEvents() {
   const st = $('#stage');
+  for (const b of $$('#stools button')) { b.addEventListener('pointerdown', e => e.stopPropagation()); b.onclick = e => { e.stopPropagation(); setTool(b.dataset.t); }; }
+  setTool('move');
   const pointers = new Map(); let drag = null, gesture = null;
   st.addEventListener('pointerdown', e => {
     if (e.button > 0) return;
@@ -79,14 +128,20 @@ function initStageEvents() {
     const k = VIEW.ov.width / P.w, d = VIEW.ov.width / VIEW.cssW;
     const sc = selVisible();
     if (sc) {
-      const { pts, ctr } = clipCorners(sc, k), rh = rotHandle(pts, d), lt = clamp(T - sc.start, 0, sc.dur);
+      const { pts, ctr } = clipCorners(sc, k), lt = clamp(T - sc.start, 0, sc.dur);
       const near = (x, y, r) => Math.hypot(pt.px - x, pt.py - y) < r * d;
-      if (near(rh.x, rh.y, isTouch ? 22 : 13)) {
-        const a = Math.atan2(pt.py - ctr[1], pt.px - ctr[0]) * 180 / Math.PI;
-        drag = { mode: 'rot', c: sc, ctr, last: a, r: evalProp(sc, 'rot', lt) }; return;
+      if (TOOL === 'rot') {
+        const ring = rotRing(sc, pts, ctr, d);
+        if (Math.abs(Math.hypot(pt.px - ctr[0], pt.py - ctr[1]) - ring) < (isTouch ? 22 : 12) * d) {
+          const a = Math.atan2(pt.py - ctr[1], pt.px - ctr[0]) * 180 / Math.PI;
+          drag = { mode: 'rot', c: sc, ctr, last: a, r: evalProp(sc, 'rot', lt) }; return;
+        }
       }
-      for (let i = 0; i < 4; i++) if (near(pts[i][0], pts[i][1], isTouch ? 22 : 12)) {
+      if (TOOL === 'size') for (const q of sizeHandles(pts, d)) if (near(q[0], q[1], isTouch ? 24 : 13)) {
         drag = { mode: 'scale', c: sc, ctr, d0: Math.hypot(pt.px - ctr[0], pt.py - ctr[1]), s0: evalProp(sc, 'scale', lt) }; return;
+      }
+      if (TOOL === 'move') for (const hd of moveHandles(pts, d)) if (near(hd.x, hd.y, isTouch ? 24 : 14)) {
+        drag = { mode: 'move', c: sc, p0: pt, x0: evalProp(sc, 'x', lt), y0: evalProp(sc, 'y', lt), moved: false }; return;
       }
     }
     const hit = hitClip(pt);

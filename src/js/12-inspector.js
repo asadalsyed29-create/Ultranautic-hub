@@ -248,7 +248,7 @@ function insSticker(b, c) {
 /* ---------- keyframes + curve editor + speed multiplier ---------- */
 const KP_LABEL = { all: 'All properties', x: 'Position X', y: 'Position Y', scale: 'Scale', rot: 'Rotation', opacity: 'Opacity' };
 let KPROP = 'all';
-function openKeyPanel() { RTAB = 'keys'; renderInspector(); }
+function openKeyPanel(show) { RTAB = 'keys'; renderInspector(); if (show && isMob()) openSheet('right'); }
 function currentKeyTime(c) {
   const lt = clamp(T - c.start, 0, c.dur);
   if (SELKF && clipKeyTimes(c).some(t => Math.abs(t - SELKF.t) < 1e-4)) return SELKF.t;

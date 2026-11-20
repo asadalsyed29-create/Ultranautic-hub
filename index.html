@@ -200,8 +200,12 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
 .clip.c-image{background:var(--c-image)}.clip.c-text{background:var(--c-text)}.clip.c-sticker,.clip.c-shape{background:var(--c-sticker)}.clip.c-audio{background:var(--c-audio)}.clip.c-effect{background:var(--c-effect)}.clip.c-filter{background:var(--c-filter)}.clip.c-adjust{background:var(--c-adjust)}
 .clip.dragging{opacity:.75;z-index:10}
 #playhead{position:absolute;top:0;bottom:0;width:0;z-index:6;pointer-events:none}
+#playhead .phline{position:absolute;left:-11px;width:22px;top:0;bottom:0;pointer-events:auto;cursor:ew-resize;touch-action:none}
+#playhead .phknob{position:absolute;left:-9px;top:0;width:18px;height:22px;background:#fff;clip-path:polygon(0 0,100% 0,100% 60%,50% 100%,0 60%);pointer-events:auto;cursor:ew-resize;touch-action:none}
+#playhead.drag .phknob{background:var(--acc)}
+#playhead.drag::before{background:var(--acc)}
 #playhead::before{content:"";position:absolute;left:-1px;top:0;bottom:0;width:2px;background:#fff}
-#playhead::after{content:"";position:absolute;left:-6px;top:0;border:6px solid transparent;border-top:8px solid #fff}
+#playhead::after{display:none;content:"";position:absolute;left:-6px;top:0;border:6px solid transparent;border-top:8px solid #fff}
 #snapline{position:absolute;top:0;bottom:0;width:1px;background:#ffd84d;z-index:7;display:none;pointer-events:none}
 .trk.drop-new{box-shadow:inset 0 2px 0 var(--acc)}
 
@@ -245,6 +249,25 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
   #left,#right{left:auto;right:0;top:38px;bottom:0;height:auto;width:min(380px,50%);border-top:0;border-left:1px solid var(--line2)}
   #top{gap:0}
 }
+
+/* stage tools: move / rotate / size */
+#stools{position:absolute;left:6px;top:6px;display:flex;gap:2px;z-index:3}
+#stools button{display:flex;align-items:center;gap:4px;height:30px;padding:0 9px;background:rgba(20,22,26,.88);border:1px solid var(--line);color:var(--tx);font:inherit;font-size:12px;cursor:pointer}
+#stools button .i{width:16px;height:16px}
+#stools button.on{background:var(--acc);color:#04201b;border-color:var(--acc)}
+#stools button.on .i{stroke:#04201b}
+#stools.off{display:none}
+/* keyframe gap button: opens the settings for the motion between two keyframes */
+.clip .kfg{position:absolute;bottom:1px;width:18px;height:15px;margin-left:-9px;background:#1b1d22;border:1px solid #9aa3ad;z-index:4;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.clip .kfg .i{width:13px;height:13px;stroke:#e8e8e8}
+.clip .kfg.sel{border-color:var(--acc);background:#0f3a34}
+@media (pointer:coarse){
+  .clip .kfd{width:15px;height:15px;margin-left:-7.5px;bottom:3px}
+  .clip .kfd::after{content:"";position:absolute;inset:-8px}
+  .clip .kfg{width:24px;height:19px;margin-left:-12px}
+  .clip .kfg::after{content:"";position:absolute;inset:-6px}
+  #playhead .phknob{left:-12px;width:24px;height:24px}
+}
 </style></head><body>
 <div id="app">
   <header id="top">
@@ -265,7 +288,7 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
   </aside>
 
   <section id="center">
-    <div id="stage"><canvas id="view"></canvas><canvas id="overlay"></canvas></div>
+    <div id="stage"><canvas id="view"></canvas><canvas id="overlay"></canvas><div id="stools"><button data-t="move" data-i="tmove" title="Move">Move</button><button data-t="rot" data-i="trot" title="Rotate">Rotate</button><button data-t="size" data-i="tsize" title="Size">Size</button></div></div>
     <div id="transport">
       <div id="tc"><b>00:00:00</b> / 00:00:00</div>
       <div class="sp"></div>
@@ -309,7 +332,7 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
       <button class="tb" id="tZin" title="Zoom in" data-i="zin"></button>
       <button class="tb" id="tFit" title="Fit timeline" data-i="fit"></button>
     </div>
-    <div id="tl"><div id="tlin"><div id="ruler"><div class="corner"></div><canvas id="rulerc"></canvas></div><div id="tracks"></div><div id="playhead"></div><div id="snapline"></div></div></div>
+    <div id="tl"><div id="tlin"><div id="ruler"><div class="corner"></div><canvas id="rulerc"></canvas></div><div id="tracks"></div><div id="playhead"><div class="phline"></div><div class="phknob"></div></div><div id="snapline"></div></div></div>
   </div>
 
   <nav id="mobbar"></nav>
@@ -439,7 +462,11 @@ const ICONS = {
   layers: 'M12 4l8.5 4.5L12 13 3.5 8.5zM3.5 12.5L12 17l8.5-4.5M3.5 16.5L12 21l8.5-4.5',
   more: 'M5.5 12h.01M12 12h.01M18.5 12h.01',
   speed: 'M4 15.5a8 8 0 1116 0M12 15.5l4-5.5',
-  crop: 'M7 3.5v13.5h13.5M3.5 7H17v13.5'
+  crop: 'M7 3.5v13.5h13.5M3.5 7H17v13.5',
+  tmove: 'M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3',
+  trot: 'M19 12a7 7 0 11-2.05-4.95M17 3.5v4h-4',
+  tsize: 'M4 4h5v5H4zM15 15h5v5h-5zM9 9l6 6',
+  curve: 'M3 18c5 0 6-12 18-12'
 };
 function icon(n, cls = 'i') { return `<svg class="${cls}" viewBox="0 0 24 24"><path d="${ICONS[n] || ''}"/></svg>`; }
 function iconEl(n) { const d = document.createElement('span'); d.innerHTML = icon(n); return d.firstChild; }
@@ -2045,9 +2072,18 @@ function clipEl(c, tr) {
   if ((c.speed || 1) !== 1) el.append(h('div', { class: 'spd' }, round(c.speed, 3) + 'x'));
   if (c.trans && c.trans.id !== 'none') { const tb = h('div', { class: 'trn', title: TRANS[c.trans.id] ? TRANS[c.trans.id].n : '', html: icon('transition') }); el.append(tb); }
   if (c.id === SEL && VISUAL[c.type]) {
-    for (const kt of clipKeyTimes(c)) {
+    const kts = clipKeyTimes(c);
+    // a button in each gap between two keyframes opens the motion settings for that gap
+    for (let i = 0; i + 1 < kts.length; i++) {
+      const a = kts[i], b = kts[i + 1]; if ((b - a) * pps < 34) continue;
+      const g = h('button', { class: 'kfg' + (SELKF && Math.abs(SELKF.t - a) < 1e-4 ? ' sel' : ''), title: 'Motion between these keyframes', html: icon('curve'), style: { left: (a + b) / 2 * pps + 'px' } });
+      g.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); });
+      g.addEventListener('click', e => { e.stopPropagation(); if (PLAY.on) pause(); SELKF = { t: a }; seek(c.start + a); selectClip(c.id, true); openKeyPanel(true); });
+      el.append(g);
+    }
+    for (const kt of kts) {
       const d = h('div', { class: 'kfd' + (SELKF && Math.abs(SELKF.t - kt) < 1e-4 ? ' sel' : ''), style: { left: kt * pps + 'px' } });
-      d.addEventListener('pointerdown', e => kfDrag(e, c, kt, d));
+      d.dataset.kt = kt; d.addEventListener('pointerdown', e => kfDrag(e, c, kt, d));
       el.append(d);
     }
   }
@@ -2199,7 +2235,7 @@ function kfDrag(e, c, kt, d) {
     for (const p of KF_PROPS) c.kf[p].sort((a, b) => a.t - b.t);
     d.style.left = nt * TL.pps + 'px'; SELKF = { t: nt }; T = c.start + nt; requestRender(); updPlayhead();
   };
-  const up = () => { d.removeEventListener('pointermove', mv); d.removeEventListener('pointerup', up); if (moved) commit(); selectClip(c.id); openKeyPanel(); };
+  const up = () => { d.removeEventListener('pointermove', mv); d.removeEventListener('pointerup', up); if (moved) commit(); selectClip(c.id, true); openKeyPanel(!moved); };
   d.addEventListener('pointermove', mv); d.addEventListener('pointerup', up);
 }
 function selectClip(id, keepKf) {
@@ -2223,6 +2259,31 @@ function initTimelineEvents() {
     $('#ruler').setPointerCapture(e.pointerId); scrub(e);
     const mv = ev => scrub(ev), up = () => { $('#ruler').removeEventListener('pointermove', mv); $('#ruler').removeEventListener('pointerup', up); refreshInspectorValues(); };
     $('#ruler').addEventListener('pointermove', mv); $('#ruler').addEventListener('pointerup', up);
+  });
+  // drag the playhead itself (knob or line); a tap on the line still selects the clip under it
+  for (const part of $$('#playhead .phline, #playhead .phknob')) part.addEventListener('pointerdown', e => {
+    if (e.button > 0) return;
+    e.preventDefault(); e.stopPropagation(); if (PLAY.on) pause();
+    const ph = $('#playhead'); part.setPointerCapture(e.pointerId);
+    const x0 = e.clientX, y0 = e.clientY; let moved = false, raf = 0, lastE = e;
+    const edge = () => { // scroll the timeline when dragging near its edges
+      const r = tl.getBoundingClientRect(), x = lastE.clientX; let v = 0;
+      if (x < r.left + TL.hw + 24) v = -Math.min(18, (r.left + TL.hw + 24 - x) / 2); else if (x > r.right - 24) v = Math.min(18, (x - r.right + 24) / 2);
+      if (v) { tl.scrollLeft += v; scrub(lastE); } raf = requestAnimationFrame(edge);
+    };
+    const mv = ev => { lastE = ev; if (!moved && Math.abs(ev.clientX - x0) < 4) return; if (!moved) { moved = true; ph.classList.add('drag'); raf = requestAnimationFrame(edge); } scrub(ev); };
+    const up = ev => {
+      part.removeEventListener('pointermove', mv); part.removeEventListener('pointerup', up); part.removeEventListener('pointercancel', up);
+      cancelAnimationFrame(raf); ph.classList.remove('drag');
+      if (moved) { refreshInspectorValues(); return; }
+      if (part.classList.contains('phline')) {
+        ph.style.visibility = 'hidden'; const under = document.elementFromPoint(x0, y0); ph.style.visibility = '';
+        const kb = under && under.closest('.kfd,.kfg');
+        if (kb) { if (kb.classList.contains('kfd')) { const c = findClip(kb.closest('.clip').dataset.cid), t = +kb.dataset.kt; SELKF = { t }; seek(c.start + t); selectClip(c.id, true); openKeyPanel(true); } else kb.click(); return; }
+        const ce = under && under.closest('.clip'); if (ce) { const c = findClip(ce.dataset.cid); if (c) selectClip(c.id); }
+      }
+    };
+    part.addEventListener('pointermove', mv); part.addEventListener('pointerup', up); part.addEventListener('pointercancel', up);
   });
   // tap on empty lane: move playhead, clear selection
   let downAt = null;
@@ -2412,24 +2473,71 @@ function drawOverlay() {
   const k = ov.width / P.w, d = ov.width / VIEW.cssW;
   if (GUIDE.x != null) { x.strokeStyle = '#ff4fb0'; x.lineWidth = d; x.setLineDash([6 * d, 4 * d]); x.beginPath(); x.moveTo(GUIDE.x * k, 0); x.lineTo(GUIDE.x * k, ov.height); x.stroke(); x.setLineDash([]); }
   if (GUIDE.y != null) { x.strokeStyle = '#ff4fb0'; x.lineWidth = d; x.setLineDash([6 * d, 4 * d]); x.beginPath(); x.moveTo(0, GUIDE.y * k); x.lineTo(ov.width, GUIDE.y * k); x.stroke(); x.setLineDash([]); }
+  updStools();
   if (PLAY.on) return;
   const c = selVisible(); if (!c) return;
   const { pts, ctr } = clipCorners(c, k);
   x.strokeStyle = '#ffffff'; x.lineWidth = 1.5 * d;
   x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.stroke();
   x.strokeStyle = 'rgba(0,0,0,.5)'; x.lineWidth = .8 * d; x.stroke();
-  const hs = 9 * d;
-  for (const p of pts) { x.fillStyle = '#fff'; x.fillRect(p[0] - hs / 2, p[1] - hs / 2, hs, hs); x.strokeStyle = '#000'; x.lineWidth = d; x.strokeRect(p[0] - hs / 2, p[1] - hs / 2, hs, hs); }
-  const rh = rotHandle(pts, d);
-  x.strokeStyle = '#fff'; x.lineWidth = 1.2 * d; x.beginPath(); x.moveTo(rh.bx, rh.by); x.lineTo(rh.x, rh.y); x.stroke();
-  x.fillStyle = '#3fd6c0'; x.beginPath(); x.arc(rh.x, rh.y, 7 * d, 0, 7); x.fill(); x.strokeStyle = '#000'; x.lineWidth = d; x.stroke();
-  // little rotate arrow in the handle
-  x.strokeStyle = '#05231e'; x.lineWidth = 1.5 * d; x.beginPath(); x.arc(rh.x, rh.y, 3.6 * d, -2.4, 1.6); x.stroke();
+  if (TOOL === 'move') for (const hd of moveHandles(pts, d)) drawMoveHandle(x, hd, d);
+  else if (TOOL === 'size') for (const p of sizeHandles(pts, d)) drawCube(x, p[0], p[1], (isTouch ? 9 : 7) * d, d);
+  else if (TOOL === 'rot') {
+    const ring = rotRing(c, pts, ctr, d), a = (evalProp(c, 'rot', clamp(T - c.start, 0, c.dur)) - 90) * Math.PI / 180;
+    x.strokeStyle = 'rgba(0,0,0,.55)'; x.lineWidth = 5 * d; x.beginPath(); x.arc(ctr[0], ctr[1], ring, 0, 7); x.stroke();
+    x.strokeStyle = '#3fd6c0'; x.lineWidth = 2.5 * d; x.beginPath(); x.arc(ctr[0], ctr[1], ring, 0, 7); x.stroke();
+    // tick marks every 45 degrees so the turn is easy to read
+    x.strokeStyle = 'rgba(255,255,255,.7)'; x.lineWidth = 1.2 * d;
+    for (let i = 0; i < 8; i++) { const t = i * Math.PI / 4; x.beginPath(); x.moveTo(ctr[0] + Math.cos(t) * (ring - 5 * d), ctr[1] + Math.sin(t) * (ring - 5 * d)); x.lineTo(ctr[0] + Math.cos(t) * (ring + 5 * d), ctr[1] + Math.sin(t) * (ring + 5 * d)); x.stroke(); }
+    const kx = ctr[0] + Math.cos(a) * ring, ky = ctr[1] + Math.sin(a) * ring, kr = (isTouch ? 12 : 9) * d;
+    x.strokeStyle = 'rgba(255,255,255,.6)'; x.lineWidth = d; x.beginPath(); x.moveTo(ctr[0], ctr[1]); x.lineTo(kx, ky); x.stroke();
+    x.fillStyle = '#fff'; x.beginPath(); x.arc(kx, ky, kr, 0, 7); x.fill(); x.strokeStyle = '#000'; x.lineWidth = d; x.stroke();
+    x.strokeStyle = '#0b5c52'; x.lineWidth = 1.8 * d; x.beginPath(); x.arc(kx, ky, kr * .5, -2.6, 1.4); x.stroke();
+    x.fillStyle = '#0b5c52'; x.beginPath(); const ex = kx + Math.cos(1.4) * kr * .5, ey = ky + Math.sin(1.4) * kr * .5; x.moveTo(ex - 3.2 * d, ey); x.lineTo(ex + 1.6 * d, ey - 2.4 * d); x.lineTo(ex + 1.4 * d, ey + 3 * d); x.fill();
+    x.fillStyle = '#fff'; x.beginPath(); x.arc(ctr[0], ctr[1], 2.5 * d, 0, 7); x.fill();
+  }
   if (GUIDE.rotTxt) {
     x.font = `${12 * d}px system-ui`; const tw = x.measureText(GUIDE.rotTxt).width;
     x.fillStyle = 'rgba(0,0,0,.75)'; x.fillRect(ctr[0] - tw / 2 - 6 * d, ctr[1] - 11 * d, tw + 12 * d, 22 * d);
     x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(GUIDE.rotTxt, ctr[0], ctr[1]);
   }
+}
+let TOOL = 'move';
+function setTool(t) { TOOL = t; for (const b of $$('#stools button')) b.classList.toggle('on', b.dataset.t === t); drawOverlay(); }
+function updStools() { const s = $('#stools'); if (s) s.classList.toggle('off', !selVisible() || PLAY.on); }
+function moveHandles(pts, d) {
+  // one handle outside the middle of each side
+  const ctr = [(pts[0][0] + pts[2][0]) / 2, (pts[0][1] + pts[2][1]) / 2], out = [];
+  for (let i = 0; i < 4; i++) {
+    const a = pts[i], b = pts[(i + 1) % 4], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+    let vx = mx - ctr[0], vy = my - ctr[1]; const L = Math.hypot(vx, vy) || 1; vx /= L; vy /= L;
+    const off = (isTouch ? 24 : 18) * d; out.push({ ...inView(mx + vx * off, my + vy * off, 14 * d), vx, vy });
+  }
+  return out;
+}
+function inView(x, y, m) { return { x: clamp(x, m, VIEW.ov.width - m), y: clamp(y, m, VIEW.ov.height - m) }; }
+function sizeHandles(pts, d) { return pts.map(p => { const q = inView(p[0], p[1], 12 * d); return [q.x, q.y]; }); }
+function drawMoveHandle(x, hd, d) {
+  const r = (isTouch ? 12 : 9) * d;
+  x.fillStyle = '#fff'; x.beginPath(); x.arc(hd.x, hd.y, r, 0, 7); x.fill(); x.strokeStyle = '#000'; x.lineWidth = d; x.stroke();
+  // four little arrows: this handle drags the whole clip
+  x.save(); x.translate(hd.x, hd.y); x.strokeStyle = '#1b1d22'; x.fillStyle = '#1b1d22'; x.lineWidth = 1.4 * d; const a = r * .62, w = r * .26;
+  x.beginPath(); x.moveTo(-a, 0); x.lineTo(a, 0); x.moveTo(0, -a); x.lineTo(0, a); x.stroke();
+  for (let i = 0; i < 4; i++) { x.rotate(Math.PI / 2); x.beginPath(); x.moveTo(a + w * .2, 0); x.lineTo(a - w, -w); x.lineTo(a - w, w); x.fill(); }
+  x.restore();
+}
+function drawCube(x, cx, cy, s, d) {
+  // a small solid cube: front face plus top and side faces
+  const o = s * .55;
+  x.lineWidth = d; x.strokeStyle = '#000'; x.lineJoin = 'round';
+  x.fillStyle = '#d9dde3'; x.beginPath(); x.moveTo(cx - s, cy - s); x.lineTo(cx - s + o, cy - s - o); x.lineTo(cx + s + o, cy - s - o); x.lineTo(cx + s, cy - s); x.closePath(); x.fill(); x.stroke();
+  x.fillStyle = '#9aa1ab'; x.beginPath(); x.moveTo(cx + s, cy - s); x.lineTo(cx + s + o, cy - s - o); x.lineTo(cx + s + o, cy + s - o); x.lineTo(cx + s, cy + s); x.closePath(); x.fill(); x.stroke();
+  x.fillStyle = '#ffffff'; x.fillRect(cx - s, cy - s, s * 2, s * 2); x.strokeRect(cx - s, cy - s, s * 2, s * 2);
+}
+function rotRing(c, pts, ctr, d) {
+  const half = Math.min(Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]), Math.hypot(pts[3][0] - pts[0][0], pts[3][1] - pts[0][1])) / 2;
+  const maxR = Math.min(VIEW.ov.width, VIEW.ov.height) * .42;
+  return clamp(half * .9, 34 * d, Math.max(34 * d, maxR));
 }
 function rotHandle(pts, d) {
   // below the bottom edge middle, in the clip's own "down" direction
@@ -2456,6 +2564,8 @@ function hitClip(pt) {
 }
 function initStageEvents() {
   const st = $('#stage');
+  for (const b of $$('#stools button')) { b.addEventListener('pointerdown', e => e.stopPropagation()); b.onclick = e => { e.stopPropagation(); setTool(b.dataset.t); }; }
+  setTool('move');
   const pointers = new Map(); let drag = null, gesture = null;
   st.addEventListener('pointerdown', e => {
     if (e.button > 0) return;
@@ -2472,14 +2582,20 @@ function initStageEvents() {
     const k = VIEW.ov.width / P.w, d = VIEW.ov.width / VIEW.cssW;
     const sc = selVisible();
     if (sc) {
-      const { pts, ctr } = clipCorners(sc, k), rh = rotHandle(pts, d), lt = clamp(T - sc.start, 0, sc.dur);
+      const { pts, ctr } = clipCorners(sc, k), lt = clamp(T - sc.start, 0, sc.dur);
       const near = (x, y, r) => Math.hypot(pt.px - x, pt.py - y) < r * d;
-      if (near(rh.x, rh.y, isTouch ? 22 : 13)) {
-        const a = Math.atan2(pt.py - ctr[1], pt.px - ctr[0]) * 180 / Math.PI;
-        drag = { mode: 'rot', c: sc, ctr, last: a, r: evalProp(sc, 'rot', lt) }; return;
+      if (TOOL === 'rot') {
+        const ring = rotRing(sc, pts, ctr, d);
+        if (Math.abs(Math.hypot(pt.px - ctr[0], pt.py - ctr[1]) - ring) < (isTouch ? 22 : 12) * d) {
+          const a = Math.atan2(pt.py - ctr[1], pt.px - ctr[0]) * 180 / Math.PI;
+          drag = { mode: 'rot', c: sc, ctr, last: a, r: evalProp(sc, 'rot', lt) }; return;
+        }
       }
-      for (let i = 0; i < 4; i++) if (near(pts[i][0], pts[i][1], isTouch ? 22 : 12)) {
+      if (TOOL === 'size') for (const q of sizeHandles(pts, d)) if (near(q[0], q[1], isTouch ? 24 : 13)) {
         drag = { mode: 'scale', c: sc, ctr, d0: Math.hypot(pt.px - ctr[0], pt.py - ctr[1]), s0: evalProp(sc, 'scale', lt) }; return;
+      }
+      if (TOOL === 'move') for (const hd of moveHandles(pts, d)) if (near(hd.x, hd.y, isTouch ? 24 : 14)) {
+        drag = { mode: 'move', c: sc, p0: pt, x0: evalProp(sc, 'x', lt), y0: evalProp(sc, 'y', lt), moved: false }; return;
       }
     }
     const hit = hitClip(pt);
@@ -3078,7 +3194,7 @@ function insSticker(b, c) {
 /* ---------- keyframes + curve editor + speed multiplier ---------- */
 const KP_LABEL = { all: 'All properties', x: 'Position X', y: 'Position Y', scale: 'Scale', rot: 'Rotation', opacity: 'Opacity' };
 let KPROP = 'all';
-function openKeyPanel() { RTAB = 'keys'; renderInspector(); }
+function openKeyPanel(show) { RTAB = 'keys'; renderInspector(); if (show && isMob()) openSheet('right'); }
 function currentKeyTime(c) {
   const lt = clamp(T - c.start, 0, c.dur);
   if (SELKF && clipKeyTimes(c).some(t => Math.abs(t - SELKF.t) < 1e-4)) return SELKF.t;

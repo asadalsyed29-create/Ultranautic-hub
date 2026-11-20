@@ -118,7 +118,11 @@ const ICONS = {
   layers: 'M12 4l8.5 4.5L12 13 3.5 8.5zM3.5 12.5L12 17l8.5-4.5M3.5 16.5L12 21l8.5-4.5',
   more: 'M5.5 12h.01M12 12h.01M18.5 12h.01',
   speed: 'M4 15.5a8 8 0 1116 0M12 15.5l4-5.5',
-  crop: 'M7 3.5v13.5h13.5M3.5 7H17v13.5'
+  crop: 'M7 3.5v13.5h13.5M3.5 7H17v13.5',
+  tmove: 'M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3',
+  trot: 'M19 12a7 7 0 11-2.05-4.95M17 3.5v4h-4',
+  tsize: 'M4 4h5v5H4zM15 15h5v5h-5zM9 9l6 6',
+  curve: 'M3 18c5 0 6-12 18-12'
 };
 function icon(n, cls = 'i') { return `<svg class="${cls}" viewBox="0 0 24 24"><path d="${ICONS[n] || ''}"/></svg>`; }
 function iconEl(n) { const d = document.createElement('span'); d.innerHTML = icon(n); return d.firstChild; }

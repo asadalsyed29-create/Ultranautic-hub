@@ -190,8 +190,12 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
 .clip.c-image{background:var(--c-image)}.clip.c-text{background:var(--c-text)}.clip.c-sticker,.clip.c-shape{background:var(--c-sticker)}.clip.c-audio{background:var(--c-audio)}.clip.c-effect{background:var(--c-effect)}.clip.c-filter{background:var(--c-filter)}.clip.c-adjust{background:var(--c-adjust)}
 .clip.dragging{opacity:.75;z-index:10}
 #playhead{position:absolute;top:0;bottom:0;width:0;z-index:6;pointer-events:none}
+#playhead .phline{position:absolute;left:-11px;width:22px;top:0;bottom:0;pointer-events:auto;cursor:ew-resize;touch-action:none}
+#playhead .phknob{position:absolute;left:-9px;top:0;width:18px;height:22px;background:#fff;clip-path:polygon(0 0,100% 0,100% 60%,50% 100%,0 60%);pointer-events:auto;cursor:ew-resize;touch-action:none}
+#playhead.drag .phknob{background:var(--acc)}
+#playhead.drag::before{background:var(--acc)}
 #playhead::before{content:"";position:absolute;left:-1px;top:0;bottom:0;width:2px;background:#fff}
-#playhead::after{content:"";position:absolute;left:-6px;top:0;border:6px solid transparent;border-top:8px solid #fff}
+#playhead::after{display:none;content:"";position:absolute;left:-6px;top:0;border:6px solid transparent;border-top:8px solid #fff}
 #snapline{position:absolute;top:0;bottom:0;width:1px;background:#ffd84d;z-index:7;display:none;pointer-events:none}
 .trk.drop-new{box-shadow:inset 0 2px 0 var(--acc)}
 
@@ -234,4 +238,23 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
   #mobbar button{flex:1 0 46px}
   #left,#right{left:auto;right:0;top:38px;bottom:0;height:auto;width:min(380px,50%);border-top:0;border-left:1px solid var(--line2)}
   #top{gap:0}
+}
+
+/* stage tools: move / rotate / size */
+#stools{position:absolute;left:6px;top:6px;display:flex;gap:2px;z-index:3}
+#stools button{display:flex;align-items:center;gap:4px;height:30px;padding:0 9px;background:rgba(20,22,26,.88);border:1px solid var(--line);color:var(--tx);font:inherit;font-size:12px;cursor:pointer}
+#stools button .i{width:16px;height:16px}
+#stools button.on{background:var(--acc);color:#04201b;border-color:var(--acc)}
+#stools button.on .i{stroke:#04201b}
+#stools.off{display:none}
+/* keyframe gap button: opens the settings for the motion between two keyframes */
+.clip .kfg{position:absolute;bottom:1px;width:18px;height:15px;margin-left:-9px;background:#1b1d22;border:1px solid #9aa3ad;z-index:4;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.clip .kfg .i{width:13px;height:13px;stroke:#e8e8e8}
+.clip .kfg.sel{border-color:var(--acc);background:#0f3a34}
+@media (pointer:coarse){
+  .clip .kfd{width:15px;height:15px;margin-left:-7.5px;bottom:3px}
+  .clip .kfd::after{content:"";position:absolute;inset:-8px}
+  .clip .kfg{width:24px;height:19px;margin-left:-12px}
+  .clip .kfg::after{content:"";position:absolute;inset:-6px}
+  #playhead .phknob{left:-12px;width:24px;height:24px}
 }
