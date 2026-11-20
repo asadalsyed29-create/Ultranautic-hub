@@ -2962,10 +2962,10 @@ function rrow(label, obj, key, o) { return rangeRow(label, { min: o.min, max: o.
 function tabsFor(c) {
   if (!c) return [['project', 'Project']];
   switch (c.type) {
-    case 'video': return [['clip', 'Video'], ['anim', 'Animation'], ['adjust', 'Adjust'], ['mask', 'Mask'], ['effects', 'Effects'], ['keys', 'Keyframes'], ['audio', 'Audio']];
-    case 'image': return [['clip', 'Picture'], ['anim', 'Animation'], ['adjust', 'Adjust'], ['mask', 'Mask'], ['effects', 'Effects'], ['keys', 'Keyframes']];
-    case 'text': return [['text', 'Text'], ['clip', 'Transform'], ['anim', 'Animation'], ['effects', 'Effects'], ['keys', 'Keyframes']];
-    case 'sticker': return [['sticker', 'Sticker'], ['clip', 'Transform'], ['anim', 'Animation'], ['effects', 'Effects'], ['keys', 'Keyframes']];
+    case 'video': return [['clip', 'Video'], ['anim', 'Animation'], ['adjust', 'Adjust'], ['mask', 'Mask'], ['effects', 'Effects'], ['audio', 'Audio']];
+    case 'image': return [['clip', 'Picture'], ['anim', 'Animation'], ['adjust', 'Adjust'], ['mask', 'Mask'], ['effects', 'Effects']];
+    case 'text': return [['text', 'Text'], ['clip', 'Transform'], ['anim', 'Animation'], ['effects', 'Effects']];
+    case 'sticker': return [['sticker', 'Sticker'], ['clip', 'Transform'], ['anim', 'Animation'], ['effects', 'Effects']];
     case 'audio': return [['audio', 'Audio']];
     case 'effect': return [['layer', 'Effect']];
     case 'filter': return [['layer', 'Filter']];
@@ -2978,7 +2978,7 @@ let lastInsKind = null;
 function renderInspector() {
   const c = selClip(), tabs = tabsFor(c);
   const kind = c ? c.type : null;
-  if (kind !== lastInsKind && RTAB !== 'keys') RTAB = tabs[0][0];
+  if (kind !== lastInsKind && !KEYJUMP) RTAB = tabs[0][0];
   lastInsKind = kind;
   if (!tabs.some(t => t[0] === RTAB)) RTAB = tabs[0][0];
   const nav = $('#rtabs'); nav.innerHTML = '';
@@ -2987,7 +2987,9 @@ function renderInspector() {
   const fn = { project: insProject, clip: insClip, anim: insAnim, adjust: insAdjust, mask: insMask, effects: insEffects, keys: insKeys, audio: insAudio, text: insText, sticker: insSticker, layer: insLayer }[RTAB];
   fn(b, c);
   b.scrollTop = st;
+  if (KEYJUMP) { KEYJUMP = false; const k = $('#keysec'); if (k) requestAnimationFrame(() => k.scrollIntoView({ block: 'start' })); }
 }
+let KEYJUMP = false;
 function refreshInspectorValues() { for (const f of INS.live) try { f(); } catch (e) { } }
 
 /* ---------- project ---------- */
@@ -3053,6 +3055,8 @@ function rotationRows(c) {
 }
 function insClip(b, c) {
   b.append(propRow(c, 'x'), propRow(c, 'y'), propRow(c, 'scale'), ...rotationRows(c), propRow(c, 'opacity'));
+  // keyframes and the motion between them live in this same tab
+  const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks);
   b.append(row('', h('button', { class: 'btn sm', onclick: () => { setProp(c, 'x', P.w / 2); setProp(c, 'y', P.h / 2); chg(true); refreshInspectorValues(); } }, 'Center'), h('button', { class: 'btn sm', onclick: () => { setProp(c, 'scale', 1); setProp(c, 'rot', 0); chg(true); refreshInspectorValues(); } }, 'Reset size and turn')));
   b.append(row('Flip', h('button', { class: 'btn sm' + (c.flipH ? ' pri' : ''), html: icon('flipH') + ' Mirror', onclick: () => { c.flipH = !c.flipH; chg(true); renderInspector(); } }), h('button', { class: 'btn sm' + (c.flipV ? ' pri' : ''), html: icon('flipV') + ' Upside down', onclick: () => { c.flipV = !c.flipV; chg(true); renderInspector(); } })));
   const BL = [['source-over', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['darken', 'Darken'], ['lighten', 'Lighten'], ['color-dodge', 'Color dodge'], ['color-burn', 'Color burn'], ['hard-light', 'Hard light'], ['soft-light', 'Soft light'], ['difference', 'Difference'], ['exclusion', 'Exclusion'], ['hue', 'Hue'], ['saturation', 'Saturation'], ['color', 'Color'], ['luminosity', 'Luminosity'], ['lighter', 'Add']];
@@ -3194,12 +3198,15 @@ function insSticker(b, c) {
 /* ---------- keyframes + curve editor + speed multiplier ---------- */
 const KP_LABEL = { all: 'All properties', x: 'Position X', y: 'Position Y', scale: 'Scale', rot: 'Rotation', opacity: 'Opacity' };
 let KPROP = 'all';
-function openKeyPanel(show) { RTAB = 'keys'; renderInspector(); if (show && isMob()) openSheet('right'); }
+function openKeyPanel(show) { RTAB = 'clip'; KEYJUMP = true; renderInspector(); if (show && isMob()) openSheet('right'); }
 function currentKeyTime(c) {
   const lt = clamp(T - c.start, 0, c.dur);
   if (SELKF && clipKeyTimes(c).some(t => Math.abs(t - SELKF.t) < 1e-4)) return SELKF.t;
-  const tt = clipKeyTimes(c).find(t => Math.abs(t - lt) <= 0.5 / P.fps);
-  return tt == null ? null : tt;
+  const ts = clipKeyTimes(c), tt = ts.find(t => Math.abs(t - lt) <= 0.5 / P.fps);
+  if (tt != null) return tt;
+  // between two keyframes: show the settings for that gap (they live on the keyframe before it)
+  const prev = ts.filter(t => t < lt).pop();
+  return prev != null && ts.some(t => t > lt) ? prev : null;
 }
 function keysAtTime(c, t) {
   const out = [];
@@ -3212,7 +3219,7 @@ function insKeys(b, c) {
     h('button', { class: 'btn sm', html: icon('chevl'), title: 'Previous keyframe', onclick: () => { const lt = T - c.start; const p = times.filter(t => t < lt - 1e-4).pop(); if (p != null) { SELKF = { t: p }; seek(c.start + p); refreshAll(); } } }),
     h('button', { class: 'btn sm pri', html: icon('key') + ' Keyframe here', onclick: opKey }),
     h('button', { class: 'btn sm', html: icon('chevr'), title: 'Next keyframe', onclick: () => { const lt = T - c.start; const p = times.find(t => t > lt + 1e-4); if (p != null) { SELKF = { t: p }; seek(c.start + p); refreshAll(); } } })));
-  if (!times.length) { b.append(h('div', { class: 'note' }, 'No keyframes yet. Move the playhead, then tap “Keyframe here”, or tap the diamond next to Position, Scale, Rotation or Opacity in the Transform tab. Change the value at another time and a new keyframe is made for you.')); return; }
+  if (!times.length) { b.append(h('div', { class: 'note' }, 'No keyframes yet. Move the playhead, then tap “Keyframe here”, or tap the diamond next to Position, Scale, Rotation or Opacity above. Change the value at another time and a new keyframe is made for you.')); return; }
   const kt = currentKeyTime(c);
   b.append(h('div', { class: 'note', style: { marginBottom: '8px' } }, `${times.length} keyframe time${times.length > 1 ? 's' : ''} on this clip.` + (kt == null ? ' Move the playhead onto a keyframe (or tap a diamond on the clip) to edit it.' : '')));
   if (kt == null) return;
