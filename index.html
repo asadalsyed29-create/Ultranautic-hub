@@ -3,6 +3,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#16171a">
 <title>Framewright</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
 :root{
   --bg:#0e0f11;--p1:#16171a;--p2:#1c1d21;--p3:#24262b;--p4:#2e3036;--line:#2a2c31;--line2:#383a41;
@@ -3491,7 +3495,7 @@ function bindUI() {
   $('#bFile').onclick = () => {
     const list = h('div');
     const it = (l, f) => list.append(h('div', { class: 'opt', onclick: () => { closePop(); f(); } }, l));
-    it('New project', newProjectAsk); it('Open project file (.fwproj)', () => $('#projIn').click()); it('Save project file (.fwproj)', saveProjectFile); it('Import media', () => { $('#fileIn').accept = 'video/*,image/*,audio/*,.svg,.gif,.webp'; $('#fileIn').click(); }); it('Export video', openExport);
+    it('New project', newProjectAsk); it('Open project file (.fwproj)', () => $('#projIn').click()); it('Save project file (.fwproj)', saveProjectFile); it('Import media', () => { $('#fileIn').accept = 'video/*,image/*,audio/*,.svg,.gif,.webp'; $('#fileIn').click(); }); it('Export video', openExport); it('Install app', installApp);
     openPop($('#bFile'), list);
   };
   $('#pname').addEventListener('change', () => { P.name = $('#pname').value; commit(); });
@@ -3559,6 +3563,19 @@ async function main() {
   commit(); layoutView(); refreshAll();
   if (allClips().length) setTimeout(fitZoom, 50);
   $('#playBtn').innerHTML = icon('play');
+}
+/* installable app (when opened from a website, e.g. GitHub Pages) */
+let installEvt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
+addEventListener('appinstalled', () => { installEvt = null; toast('Framewright is installed'); });
+async function installApp() {
+  if (matchMedia('(display-mode: standalone)').matches) { toast('You are already using the installed app'); return; }
+  if (installEvt) { installEvt.prompt(); const r = await installEvt.userChoice; installEvt = null; if (r.outcome === 'accepted') toast('Installing…'); return; }
+  modal('Install Framewright', h('div', { class: 'note', style: { color: 'var(--tx)', lineHeight: '1.6' } },
+    location.protocol.startsWith('http') ? 'Open your browser menu (the ⋮ button in Chrome) and tap “Install app” or “Add to Home screen”.' : 'Installing works when the editor is opened from its web link (for example your GitHub Pages link), not from a downloaded file.'), [{ l: 'OK', pri: 1 }]);
+}
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { }));
 }
 main();
 

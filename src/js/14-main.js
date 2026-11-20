@@ -47,7 +47,7 @@ function bindUI() {
   $('#bFile').onclick = () => {
     const list = h('div');
     const it = (l, f) => list.append(h('div', { class: 'opt', onclick: () => { closePop(); f(); } }, l));
-    it('New project', newProjectAsk); it('Open project file (.fwproj)', () => $('#projIn').click()); it('Save project file (.fwproj)', saveProjectFile); it('Import media', () => { $('#fileIn').accept = 'video/*,image/*,audio/*,.svg,.gif,.webp'; $('#fileIn').click(); }); it('Export video', openExport);
+    it('New project', newProjectAsk); it('Open project file (.fwproj)', () => $('#projIn').click()); it('Save project file (.fwproj)', saveProjectFile); it('Import media', () => { $('#fileIn').accept = 'video/*,image/*,audio/*,.svg,.gif,.webp'; $('#fileIn').click(); }); it('Export video', openExport); it('Install app', installApp);
     openPop($('#bFile'), list);
   };
   $('#pname').addEventListener('change', () => { P.name = $('#pname').value; commit(); });
@@ -115,5 +115,18 @@ async function main() {
   commit(); layoutView(); refreshAll();
   if (allClips().length) setTimeout(fitZoom, 50);
   $('#playBtn').innerHTML = icon('play');
+}
+/* installable app (when opened from a website, e.g. GitHub Pages) */
+let installEvt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
+addEventListener('appinstalled', () => { installEvt = null; toast('Framewright is installed'); });
+async function installApp() {
+  if (matchMedia('(display-mode: standalone)').matches) { toast('You are already using the installed app'); return; }
+  if (installEvt) { installEvt.prompt(); const r = await installEvt.userChoice; installEvt = null; if (r.outcome === 'accepted') toast('Installing…'); return; }
+  modal('Install Framewright', h('div', { class: 'note', style: { color: 'var(--tx)', lineHeight: '1.6' } },
+    location.protocol.startsWith('http') ? 'Open your browser menu (the ⋮ button in Chrome) and tap “Install app” or “Add to Home screen”.' : 'Installing works when the editor is opened from its web link (for example your GitHub Pages link), not from a downloaded file.'), [{ l: 'OK', pri: 1 }]);
+}
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { }));
 }
 main();
