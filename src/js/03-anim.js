@@ -12,7 +12,7 @@ function bezierY(b, x) {
   return ((ay * t + by) * t + cy) * t;
 }
 const EASE_PRESETS = [
-  { n: 'Linear', b: [0, 0, 1, 1] }, { n: 'Ease', b: [0.25, 0.1, 0.25, 1] }, { n: 'Ease in', b: [0.42, 0, 1, 1] }, { n: 'Ease out', b: [0, 0, 0.58, 1] },
+  { n: 'Linear', b: [0.333, 0.333, 0.667, 0.667] }, { n: 'Ease', b: [0.25, 0.1, 0.25, 1] }, { n: 'Ease in', b: [0.42, 0, 1, 1] }, { n: 'Ease out', b: [0, 0, 0.58, 1] },
   { n: 'In-out', b: [0.42, 0, 0.58, 1] }, { n: 'Strong in-out', b: [0.83, 0, 0.17, 1] }, { n: 'Back in', b: [0.36, 0, 0.66, -0.56] }, { n: 'Back out', b: [0.34, 1.56, 0.64, 1] },
   { n: 'Overshoot', b: [0.68, -0.6, 0.32, 1.6] }, { n: 'Snap', b: [0.9, 0, 0.1, 1] }, { n: 'Slow middle', b: [0.1, 0.9, 0.9, 0.1] }
 ];
@@ -26,6 +26,9 @@ const easeOutElastic = p => p === 0 || p === 1 ? p : Math.pow(2, -10 * p) * Math
 /* ================= keyframes ================= */
 // Each keyframe: {t (clip-local seconds), v, mode:'linear'|'smooth'|'hold', bez:[4], speed (0..99999), over:'clamp'|'loop'|'pingpong', steps}
 // The settings on a keyframe control the segment that LEAVES it (towards the next keyframe).
+const LIN_BEZ = [0.333, 0.333, 0.667, 0.667];
+function bezKey(mode) { return mode === 'hold' ? 'bezH' : mode === 'smooth' ? 'bez' : 'bezL'; }
+function copySeg(to, from) { to.mode = from.mode; for (const f of ['bez', 'bezL', 'bezH']) if (from[f]) to[f] = from[f].slice(); else delete to[f]; to.speed = from.speed; to.over = from.over; to.steps = from.steps; }
 function newKey(t, v) { return { t, v, mode: 'linear', bez: [0.42, 0, 0.58, 1], speed: 1, over: 'clamp', steps: 1 }; }
 function segProgress(k, p) {
   // fixed-window speed multiplier: the window between the two keys never moves; speed only remaps progress inside it
@@ -35,9 +38,10 @@ function segProgress(k, p) {
   if (k.over === 'loop') { f = q - Math.floor(q); if (f === 0 && q > 0) f = 1; }
   else if (k.over === 'pingpong') { const m = q % 2; f = m <= 1 ? m : 2 - m; }
   else f = Math.min(q, 1);
-  if (k.mode === 'hold') { const st = Math.max(1, k.steps || 1); return f >= 1 ? 1 : Math.floor(f * st) / st; }
+  // every mode has its own adjustable curve; Choppy jumps in steps along its curve
+  if (k.mode === 'hold') { const st = Math.max(1, k.steps || 1); return f >= 1 ? 1 : bezierY(k.bezH || LIN_BEZ, Math.floor(f * st) / st); }
   if (k.mode === 'smooth') return bezierY(k.bez || [0.42, 0, 0.58, 1], f);
-  return f;
+  return k.bezL ? bezierY(k.bezL, f) : f;
 }
 function evalProp(c, prop, lt) {
   const ks = c.kf && c.kf[prop];
@@ -59,7 +63,7 @@ function setProp(c, prop, v) {
     const lt = clamp(T - c.start, 0, c.dur);
     const i = keyAt(c, prop, lt);
     if (i >= 0) ks[i].v = v;
-    else { const nk = newKey(lt, v); const prev = [...ks].reverse().find(k => k.t < lt); if (prev) { nk.mode = prev.mode; nk.bez = prev.bez.slice(); } ks.push(nk); ks.sort((a, b) => a.t - b.t); }
+    else { const nk = newKey(lt, v); const prev = [...ks].reverse().find(k => k.t < lt); if (prev) { copySeg(nk, prev); } ks.push(nk); ks.sort((a, b) => a.t - b.t); }
   } else c.tf[prop] = v;
 }
 function toggleKey(c, prop) {

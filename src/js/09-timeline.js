@@ -328,7 +328,7 @@ function splitKeys(c, at) {
     const v = evalProp(c, p, at);
     A[p] = ks.filter(k => k.t < at - 1e-6).map(k => ({ ...k })); B[p] = ks.filter(k => k.t > at + 1e-6).map(k => ({ ...k, t: k.t - at }));
     const prev = [...ks].reverse().find(k => k.t <= at);
-    const nk = newKey(0, v); if (prev) { nk.mode = prev.mode; nk.bez = prev.bez.slice(); nk.speed = prev.speed; nk.over = prev.over; nk.steps = prev.steps; }
+    const nk = newKey(0, v); if (prev) { copySeg(nk, prev); }
     A[p].push({ ...nk, t: at }); B[p].unshift({ ...nk, t: 0 });
   }
   return [A, B];

@@ -300,7 +300,8 @@ function insKeys(b, c) {
     b.append(h('div', { class: 'hint', style: { marginTop: '12px' } }, into ? `This is the last keyframe. Settings below shape the motion coming into it from the keyframe before (${round(nextT - segT, 3)}s).` : `Settings below shape the motion from this keyframe to the next one (${round(nextT - kt, 3)}s later).`));
     const g = h('div', { class: 'grp' }, h('h4', null, 'Interpolation'));
     g.append(row('Mode', segBox({ options: [{ v: 'linear', l: 'Regular' }, { v: 'smooth', l: 'Smooth' }, { v: 'hold', l: 'Choppy' }], value: k0.mode, onChange: v => { all(k => k.mode = v); chg(true); renderInspector(); } })));
-    if (k0.mode === 'smooth') g.append(curveEditor(k0, (bz, f) => { all(k => k.bez = bz.slice()); chg(f); drawMotion(); }));
+    { const bf = bezKey(k0.mode); if (!k0[bf]) k0[bf] = (bf === 'bez' ? [0.42, 0, 0.58, 1] : LIN_BEZ).slice();
+      g.append(curveEditor(k0, (bz, f) => { all(k => k[bf] = bz.slice()); chg(f); drawMotion(); }, bf)); }
     if (k0.mode === 'hold') g.append(nrow('Steps', { value: k0.steps || 1, min: 1, max: 240, dec: 0, onInput: (v, f) => { all(k => k.steps = Math.round(v)); chg(f); drawMotion(); } }), h('div', { class: 'hint' }, '1 holds the value, then jumps at the next keyframe. More steps give a choppy, stepped move.'));
     b.append(g);
     // fixed-window speed multiplier
@@ -318,17 +319,17 @@ function insKeys(b, c) {
   b.append(grp('Keyframe value', [valBox]));
   b.append(h('div', { style: { display: 'flex', gap: '6px', marginTop: '12px', flexWrap: 'wrap' } },
     h('button', { class: 'btn sm', html: icon('trash') + ' Delete keyframe', onclick: () => { for (const x of ks) { const v = x.k.v; c.kf[x.p].splice(c.kf[x.p].indexOf(x.k), 1); if (!c.kf[x.p].length) c.tf[x.p] = v; } SELKF = null; chg(true); refreshAll(); } }),
-    seg.length ? h('button', { class: 'btn sm', onclick: () => { const src = seg[0].k; for (const p of KF_PROPS) for (const k of c.kf[p]) { k.mode = src.mode; k.bez = src.bez.slice(); k.speed = src.speed; k.over = src.over; k.steps = src.steps; } chg(true); toast('Copied to every keyframe on this clip'); } }, 'Use for all keyframes') : null));
+    seg.length ? h('button', { class: 'btn sm', onclick: () => { const src = seg[0].k; for (const p of KF_PROPS) for (const k of c.kf[p]) { copySeg(k, src); } chg(true); toast('Copied to every keyframe on this clip'); } }, 'Use for all keyframes') : null));
 }
-function curveEditor(k, onChange) {
+function curveEditor(k, onChange, bf = 'bez') {
   const box = h('div', { class: 'curve' }), cv = h('canvas'); box.append(cv);
   const wrap = h('div', null, box);
   const pre = h('div', { class: 'presets' });
   const same = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-3);
-  const mkPre = () => { pre.innerHTML = ''; for (const e of EASE_PRESETS) pre.append(h('button', { class: same(e.b, k.bez) ? 'on' : '', onclick: () => { k.bez = e.b.slice(); onChange(k.bez, true); draw(); mkPre(); } }, e.n)); };
+  const mkPre = () => { pre.innerHTML = ''; for (const e of EASE_PRESETS) pre.append(h('button', { class: same(e.b, k[bf]) ? 'on' : '', onclick: () => { k[bf] = e.b.slice(); onChange(k[bf], true); draw(); mkPre(); } }, e.n)); };
   mkPre();
   const fields = h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '4px', marginTop: '6px' } });
-  const nfs = [0, 1, 2, 3].map(i => numField({ value: k.bez[i], dec: 3, min: i % 2 ? -2 : 0, max: i % 2 ? 3 : 1, step: .01, onInput: (v, f) => { k.bez[i] = v; onChange(k.bez, f); draw(); if (f) mkPre(); } }));
+  const nfs = [0, 1, 2, 3].map(i => numField({ value: k[bf][i], dec: 3, min: i % 2 ? -2 : 0, max: i % 2 ? 3 : 1, step: .01, onInput: (v, f) => { k[bf][i] = v; onChange(k[bf], f); draw(); if (f) mkPre(); } }));
   fields.append(...nfs);
   wrap.append(fields, pre);
   const Y0 = -0.6, Y1 = 1.6, M = 14;
@@ -344,21 +345,21 @@ function curveEditor(k, onChange) {
     for (const yv of [0, .25, .5, .75, 1]) { const [, gy] = toPx(0, yv); x.beginPath(); x.moveTo(0, gy); x.lineTo(W, gy); x.stroke(); }
     x.strokeStyle = '#4a4d55'; const [ax, ay] = toPx(0, 0), [bx, by] = toPx(1, 1);
     x.setLineDash([4, 4]); x.beginPath(); x.moveTo(ax, ay); x.lineTo(bx, by); x.stroke(); x.setLineDash([]);
-    const [p1x, p1y] = toPx(k.bez[0], k.bez[1]), [p2x, p2y] = toPx(k.bez[2], k.bez[3]);
+    const [p1x, p1y] = toPx(k[bf][0], k[bf][1]), [p2x, p2y] = toPx(k[bf][2], k[bf][3]);
     x.strokeStyle = '#8d919a'; x.beginPath(); x.moveTo(ax, ay); x.lineTo(p1x, p1y); x.moveTo(bx, by); x.lineTo(p2x, p2y); x.stroke();
     x.strokeStyle = '#3fd6c0'; x.lineWidth = 2.2; x.beginPath(); x.moveTo(ax, ay); x.bezierCurveTo(p1x, p1y, p2x, p2y, bx, by); x.stroke();
     for (const [px, py] of [[p1x, p1y], [p2x, p2y]]) { x.fillStyle = '#e4e5e8'; x.fillRect(px - 5, py - 5, 10, 10); x.strokeStyle = '#000'; x.lineWidth = 1; x.strokeRect(px - 5, py - 5, 10, 10); }
     x.fillStyle = '#62666e'; x.font = '10px system-ui'; x.fillText('time →', W - 46, H - 3); x.save(); x.translate(10, 40); x.rotate(-Math.PI / 2); x.fillText('value →', -30, 0); x.restore();
-    nfs.forEach((n, i) => n.set(k.bez[i]));
+    nfs.forEach((n, i) => n.set(k[bf][i]));
   }
   box.addEventListener('pointerdown', e => {
     e.preventDefault(); box.setPointerCapture(e.pointerId);
     const r = box.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-    const [p1x, p1y] = toPx(k.bez[0], k.bez[1]), [p2x, p2y] = toPx(k.bez[2], k.bez[3]);
+    const [p1x, p1y] = toPx(k[bf][0], k[bf][1]), [p2x, p2y] = toPx(k[bf][2], k[bf][3]);
     const which = Math.hypot(px - p1x, py - p1y) < Math.hypot(px - p2x, py - p2y) ? 0 : 2;
-    const mv = ev => { const [vx, vy] = fromPx(ev.clientX - r.left, ev.clientY - r.top); k.bez[which] = round(vx, 3); k.bez[which + 1] = round(vy, 3); onChange(k.bez, false); draw(); };
+    const mv = ev => { const [vx, vy] = fromPx(ev.clientX - r.left, ev.clientY - r.top); k[bf][which] = round(vx, 3); k[bf][which + 1] = round(vy, 3); onChange(k[bf], false); draw(); };
     mv(e);
-    const up = () => { box.removeEventListener('pointermove', mv); box.removeEventListener('pointerup', up); onChange(k.bez, true); mkPre(); };
+    const up = () => { box.removeEventListener('pointermove', mv); box.removeEventListener('pointerup', up); onChange(k[bf], true); mkPre(); };
     box.addEventListener('pointermove', mv); box.addEventListener('pointerup', up);
   });
   requestAnimationFrame(draw);
