@@ -395,8 +395,7 @@ function speedEditor(pts, smooth, onChange) {
     x.strokeStyle = '#3fd6c0'; x.lineWidth = 2.4; x.stroke(path);
     pts.forEach((q, i) => { const [px, py] = toPx(q[0], q[1]); x.fillStyle = i === 1 ? '#3fd6c0' : '#e4e5e8'; x.fillRect(px - 7, py - 7, 14, 14); x.strokeStyle = '#000'; x.lineWidth = 1; x.strokeRect(px - 7, py - 7, 14, 14); x.fillStyle = '#e4e5e8'; x.fillText(round(q[1], 2) + 'x', clamp(px - 12, ML, W - 40), py < 24 ? py + 18 : py - 16); });
     x.fillStyle = '#62666e'; x.fillText('time →', W - M - 42, H - 7);
-    const end = spInt(pts, smooth, 1);
-    info.textContent = Math.abs(end - 1) < 0.02 ? 'Up = faster, down = slower. It reaches the next keyframe right on time.' : end > 1 ? `Up = faster, down = slower. It gets there early (${round(end * 100, 0)}% of the way), then “When it ends” decides what happens.` : `Up = faster, down = slower. It only gets ${round(end * 100, 0)}% of the way before the next keyframe, then jumps.`;
+    info.textContent = 'Up = faster, down = slower. It always lands exactly on the next keyframe.';
   }
   box.addEventListener('pointerdown', e => {
     e.preventDefault(); box.setPointerCapture(e.pointerId);

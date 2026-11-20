@@ -29,7 +29,7 @@ const easeOutElastic = p => p === 0 || p === 1 ? p : Math.pow(2, -10 * p) * Math
 const LIN_BEZ = [0.333, 0.333, 0.667, 0.667];
 function bezKey(mode) { return mode === 'hold' ? 'bezH' : mode === 'smooth' ? 'bez' : 'bezL'; }
 function spKey(mode) { return mode === 'hold' ? 'hold' : mode === 'smooth' ? 'smooth' : 'linear'; }
-const SP_DEFAULT = { linear: [[0, 1], [0.5, 1], [1, 1]], smooth: [[0, 0], [0.5, 2], [1, 0]], hold: [[0, 1], [0.5, 1], [1, 1]] };
+const SP_DEFAULT = { linear: [[0, 1], [0.5, 1], [1, 1]], smooth: [[0, 1], [0.5, 1], [1, 1]], hold: [[0, 1], [0.5, 1], [1, 1]] };
 // speed at time x (0..1) between the points: straight lines for Regular/Choppy, eased for Smooth
 function spVal(pts, smooth, x) {
   for (let i = 0; i < pts.length - 1; i++) { const [x0, a] = pts[i], [x1, b] = pts[i + 1]; if (x <= x1 || i === pts.length - 2) { const t = clamp((x - x0) / Math.max(1e-9, x1 - x0), 0, 1); return a + (b - a) * (smooth ? t * t * (3 - 2 * t) : t); } }
@@ -52,14 +52,15 @@ function segProgress(k, p) {
   const sp = k.speed == null ? 1 : k.speed;
   // speed graph (per mode): 1x everywhere = normal; higher = faster, lower = slower
   const pts = k.sp && k.sp[spKey(k.mode)];
-  const q = (pts ? spInt(pts, k.mode === 'smooth', p) : p) * sp;
+  // the graph only shapes the motion: it is scaled so it always lands exactly on the next keyframe
+  let base = p; if (pts) { const tot = spInt(pts, k.mode === 'smooth', 1); base = tot > 1e-6 ? spInt(pts, k.mode === 'smooth', p) / tot : p; }
+  const q = base * sp;
   let f;
   if (k.over === 'loop') { f = q - Math.floor(q); if (f === 0 && q > 0) f = 1; }
   else if (k.over === 'pingpong') { const m = q % 2; f = m <= 1 ? m : 2 - m; }
   else f = Math.min(q, 1);
   // every mode has its own adjustable curve; Choppy jumps in steps along its curve
   if (k.mode === 'hold') { const st = Math.max(1, k.steps || 1); return f >= 1 ? 1 : Math.floor(f * st) / st; }
-  if (k.mode === 'smooth' && !pts) return bezierY(k.bez || [0.42, 0, 0.58, 1], f);
   return f;
 }
 function evalProp(c, prop, lt) {
@@ -70,7 +71,17 @@ function evalProp(c, prop, lt) {
   let i = 0; while (i < ks.length - 2 && ks[i + 1].t <= lt) i++;
   const a = ks[i], b = ks[i + 1];
   const p = (lt - a.t) / Math.max(1e-9, b.t - a.t);
-  return a.v + (b.v - a.v) * segProgress(a, p);
+  const u = segProgress(a, p);
+  if (a.mode !== 'smooth') return a.v + (b.v - a.v) * u;
+  // Smooth: one flowing curve through all the keyframes. It eases out of the first keyframe and into the last,
+  // and keeps moving through the ones in between (no stop at each keyframe).
+  const tan = j => {
+    if (j <= 0 || j >= ks.length - 1 || ks[j - 1].mode !== 'smooth' || ks[j].mode !== 'smooth') return 0;
+    return (ks[j + 1].v - ks[j - 1].v) / Math.max(1e-9, ks[j + 1].t - ks[j - 1].t);
+  };
+  const d = b.t - a.t, m0 = tan(i) * d, m1 = tan(i + 1) * d, u2 = u * u, u3 = u2 * u;
+  if (u <= 0 || u >= 1) return a.v + (b.v - a.v) * u; // looping past the end keeps the simple path
+  return (2 * u3 - 3 * u2 + 1) * a.v + (u3 - 2 * u2 + u) * m0 + (-2 * u3 + 3 * u2) * b.v + (u3 - u2) * m1;
 }
 function propsAt(c, lt) { return { x: evalProp(c, 'x', lt), y: evalProp(c, 'y', lt), scale: evalProp(c, 'scale', lt), rot: evalProp(c, 'rot', lt), opacity: evalProp(c, 'opacity', lt) }; }
 function keyAt(c, prop, lt, tol) { const ks = c.kf[prop] || []; tol = tol == null ? 0.5 / P.fps : tol; return ks.findIndex(k => Math.abs(k.t - lt) <= tol); }
