@@ -13,6 +13,27 @@ function nrow(label, o) { return row(label, numField(o)); }
 function srow(label, opts, val, on) { return row(label, selectBox({ options: opts, value: val, onChange: on })); }
 function crow(label, obj, key, after) { return row(label, colorBtn({ value: obj[key], onInput: (v, f) => { obj[key] = v; after && after(); chg(f); } })); }
 function rrow(label, obj, key, o) { return rangeRow(label, { min: o.min, max: o.max, step: o.step || 1, value: obj[key], def: o.def, center: o.center, suf: o.suf, dec: o.dec, onInput: (v, f) => { obj[key] = v; o.after && o.after(v); chg(f); } }); }
+// slider + number + keyframe buttons for any setting (effect settings, adjustments, filter strength)
+function kvRow(c, path, label, o) {
+  const lt = () => clamp(T - c.start, 0, c.dur), get = () => evalProp(c, path, lt());
+  if (!c.kf[path]) c.kf[path] = [];
+  const r = rangeRow(label, { min: o.min, max: o.max, step: o.step || 1, value: get(), def: o.def, center: o.center, suf: o.suf, dec: o.dec, onInput: (v, f) => { setProp(c, path, v); chg(f); } });
+  INS.live.push(() => r.set(get()));
+  r.append(...kfButtons(c, path));
+  return r;
+}
+function pathUI(c, p) {
+  const [kind, a, b] = pathParts(p);
+  if (kind === 'fx') {
+    const e = fxByUid(c, a), d = e && EFFECTS[e.id]; if (!d) return { l: p, dec: 2 };
+    if (b === 'amt') return { l: d.n + ' amount', min: d.amin || 0, max: 200, dec: 1, suf: '%' };
+    if (b === 'speed') return { l: d.n + ' speed', min: 0, max: 50, dec: 2, suf: 'x' };
+    const q = fxParamDef(e.id, b); return q ? { l: d.n + ' ' + q[1].toLowerCase(), min: q[2], max: q[3], dec: q[6] == null ? 1 : q[6], suf: q[5] } : { l: p, dec: 2 };
+  }
+  if (kind === 'grade') { const g = GRADE_UI.find(x => x[0] === a); return { l: g ? g[1] : a, min: g && g[2] != null ? g[2] : -100, max: g && g[3] != null ? g[3] : 100, dec: 1 }; }
+  if (kind === 'filter') return { l: 'Filter intensity', min: 0, max: 100, dec: 1, suf: '%' };
+  return { l: p, dec: 2 };
+}
 function tabsFor(c) {
   if (!c) return [['project', 'Project']];
   switch (c.type) {
@@ -126,7 +147,7 @@ function speedRow(c) {
       if (!f) return;
       const old = c.speed || 1, srcLen = c.dur * old; c.speed = v;
       let nd = srcLen / v; const md = mediaDur(c); if (isFinite(md)) nd = Math.min(nd, (md - c.in) / v);
-      const r = nd / c.dur; for (const p of KF_PROPS) for (const k of c.kf[p]) k.t *= r;
+      const r = nd / c.dur; for (const p of kfProps(c)) for (const k of c.kf[p]) k.t *= r;
       c.dur = Math.max(1 / P.fps, nd);
       if (trackOf(c).main && TL.magnet) packMain();
       chg(true); refreshAll();
@@ -157,11 +178,11 @@ function insAnim(b, c) {
 /* ---------- adjust / filter / chroma ---------- */
 const GRADE_UI = [['brightness', 'Brightness'], ['contrast', 'Contrast'], ['saturation', 'Saturation'], ['exposure', 'Exposure'], ['temperature', 'Temperature'], ['tint', 'Tint'], ['hue', 'Hue', -180, 180], ['highlights', 'Highlights'], ['shadows', 'Shadows'], ['fade', 'Fade', 0, 100], ['vignette', 'Vignette'], ['grain', 'Grain', 0, 100], ['sharpen', 'Sharpen', 0, 100]];
 function gradeRows(c) {
-  return GRADE_UI.map(([k, l, mn, mx]) => rrow(l, c.grade, k, { min: mn == null ? -100 : mn, max: mx == null ? 100 : mx, def: 0, center: mn === 0 ? null : 0 }));
+  return GRADE_UI.map(([k, l, mn, mx]) => kvRow(c, 'grade:' + k, l, { min: mn == null ? -100 : mn, max: mx == null ? 100 : mx, def: 0, center: mn === 0 ? null : 0 }));
 }
 function filterRows(c) {
   return [srow('Filter', Object.keys(FILTERS).map(k => ({ v: k, l: FILTERS[k].n })), c.filter.id, v => { c.filter.id = v; chg(true); renderInspector(); }),
-  c.filter.id !== 'none' ? rrow('Intensity', c.filter, 'amount', { min: 0, max: 100, suf: '%' }) : null];
+  c.filter.id !== 'none' ? kvRow(c, 'filter:amount', 'Intensity', { min: 0, max: 100, suf: '%' }) : null];
 }
 function insAdjust(b, c) {
   b.append(grp('Filter', filterRows(c)));
@@ -180,19 +201,33 @@ function insMask(b, c) {
   b.append(row('Invert', checkBox('Show the outside instead', m.invert, v => { m.invert = v; chg(true); })));
 }
 function effectList(b, c) {
-  if (!c.effects.length) b.append(h('div', { class: 'hint' }, 'No effects yet.'));
+  if (!c.effects.length) b.append(h('div', { class: 'hint' }, 'No effects yet. Add one below. Every number can be keyframed with its diamond, and each effect can build up and fade away.'));
   c.effects.forEach((e, i) => {
-    const hd = h('h4', null, EFFECTS[e.id].n);
+    const u = fxUid(e), d = EFFECTS[e.id]; e.p = e.p || {};
+    const hd = h('h4', null, d.n);
     const off = checkBox('', !e.off, v => { e.off = !v; chg(true); });
-    const del = h('button', { class: 'tb', title: 'Remove', html: icon('trash'), onclick: () => { c.effects.splice(i, 1); chg(true); renderInspector(); } });
-    off.style.marginLeft = 'auto'; hd.append(off, del);
-    const g = h('div', { class: 'grp' }, hd, rrow('Amount', e, 'amt', { min: 0, max: 100, suf: '%' }), rrow('Speed', e, 'speed', { min: .1, max: 10, step: .1, dec: 1, suf: 'x' }));
+    const up = i > 0 ? h('button', { class: 'tb', title: 'Move up', html: icon('fwd'), onclick: () => { c.effects.splice(i - 1, 0, c.effects.splice(i, 1)[0]); chg(true); renderInspector(); } }) : null;
+    const del = h('button', { class: 'tb', title: 'Remove', html: icon('trash'), onclick: () => { c.effects.splice(i, 1); for (const p of kfProps(c)) if (p.startsWith('fx:' + u + ':')) delete c.kf[p]; chg(true); renderInspector(); } });
+    off.style.marginLeft = 'auto'; hd.append(off, up || '', del);
+    const g = h('div', { class: 'grp' }, hd);
+    g.append(kvRow(c, 'fx:' + u + ':amt', d.amin ? 'Amount (− pinches)' : 'Amount', { min: d.amin || 0, max: 200, suf: '%', center: d.amin ? 0 : null }));
+    g.append(kvRow(c, 'fx:' + u + ':speed', 'Speed', { min: 0, max: 50, step: .05, dec: 2, suf: 'x' }));
+    for (const q of d.ps || []) g.append(kvRow(c, 'fx:' + u + ':' + q[0], q[1], { min: q[2], max: q[3], step: q[6] ? Math.pow(10, -q[6]) : (q[3] - q[2] > 20 ? 1 : .1), dec: q[6] == null ? (q[3] - q[2] > 20 ? 0 : 1) : q[6], suf: q[5], def: q[4] }));
+    for (const q of d.ch || []) g.append(srow(q[1], q[2].map(([v, l]) => ({ v, l })), e.p[q[0]] == null ? q[3] : e.p[q[0]], v => { e.p[q[0]] = v; chg(true); }));
+    for (const q of d.col || []) { if (e.p[q[0]] == null) e.p[q[0]] = q[2]; g.append(crow(q[1], e.p, q[0])); }
+    // build-up: fade the effect in at the start of the clip and out at the end
+    const bu = h('div', { class: 'grp' }, h('h4', null, 'Build-up', h('small', null, ' fades the effect in and out')));
+    bu.append(rrow('Build in', e, 'rin', { min: 0, max: Math.max(0.1, round(c.dur, 2)), step: .05, dec: 2, suf: 's', def: 0 }));
+    bu.append(rrow('Fade out', e, 'rout', { min: 0, max: Math.max(0.1, round(c.dur, 2)), step: .05, dec: 2, suf: 's', def: 0 }));
+    bu.append(row('Curve', segBox({ options: [{ v: 'linear', l: 'Even' }, { v: 'smooth', l: 'Smooth' }, { v: 'in', l: 'Slow start' }, { v: 'out', l: 'Fast start' }], value: e.rcurve || 'smooth', onChange: v => { e.rcurve = v; chg(true); } })));
+    g.append(bu);
     b.append(g);
   });
-  b.append(h('div', { class: 'row', style: { marginTop: '10px' } }, h('label', null, 'Add effect'), h('div', { class: 'ctl' }, selectBox({ options: Object.keys(EFFECTS).map(k => ({ v: k, l: EFFECTS[k].n })), value: null, placeholder: 'Choose…', onChange: v => { c.effects.push({ id: v, amt: 60, speed: 1 }); chg(true); renderInspector(); } }))));
+  b.append(h('div', { class: 'row', style: { marginTop: '10px' } }, h('label', null, 'Add effect'), h('div', { class: 'ctl' }, selectBox({ options: Object.keys(EFFECTS).map(k => ({ v: k, l: EFFECTS[k].n })), value: null, placeholder: 'Choose…', onChange: v => { c.effects.push({ id: v, amt: 60, speed: 1, uid: uid() }); chg(true); renderInspector(); } }))));
 }
 function insEffects(b, c) { effectList(b, c); }
 function insLayer(b, c) {
+  const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks);
   b.append(propRow(c, 'opacity'));
   b.append(h('div', { class: 'hint' }, 'Opacity sets how strongly this layer changes the picture. It can be keyframed.'));
   if (c.type === 'effect') effectList(b, c);
@@ -264,7 +299,7 @@ function currentKeyTime(c) {
 }
 function keysAtTime(c, t) {
   const out = [];
-  for (const p of KPROP === 'all' ? KF_PROPS : [KPROP]) { const i = (c.kf[p] || []).findIndex(k => Math.abs(k.t - t) < 1e-4); if (i >= 0) out.push({ p, k: c.kf[p][i], i, last: i === c.kf[p].length - 1 }); }
+  for (const p of KPROP === 'all' ? kfProps(c) : [KPROP]) { const i = (c.kf[p] || []).findIndex(k => Math.abs(k.t - t) < 1e-4); if (i >= 0) out.push({ p, k: c.kf[p][i], i, last: i === c.kf[p].length - 1 }); }
   return out;
 }
 function insKeys(b, c) {
@@ -285,7 +320,7 @@ function insKeys(b, c) {
   // values
   const valBox = h('div');
   for (const { p, k } of ks) {
-    const u = PROP_UI[p], mul = u.mul || 1;
+    const u = PROP_UI[p] || pathUI(c, p), mul = u.mul || 1;
     valBox.append(row(u.l, numField({ value: k.v * mul, min: u.min, max: u.max, dec: u.dec, suf: u.suf, onInput: (v, f) => { k.v = p === 'rot' ? clamp(v / mul, -MAX_ROT, MAX_ROT) : v / mul; chg(f); if (f) refreshInspectorValues(); } })));
     if (p === 'rot') valBox.append(row('Turns', numField({ value: k.v / 360, dec: 4, min: -99999, max: 99999, suf: 'turns', onInput: (v, f) => { k.v = clamp(v * 360, -MAX_ROT, MAX_ROT); chg(f); if (f) renderInspector(); } })));
   }
@@ -319,7 +354,7 @@ function insKeys(b, c) {
   b.append(grp('Keyframe value', [valBox]));
   b.append(h('div', { style: { display: 'flex', gap: '6px', marginTop: '12px', flexWrap: 'wrap' } },
     h('button', { class: 'btn sm', html: icon('trash') + ' Delete keyframe', onclick: () => { for (const x of ks) { const v = x.k.v; c.kf[x.p].splice(c.kf[x.p].indexOf(x.k), 1); if (!c.kf[x.p].length) c.tf[x.p] = v; } SELKF = null; chg(true); refreshAll(); } }),
-    seg.length ? h('button', { class: 'btn sm', onclick: () => { const src = seg[0].k; for (const p of KF_PROPS) for (const k of c.kf[p]) { copySeg(k, src); } chg(true); toast('Copied to every keyframe on this clip'); } }, 'Use for all keyframes') : null));
+    seg.length ? h('button', { class: 'btn sm', onclick: () => { const src = seg[0].k; for (const p of kfProps(c)) for (const k of c.kf[p]) { copySeg(k, src); } chg(true); toast('Copied to every keyframe on this clip'); } }, 'Use for all keyframes') : null));
 }
 function curveEditor(k, onChange, bf = 'bez') {
   const box = h('div', { class: 'curve' }), cv = h('canvas'); box.append(cv);

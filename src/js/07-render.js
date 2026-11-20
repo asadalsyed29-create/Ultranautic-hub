@@ -46,8 +46,17 @@ function sourceFor(c, lt) {
   if (m.el) return { src: m.el, sw: m.w, sh: m.h };
   return null;
 }
-function fxAmount(c, id) { let a = 0; for (const e of c.effects || []) if (e.id === id && !e.off) a += (e.amt == null ? 50 : e.amt) / 100; return a; }
-function fxSpeed(c, id) { const e = (c.effects || []).find(e => e.id === id); return e && e.speed ? e.speed : 1; }
+// the 2D effects (shake, zoom pulse, flash, strobe, blur, light leak): summed strength + settings of the first one
+function fx2D(c, id, lt) {
+  let st = null, a = 0;
+  for (const e of c.effects || []) { if (e.id !== id || e.off) continue; const s = fxState(c, e, lt); a += s.amt; if (!st) st = s; }
+  if (!st || Math.abs(a) < 1e-4) return null;
+  st.amt = a; return st;
+}
+function shakeOffset(st, k) { const t = st.t, d = st.amt * 14 * st.p.dist / 100 * k; return { dx: (Math.sin(t * 71) + Math.sin(t * 37.3)) * d, dy: (Math.cos(t * 63) + Math.sin(t * 29.7)) * d, rot: (Math.sin(t * 53) + Math.sin(t * 23.1)) * st.p.twist / 100 * 4 * st.amt, sc: 1 + st.amt * 0.04 * st.p.dist / 100 + Math.sin(t * 41) * st.p.zoom / 100 * .05 * st.amt }; }
+function zoomPulse(st) { return 1 + Math.pow(Math.abs(Math.sin(st.t * Math.PI)), st.p.punch) * st.p.size / 100 * st.amt; }
+function flashLevel(st) { const n = 2 + (100 - st.p.len) / 100 * 30; return Math.pow(Math.max(0, Math.sin(st.t * Math.PI * 2)), n) * st.amt; }
+function strobeOn(st) { return (st.t * 12) % 2 < 2 * st.p.on / 100; }
 
 // draw one visual clip into ctx (ctx is in project units, k = output pixels per project unit)
 function drawClip(x, c, lt, k) {
@@ -59,14 +68,15 @@ function drawClip(x, c, lt, k) {
   x.globalCompositeOperation = c.blend || 'source-over';
   let tx = p.x + s.x, ty = p.y + s.y, sc = 1;
   // 2D effects on the clip
-  const sh = fxAmount(c, 'shake'); if (sh) { const t = lt * fxSpeed(c, 'shake'); tx += (Math.sin(t * 71) + Math.sin(t * 37.3)) * sh * 14; ty += (Math.cos(t * 63) + Math.sin(t * 29.7)) * sh * 14; }
-  const zm = fxAmount(c, 'zoom'); if (zm) { const t = lt * fxSpeed(c, 'zoom'); sc *= 1 + Math.pow(Math.abs(Math.sin(t * Math.PI)), 6) * 0.18 * zm; }
+  let fxRot = 0;
+  const sh = fx2D(c, 'shake', lt); if (sh) { const o = shakeOffset(sh, 1); tx += o.dx; ty += o.dy; fxRot = o.rot; sc *= o.sc; }
+  const zm = fx2D(c, 'zoom', lt); if (zm) sc *= zoomPulse(zm);
   const filt = [];
-  const bl = s.blur + fxAmount(c, 'blur') * 30; if (bl > 0.2) filt.push(`blur(${bl * k}px)`);
-  const fl = fxAmount(c, 'flash'); if (fl) { const t = lt * fxSpeed(c, 'flash'); filt.push(`brightness(${1 + Math.pow(Math.max(0, Math.sin(t * Math.PI * 2)), 8) * fl * 2.5})`); }
-  const sb = fxAmount(c, 'strobe'); if (sb) { const t = lt * fxSpeed(c, 'strobe'); if (Math.floor(t * 12) % 2) filt.push(`brightness(${1 + sb * 1.6})`); }
+  const blS = fx2D(c, 'blur', lt), bl = s.blur + (blS ? blS.amt * blS.p.rad : 0); if (bl > 0.2) filt.push(`blur(${bl * k}px)`);
+  const fl = fx2D(c, 'flash', lt); if (fl) filt.push(`brightness(${1 + flashLevel(fl) * 2.5})`);
+  const sb = fx2D(c, 'strobe', lt); if (sb && strobeOn(sb)) filt.push(`brightness(${1 + sb.amt * 1.6})`);
   if (filt.length) x.filter = filt.join(' ');
-  x.translate(tx, ty); x.rotate((p.rot + s.rot) * Math.PI / 180);
+  x.translate(tx, ty); x.rotate((p.rot + s.rot + fxRot) * Math.PI / 180);
   x.scale(p.scale * s.sx * sc * (c.flipH ? -1 : 1), p.scale * s.sy * sc * (c.flipV ? -1 : 1));
   if (c.type === 'video' || c.type === 'image') drawMediaContent(x, c, lt, k * p.scale * Math.max(s.sx, s.sy) * sc);
   else if (c.type === 'text') drawText(x, c.text, lt, c.dur);
@@ -131,22 +141,29 @@ function applyLayerFx(x, c, lt, W, H, k) {
     const out = glProcess(x.canvas, W, H, W, H, q, lt);
     if (out) { x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = alpha; if (alpha >= 1) x.globalCompositeOperation = 'copy'; x.drawImage(out, 0, 0, W, H); x.restore(); }
   }
-  const sh = fxAmount(c, 'shake'), zm = fxAmount(c, 'zoom'), bl = fxAmount(c, 'blur');
+  const sh = fx2D(c, 'shake', lt), zm = fx2D(c, 'zoom', lt), blS = fx2D(c, 'blur', lt), bl = blS ? blS.amt * blS.p.rad / 30 : 0;
   if (sh || zm || bl) {
     const S = scratch('fxc', W, H), s = S.getContext('2d'); s.globalCompositeOperation = 'copy'; s.drawImage(x.canvas, 0, 0);
     x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
-    let dx = 0, dy = 0, sc = 1; const t = lt;
-    if (sh) { const tt = t * fxSpeed(c, 'shake'); dx = (Math.sin(tt * 71) + Math.sin(tt * 37.3)) * sh * 14 * k; dy = (Math.cos(tt * 63) + Math.sin(tt * 29.7)) * sh * 14 * k; sc *= 1 + sh * 0.04; }
-    if (zm) sc *= 1 + Math.pow(Math.abs(Math.sin(t * fxSpeed(c, 'zoom') * Math.PI)), 6) * 0.18 * zm;
+    let dx = 0, dy = 0, sc = 1, rr = 0;
+    if (sh) { const o = shakeOffset(sh, k); dx = o.dx; dy = o.dy; sc *= o.sc; rr = o.rot; }
+    if (zm) sc *= zoomPulse(zm);
     x.globalCompositeOperation = 'copy'; if (bl) x.filter = `blur(${bl * 30 * k}px)`;
-    x.translate(W / 2 + dx, H / 2 + dy); x.scale(sc, sc); x.drawImage(S, -W / 2, -H / 2);
+    x.translate(W / 2 + dx, H / 2 + dy); x.rotate(rr * Math.PI / 180); x.scale(sc, sc); x.drawImage(S, -W / 2, -H / 2);
     x.restore();
   }
-  const fl = fxAmount(c, 'flash'), sb = fxAmount(c, 'strobe'), lk = fxAmount(c, 'leak');
+  const fl = fx2D(c, 'flash', lt), sb = fx2D(c, 'strobe', lt), lk = fx2D(c, 'leak', lt);
   x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
-  if (fl) { const a = Math.pow(Math.max(0, Math.sin(lt * fxSpeed(c, 'flash') * Math.PI * 2)), 8) * fl; x.globalCompositeOperation = 'lighter'; x.fillStyle = `rgba(255,252,240,${a})`; x.fillRect(0, 0, W, H); }
-  if (sb && Math.floor(lt * fxSpeed(c, 'strobe') * 12) % 2) { x.globalCompositeOperation = 'lighter'; x.fillStyle = `rgba(255,255,255,${sb * .6})`; x.fillRect(0, 0, W, H); }
-  if (lk) { const t = lt * fxSpeed(c, 'leak') * .25; const cx = W * (.5 + Math.sin(t * 2.1) * .45), cy = H * (.4 + Math.cos(t * 1.3) * .3); const g = x.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * .7); g.addColorStop(0, `rgba(255,200,110,${.75 * lk})`); g.addColorStop(.35, `rgba(255,96,50,${.4 * lk})`); g.addColorStop(1, 'rgba(255,40,0,0)'); x.globalCompositeOperation = 'screen'; x.fillStyle = g; x.fillRect(0, 0, W, H); }
+  const rgb = col => { const [r, g, b] = hexToRgba(col); return `${r},${g},${b}`; };
+  if (fl) { x.globalCompositeOperation = 'lighter'; x.fillStyle = `rgba(${rgb(fl.p.col)},${clamp(flashLevel(fl), 0, 1)})`; x.fillRect(0, 0, W, H); }
+  if (sb && strobeOn(sb)) { x.globalCompositeOperation = 'lighter'; x.fillStyle = `rgba(${rgb(sb.p.col)},${clamp(sb.amt * .6, 0, 1)})`; x.fillRect(0, 0, W, H); }
+  if (lk) {
+    const t = lk.t * .25 * lk.p.drift / 100, a = clamp(lk.amt, 0, 1), [r, g, b] = hexToRgba(lk.p.col);
+    const cx = W * (.5 + Math.sin(t * 2.1) * .45), cy = H * (.4 + Math.cos(t * 1.3) * .3), R0 = Math.max(W, H) * lk.p.size / 100;
+    const gr = x.createRadialGradient(cx, cy, 0, cx, cy, R0);
+    gr.addColorStop(0, `rgba(${Math.min(255, r + 40)},${Math.min(255, g + 60)},${Math.min(255, b + 60)},${.75 * a})`); gr.addColorStop(.35, `rgba(${r},${Math.round(g * .6)},${Math.round(b * .6)},${.4 * a})`); gr.addColorStop(1, `rgba(${r},${Math.round(g * .25)},0,0)`);
+    x.globalCompositeOperation = 'screen'; x.fillStyle = gr; x.fillRect(0, 0, W, H);
+  }
   x.restore();
 }
 function layerCanvas(key, W, H) { const c = scratch(key, W, H); const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.filter = 'none'; x.clearRect(0, 0, W, H); return x; }

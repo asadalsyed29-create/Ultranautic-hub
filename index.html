@@ -1054,7 +1054,7 @@ function segProgress(k, p) {
 }
 function evalProp(c, prop, lt) {
   const ks = c.kf && c.kf[prop];
-  if (!ks || !ks.length) return c.tf[prop];
+  if (!ks || !ks.length) { const b = c.tf && c.tf[prop]; return b !== undefined ? b : pathBase(c, prop); }
   if (ks.length === 1 || lt <= ks[0].t) return ks[0].v;
   const L = ks[ks.length - 1]; if (lt >= L.t) return L.v;
   let i = 0; while (i < ks.length - 2 && ks[i + 1].t <= lt) i++;
@@ -1072,6 +1072,24 @@ function evalProp(c, prop, lt) {
   if (u <= 0 || u >= 1) return a.v + (b.v - a.v) * u; // looping past the end keeps the simple path
   return (2 * u3 - 3 * u2 + 1) * a.v + (u3 - 2 * u2 + u) * m0 + (-2 * u3 + 3 * u2) * b.v + (u3 - u2) * m1;
 }
+// settings other than position/scale/rotation/opacity are addressed by a path
+function pathParts(p) { return p.split(':'); }
+function fxByUid(c, uid) { return (c.effects || []).find(e => e.uid === uid); }
+function pathBase(c, p) {
+  const [kind, a, b] = pathParts(p);
+  if (kind === 'fx') { const e = fxByUid(c, a); if (!e) return 0; if (b === 'amt') return e.amt == null ? 50 : e.amt; if (b === 'speed') return e.speed == null ? 1 : e.speed; const d = fxParamDef(e.id, b); return e.p && e.p[b] != null ? e.p[b] : d ? d[4] : 0; }
+  if (kind === 'grade') return c.grade && c.grade[a] != null ? c.grade[a] : 0;
+  if (kind === 'filter') return c.filter && c.filter.amount != null ? c.filter.amount : 100;
+  return 0;
+}
+function setPathBase(c, p, v) {
+  const [kind, a, b] = pathParts(p);
+  if (kind === 'fx') { const e = fxByUid(c, a); if (!e) return; if (b === 'amt') e.amt = v; else if (b === 'speed') e.speed = v; else { e.p = e.p || {}; e.p[b] = v; } }
+  else if (kind === 'grade') { c.grade = c.grade || {}; c.grade[a] = v; }
+  else if (kind === 'filter') c.filter.amount = v;
+}
+function isPath(p) { return p.includes(':'); }
+function kfProps(c) { return Object.keys(c.kf || {}); }
 function propsAt(c, lt) { return { x: evalProp(c, 'x', lt), y: evalProp(c, 'y', lt), scale: evalProp(c, 'scale', lt), rot: evalProp(c, 'rot', lt), opacity: evalProp(c, 'opacity', lt) }; }
 function keyAt(c, prop, lt, tol) { const ks = c.kf[prop] || []; tol = tol == null ? 0.5 / P.fps : tol; return ks.findIndex(k => Math.abs(k.t - lt) <= tol); }
 // set a property: if it is keyframed, add/update the key at the playhead, else set the static value
@@ -1083,17 +1101,18 @@ function setProp(c, prop, v) {
     const i = keyAt(c, prop, lt);
     if (i >= 0) ks[i].v = v;
     else { const nk = newKey(lt, v); const prev = [...ks].reverse().find(k => k.t < lt); if (prev) { copySeg(nk, prev); } ks.push(nk); ks.sort((a, b) => a.t - b.t); }
-  } else c.tf[prop] = v;
+  } else if (isPath(prop)) setPathBase(c, prop, v); else c.tf[prop] = v;
 }
 function toggleKey(c, prop) {
   const lt = clamp(T - c.start, 0, c.dur);
+  if (!c.kf[prop]) c.kf[prop] = [];
   const ks = c.kf[prop];
   const i = keyAt(c, prop, lt);
-  if (i >= 0) { const v = ks[i].v; ks.splice(i, 1); if (!ks.length) c.tf[prop] = v; return false; }
+  if (i >= 0) { const v = ks[i].v; ks.splice(i, 1); if (!ks.length) { if (isPath(prop)) setPathBase(c, prop, v); else c.tf[prop] = v; } return false; }
   const nk = newKey(lt, evalProp(c, prop, lt));
   ks.push(nk); ks.sort((a, b) => a.t - b.t); return true;
 }
-function clipKeyTimes(c) { const s = new Set(); for (const p of KF_PROPS) for (const k of c.kf[p] || []) s.add(round(k.t, 4)); return [...s].sort((a, b) => a - b); }
+function clipKeyTimes(c) { const s = new Set(); for (const p of kfProps(c)) for (const k of c.kf[p] || []) s.add(round(k.t, 4)); return [...s].sort((a, b) => a - b); }
 
 /* ================= clip in / out / loop animations ================= */
 // each returns a state delta for progress p (in: 0 -> 1 arriving, out: 0 -> 1 leaving)
@@ -1283,12 +1302,55 @@ const FILTERS = {
   golden: { n: 'Golden hour', g: { temperature: .45, highlights: .2 }, sh: [.35, .2, .1], hi: [1, .8, .45], split: .45 },
   moody: { n: 'Moody', g: { saturation: -.3, shadows: -.3, contrast: .2, vignette: .35, temperature: -.15 } }
 };
+// every effect: Amount (blend / strength), Speed, its own settings (ps: [key, label, min, max, default, suffix, decimals]),
+// choices (ch: [key, label, [[value, label]...], default]) and colors (col: [key, label, default]). Numbers can all be keyframed.
 const EFFECTS = {
-  rgb: { n: 'RGB split', gl: 1 }, glitch: { n: 'Glitch', gl: 1 }, vhs: { n: 'VHS', gl: 1 }, pixel: { n: 'Pixelate', gl: 1 },
-  wave: { n: 'Wave', gl: 1 }, mirror: { n: 'Mirror', gl: 1 }, film: { n: 'Old film', gl: 1 }, bulge: { n: 'Fisheye', gl: 1 },
-  poster: { n: 'Posterize', gl: 1 }, invert: { n: 'Invert', gl: 1 }, edge: { n: 'Sketch', gl: 1 }, dots: { n: 'Halftone', gl: 1 },
-  shake: { n: 'Camera shake' }, zoom: { n: 'Zoom pulse' }, flash: { n: 'Flash' }, strobe: { n: 'Strobe' }, blur: { n: 'Blur' }, leak: { n: 'Light leak' }
+  rgb: { n: 'RGB split', gl: 1, ps: [['ang', 'Direction', 0, 360, 0, '°'], ['spread', 'Spread', 0, 500, 100, '%']] },
+  glitch: { n: 'Glitch', gl: 1, ps: [['bands', 'Slices', 2, 120, 24], ['shift', 'Shift size', 0, 400, 100, '%'], ['rate', 'Jumps per second', 1, 60, 12]] },
+  vhs: { n: 'VHS', gl: 1, ps: [['noise', 'Noise', 0, 300, 100, '%'], ['lines', 'Scan lines', 0, 300, 100, '%'], ['bleed', 'Color bleed', 0, 400, 100, '%'], ['wobble', 'Wobble', 0, 400, 100, '%']] },
+  pixel: { n: 'Pixelate', gl: 1, ps: [['size', 'Block size', 2, 300, 32, 'px']] },
+  wave: { n: 'Wave', gl: 1, ps: [['freq', 'Waves', 1, 80, 18], ['height', 'Wave height', 0, 500, 100, '%']], ch: [['dir', 'Direction', [[0, 'Both'], [1, 'Sideways'], [2, 'Up and down']], 0]] },
+  mirror: { n: 'Mirror', gl: 1, ch: [['mode', 'Mirror', [[0, 'Left to right'], [1, 'Right to left'], [2, 'Top to bottom'], [3, 'Bottom to top'], [4, 'Four ways']], 0]] },
+  film: { n: 'Old film', gl: 1, ps: [['tone', 'Sepia tone', 0, 100, 85, '%'], ['scratch', 'Scratches', 0, 400, 100, '%'], ['dust', 'Dust', 0, 400, 100, '%'], ['flick', 'Flicker', 0, 400, 100, '%']] },
+  bulge: { n: 'Fisheye', gl: 1, amin: -100, ps: [['rad', 'Size', 10, 200, 71, '%'], ['cx', 'Center X', 0, 100, 50, '%'], ['cy', 'Center Y', 0, 100, 50, '%']] },
+  poster: { n: 'Posterize', gl: 1, ps: [['levels', 'Color steps', 2, 32, 6]] },
+  invert: { n: 'Invert', gl: 1 },
+  edge: { n: 'Sketch', gl: 1, ps: [['thick', 'Line width', 0.5, 8, 1.5, 'px', 1], ['dark', 'Line darkness', 10, 400, 100, '%']] },
+  dots: { n: 'Halftone', gl: 1, ps: [['size', 'Dot size', 3, 60, 9, 'px'], ['ang', 'Angle', 0, 90, 0, '°']] },
+  shake: { n: 'Camera shake', ps: [['dist', 'Distance', 0, 500, 100, '%'], ['twist', 'Twist', 0, 100, 0, '%'], ['zoom', 'Zoom wobble', 0, 100, 0, '%']] },
+  zoom: { n: 'Zoom pulse', ps: [['size', 'Zoom size', 0, 200, 18, '%'], ['punch', 'Punch', 1, 12, 6]] },
+  flash: { n: 'Flash', ps: [['len', 'Flash length', 1, 100, 30, '%']], col: [['col', 'Color', '#fffcf0ff']] },
+  strobe: { n: 'Strobe', ps: [['on', 'On time', 5, 95, 50, '%']], col: [['col', 'Color', '#ffffffff']] },
+  blur: { n: 'Blur', ps: [['rad', 'Blur size', 0, 200, 30, 'px']] },
+  leak: { n: 'Light leak', ps: [['size', 'Size', 20, 200, 70, '%'], ['drift', 'Drift', 0, 200, 100, '%']], col: [['col', 'Color', '#ffa050ff']] }
 };
+function fxParamDef(id, k) { const d = EFFECTS[id]; return d && d.ps && d.ps.find(p => p[0] === k); }
+function fxUid(e) { if (!e.uid) e.uid = uid(); return e.uid; }
+// build-up: how much of the effect is on at clip time lt (fade in / fade out with a curve)
+const RAMP_CURVES = { linear: t => t, smooth: t => t * t * (3 - 2 * t), in: t => t * t, out: t => 1 - (1 - t) * (1 - t) };
+function fxRamp(e, lt, dur) {
+  const f = RAMP_CURVES[e.rcurve || 'smooth'] || RAMP_CURVES.smooth; let a = 1;
+  if (e.rin > 0 && lt < e.rin) a *= f(clamp(lt / e.rin, 0, 1));
+  if (e.rout > 0 && dur - lt < e.rout) a *= f(clamp((dur - lt) / e.rout, 0, 1));
+  return a;
+}
+// effect clock: speed can be keyframed, so add it up over time
+function fxTime(c, e, lt) {
+  const p = 'fx:' + fxUid(e) + ':speed', ks = c.kf && c.kf[p];
+  if (!ks || !ks.length) return lt * (e.speed == null ? 1 : e.speed);
+  const n = Math.min(3000, Math.max(1, Math.ceil(lt * 30))), dt = lt / n; let t = 0;
+  for (let i = 0; i < n; i++) t += evalProp(c, p, (i + .5) * dt) * dt;
+  return t;
+}
+// strength and settings of one effect at clip time lt
+function fxState(c, e, lt) {
+  const u = fxUid(e), d = EFFECTS[e.id] || {};
+  const st = { amt: evalProp(c, 'fx:' + u + ':amt', lt) / 100 * fxRamp(e, lt, c.dur), t: fxTime(c, e, lt), p: {} };
+  for (const q of d.ps || []) st.p[q[0]] = evalProp(c, 'fx:' + u + ':' + q[0], lt);
+  for (const q of d.ch || []) st.p[q[0]] = e.p && e.p[q[0]] != null ? e.p[q[0]] : q[3];
+  for (const q of d.col || []) st.p[q[0]] = e.p && e.p[q[0]] != null ? e.p[q[0]] : q[2];
+  return st;
+}
 const GL = { ok: null };
 function glInit() {
   if (GL.ok !== null) return GL.ok;
@@ -1300,21 +1362,24 @@ function glInit() {
 uniform float bri,con,sat,ex,tem,tin,hue,hil,shd,fad,vig,grn,shp;uniform vec3 shC,hiC;uniform float spl;
 uniform float key;uniform vec3 keyC;uniform float kSim,kSm,kSp;
 uniform float eRgb,eGl,eVhs,ePix,eWav,eMir,eFilm,eBul,ePos,eInv,eEdge,eDot;
+uniform float eRgbA,eGlB,eGlS,tGl,eVhsN,eVhsL,eVhsB,eVhsW,tVhs,ePixA,eWavF,eWavD,tWav,eMirM,eFilmT,eFilmS,eFilmD,eFilmF,tFilm,eBulR,eBulX,eBulY,ePosL,eEdgeT,eEdgeD,eDotS,eDotA;
 float hs(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float lu(vec3 c){return dot(c,vec3(.2126,.7152,.0722));}
 vec2 cbcr(vec3 c){return vec2(-.1687*c.r-.3313*c.g+.5*c.b,.5*c.r-.4187*c.g-.0813*c.b);}
 vec4 S(vec2 u){return texture2D(T,clamp(u,0.,1.));}
 void main(){vec2 u=v;
- if(eMir>0.){u.x=u.x>.5?1.-u.x:u.x;}
- if(eBul!=0.){vec2 d=u-.5;float r=length(d);u=.5+d*(1.-eBul*.6*(1.-r*r*2.));}
- if(eWav>0.){u.x+=sin(u.y*18.+tm*4.)*.012*eWav;u.y+=cos(u.x*14.+tm*3.)*.008*eWav;}
- if(eGl>0.){float row=floor(u.y*24.);float t=floor(tm*12.);float h=hs(vec2(row,t));if(h>1.-eGl*.45)u.x+=(hs(vec2(t,row))-.5)*.18*eGl;}
- if(eVhs>0.){u.x+=(hs(vec2(floor(u.y*200.),floor(tm*30.)))-.5)*.003*eVhs;float band=step(.985,fract(u.y*1.3-tm*.3));u.x+=band*.02*eVhs;}
+ if(eMir>0.){if(eMirM<.5)u.x=u.x>.5?1.-u.x:u.x;else if(eMirM<1.5)u.x=u.x<.5?1.-u.x:u.x;else if(eMirM<2.5)u.y=u.y<.5?1.-u.y:u.y;else if(eMirM<3.5)u.y=u.y>.5?1.-u.y:u.y;else{u.x=u.x>.5?1.-u.x:u.x;u.y=u.y<.5?1.-u.y:u.y;}}
+ if(eBul!=0.){vec2 cc=vec2(eBulX,eBulY);vec2 d=u-cc;float r=length(d)/max(eBulR,.01);if(r<1.)u=cc+d*(1.-eBul*.6*(1.-r*r));}
+ if(eWav>0.){if(eWavD<1.5)u.x+=sin(u.y*eWavF+tWav*4.)*.012*eWav;if(eWavD<.5||eWavD>1.5)u.y+=cos(u.x*eWavF*.78+tWav*3.)*.008*eWav;}
+ if(eGl>0.){float row=floor(u.y*eGlB);float t=floor(tGl);float h=hs(vec2(row,t));if(h>1.-min(1.,eGl)*.45)u.x+=(hs(vec2(t,row))-.5)*.18*eGl*eGlS;}
+ if(eVhs>0.){u.x+=(hs(vec2(floor(u.y*200.),floor(tVhs*30.)))-.5)*.003*eVhs*eVhsN;float band=step(.985,fract(u.y*1.3-tVhs*.3));u.x+=band*.02*eVhs*eVhsW;}
+ vec2 uP=u;
  if(ePix>1.){vec2 px=R/ePix;u=(floor(u*px)+.5)/px;}
  vec4 c=S(u);
- if(eRgb>0.||eVhs>0.){vec2 o=vec2(.004*eRgb+.003*eVhs,0.);vec4 a=S(u+o),b=S(u-o);c=vec4(a.r,c.g,b.b,max(c.a,max(a.a,b.a)));}
+ if(ePix>1.&&ePixA<1.){c=mix(S(uP),c,ePixA);}
+ if(eRgb>0.||eVhs>0.){vec2 o=vec2(cos(eRgbA),sin(eRgbA))*.004*eRgb+vec2(.003*eVhs*eVhsB,0.);vec4 a=S(u+o),b=S(u-o);c=vec4(a.r,c.g,b.b,max(c.a,max(a.a,b.a)));}
  if(shp>0.){vec2 e=1./R;vec4 bl=(S(u+vec2(e.x,0))+S(u-vec2(e.x,0))+S(u+vec2(0,e.y))+S(u-vec2(0,e.y)))*.25;c.rgb+=(c.rgb-bl.rgb)*shp*2.;}
- if(eEdge>0.){vec2 e=1.5/R;float gx=lu(S(u+vec2(e.x,0)).rgb)-lu(S(u-vec2(e.x,0)).rgb);float gy=lu(S(u+vec2(0,e.y)).rgb)-lu(S(u-vec2(0,e.y)).rgb);float ed=1.-clamp(length(vec2(gx,gy))*4.,0.,1.);c.rgb=mix(c.rgb,vec3(ed)*vec3(.98,.96,.92),eEdge);}
+ if(eEdge>0.){vec2 e=eEdgeT/R;float gx=lu(S(u+vec2(e.x,0)).rgb)-lu(S(u-vec2(e.x,0)).rgb);float gy=lu(S(u+vec2(0,e.y)).rgb)-lu(S(u-vec2(0,e.y)).rgb);float ed=1.-clamp(length(vec2(gx,gy))*4.*eEdgeD,0.,1.);c.rgb=mix(c.rgb,vec3(ed)*vec3(.98,.96,.92),eEdge);}
  float a=c.a;vec3 k=c.rgb;
  if(key>0.){float d=distance(cbcr(k),cbcr(keyC));float m=smoothstep(kSim,kSim+max(kSm,.001),d);a*=m;float sp=clamp(1.-(d-kSim)/max(kSm*2.+.05,.001),0.,1.)*kSp;k=mix(k,vec3(lu(k)),sp);}
  k*=exp2(ex);
@@ -1327,10 +1392,10 @@ void main(){vec2 u=v;
  l=lu(k);k=mix(vec3(l),k,1.+sat);
  if(spl>0.){l=clamp(lu(k),0.,1.);k=mix(k,k*(shC*2.),spl*(1.-l)*.55);k=mix(k,1.-(1.-k)*(1.-(hiC-.5)*.9),spl*l*.6);}
  if(fad>0.){k=fad*.16+k*(1.-fad*.28);}
- if(ePos>0.){float n=mix(24.,3.,ePos);k=floor(clamp(k,0.,1.)*n+.5)/n;}
- if(eDot>0.){vec2 g=v*R/mix(4.,14.,eDot);vec2 f=fract(g)-.5;float r=sqrt(1.-clamp(lu(k),0.,1.))*.62;float dt=1.-smoothstep(r-.08,r+.08,length(f));k=mix(k,vec3(1.-dt)*mix(vec3(1.),k*1.2,.5),eDot);}
- if(eFilm>0.){float s=lu(k);k=mix(k,vec3(s*1.08,s*.94,s*.76),eFilm*.85);k*=1.-eFilm*.12*hs(vec2(floor(tm*18.),1.));float ln=step(.9985,hs(vec2(floor(v.x*400.),floor(tm*8.))));k=mix(k,vec3(.95),ln*eFilm*.6);float dust=step(.9993,hs(floor(v*R*.5)+floor(tm*14.)));k=mix(k,vec3(.08),dust*eFilm);}
- if(eVhs>0.){k*=1.-.12*eVhs*step(.5,fract(v.y*R.y*.5));k+=(hs(v*R+tm)-.5)*.08*eVhs;}
+ if(ePos>0.){float n=max(2.,ePosL)-1.;k=mix(k,floor(clamp(k,0.,1.)*n+.5)/n,min(1.,ePos));}
+ if(eDot>0.){float ca=cos(eDotA),sa=sin(eDotA);vec2 g=mat2(ca,-sa,sa,ca)*(v*R)/max(2.,eDotS);vec2 f=fract(g)-.5;float r=sqrt(1.-clamp(lu(k),0.,1.))*.62;float dt=1.-smoothstep(r-.08,r+.08,length(f));k=mix(k,vec3(1.-dt)*mix(vec3(1.),k*1.2,.5),eDot);}
+ if(eFilm>0.){float s=lu(k);k=mix(k,vec3(s*1.08,s*.94,s*.76),min(1.,eFilm)*eFilmT);k*=1.-eFilm*.12*eFilmF*hs(vec2(floor(tFilm*18.),1.));float ln=step(1.-.0015*eFilmS,hs(vec2(floor(v.x*400.),floor(tFilm*8.))));k=mix(k,vec3(.95),ln*min(1.,eFilm*.6));float dust=step(1.-.0007*eFilmD,hs(floor(v*R*.5)+floor(tFilm*14.)));k=mix(k,vec3(.08),dust*min(1.,eFilm));}
+ if(eVhs>0.){k*=1.-.12*eVhs*eVhsL*step(.5,fract(v.y*R.y*.5));k+=(hs(v*R+tVhs)-.5)*.08*eVhs*eVhsN;}
  if(eInv>0.){k=mix(k,1.-k,eInv);}
  if(vig!=0.){float d=length((v-.5)*vec2(1.,R.y/R.x)*1.4);k*=1.-vig*smoothstep(.35,1.05,d);}
  if(grn>0.){k+=(hs(v*R+fract(tm*7.3)*91.)-.5)*grn*.28;}
@@ -1356,14 +1421,20 @@ void main(){vec2 u=v;
 // collect shader parameters for a clip at time t (seconds since clip start)
 function gradeParams(c, lt) {
   const g = Object.assign(defGrade(), c.grade || {});
+  if (c.kf) for (const n in g) { const ks = c.kf['grade:' + n]; if (ks && ks.length) g[n] = evalProp(c, 'grade:' + n, lt); }
   const out = { g, sh: [.5, .5, .5], hi: [.5, .5, .5], split: 0, fx: {}, key: null };
   const f = c.filter && FILTERS[c.filter.id];
   if (f && c.filter.id !== 'none') {
-    const k = (c.filter.amount == null ? 100 : c.filter.amount) / 100;
+    const k = evalProp(c, 'filter:amount', lt) / 100;
     for (const n in f.g) if (n in g) g[n] += f.g[n] * k * 100;
     if (f.split) { out.sh = f.sh; out.hi = f.hi; out.split = f.split * k; }
   }
-  for (const e of c.effects || []) { if (e.off) continue; const d = EFFECTS[e.id]; if (d && d.gl) out.fx[e.id] = (out.fx[e.id] || 0) + (e.amt == null ? 50 : e.amt) / 100; }
+  out.fp = {};
+  for (const e of c.effects || []) {
+    if (e.off) continue; const d = EFFECTS[e.id]; if (!d || !d.gl) continue;
+    const st = fxState(c, e, lt); if (Math.abs(st.amt) < 1e-4) continue;
+    out.fx[e.id] = (out.fx[e.id] || 0) + st.amt; if (!out.fp[e.id]) out.fp[e.id] = st;
+  }
   if (c.chroma && c.chroma.on) out.key = c.chroma;
   return out;
 }
@@ -1388,9 +1459,18 @@ function glProcess(src, sw, sh_, ow, oh, q, time) {
   if (q.key) { const [r, gg, b] = hexToRgba(q.key.color); gl.uniform1f(U.key, 1); gl.uniform3f(U.keyC, r / 255, gg / 255, b / 255); gl.uniform1f(U.kSim, q.key.sim / 100 * 0.45); gl.uniform1f(U.kSm, q.key.smooth / 100 * 0.3); gl.uniform1f(U.kSp, q.key.spill / 100); }
   else gl.uniform1f(U.key, 0);
   const fx = q.fx;
-  gl.uniform1f(U.eRgb, (fx.rgb || 0) * 3); gl.uniform1f(U.eGl, fx.glitch || 0); gl.uniform1f(U.eVhs, fx.vhs || 0);
-  gl.uniform1f(U.ePix, fx.pixel ? 2 + fx.pixel * 60 * Math.max(ow, oh) / 1920 : 0); gl.uniform1f(U.eWav, (fx.wave || 0) * 1.5); gl.uniform1f(U.eMir, fx.mirror ? 1 : 0);
-  gl.uniform1f(U.eFilm, Math.min(1, fx.film || 0)); gl.uniform1f(U.eBul, (fx.bulge || 0)); gl.uniform1f(U.ePos, Math.min(1, fx.poster || 0)); gl.uniform1f(U.eInv, Math.min(1, fx.invert || 0));
+  const fp = q.fp || {}, P_ = (id, k, d) => fp[id] && fp[id].p[k] != null ? fp[id].p[k] : d, TT = id => fp[id] ? fp[id].t : (time || 0), px = Math.max(ow, oh) / 1920;
+  gl.uniform1f(U.eRgb, (fx.rgb || 0) * 3 * P_('rgb', 'spread', 100) / 100); gl.uniform1f(U.eRgbA, P_('rgb', 'ang', 0) * Math.PI / 180);
+  gl.uniform1f(U.eGl, fx.glitch || 0); gl.uniform1f(U.eGlB, P_('glitch', 'bands', 24)); gl.uniform1f(U.eGlS, P_('glitch', 'shift', 100) / 100); gl.uniform1f(U.tGl, TT('glitch') * P_('glitch', 'rate', 12));
+  gl.uniform1f(U.eVhs, fx.vhs || 0); gl.uniform1f(U.eVhsN, P_('vhs', 'noise', 100) / 100); gl.uniform1f(U.eVhsL, P_('vhs', 'lines', 100) / 100); gl.uniform1f(U.eVhsB, P_('vhs', 'bleed', 100) / 100); gl.uniform1f(U.eVhsW, P_('vhs', 'wobble', 100) / 100); gl.uniform1f(U.tVhs, TT('vhs'));
+  gl.uniform1f(U.ePix, fx.pixel ? Math.max(2, P_('pixel', 'size', 32) * px) : 0); gl.uniform1f(U.ePixA, clamp(fx.pixel || 0, 0, 1));
+  gl.uniform1f(U.eWav, (fx.wave || 0) * 1.5 * P_('wave', 'height', 100) / 100); gl.uniform1f(U.eWavF, P_('wave', 'freq', 18)); gl.uniform1f(U.eWavD, P_('wave', 'dir', 0)); gl.uniform1f(U.tWav, TT('wave'));
+  gl.uniform1f(U.eMir, fx.mirror ? 1 : 0); gl.uniform1f(U.eMirM, P_('mirror', 'mode', 0));
+  gl.uniform1f(U.eFilmT, P_('film', 'tone', 85) / 100); gl.uniform1f(U.eFilmS, P_('film', 'scratch', 100) / 100); gl.uniform1f(U.eFilmD, P_('film', 'dust', 100) / 100); gl.uniform1f(U.eFilmF, P_('film', 'flick', 100) / 100); gl.uniform1f(U.tFilm, TT('film'));
+  gl.uniform1f(U.eBulR, P_('bulge', 'rad', 71) / 100); gl.uniform1f(U.eBulX, P_('bulge', 'cx', 50) / 100); gl.uniform1f(U.eBulY, 1 - P_('bulge', 'cy', 50) / 100);
+  gl.uniform1f(U.ePosL, P_('poster', 'levels', 6)); gl.uniform1f(U.eEdgeT, P_('edge', 'thick', 1.5) * Math.max(1, px)); gl.uniform1f(U.eEdgeD, P_('edge', 'dark', 100) / 100);
+  gl.uniform1f(U.eDotS, P_('dots', 'size', 9) * Math.max(.5, px)); gl.uniform1f(U.eDotA, P_('dots', 'ang', 0) * Math.PI / 180);
+  gl.uniform1f(U.eFilm, Math.min(2, fx.film || 0)); gl.uniform1f(U.eBul, (fx.bulge || 0)); gl.uniform1f(U.ePos, Math.min(1, fx.poster || 0)); gl.uniform1f(U.eInv, Math.min(1, fx.invert || 0));
   gl.uniform1f(U.eEdge, Math.min(1, fx.edge || 0)); gl.uniform1f(U.eDot, Math.min(1, fx.dots || 0));
   gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -1749,8 +1829,17 @@ function sourceFor(c, lt) {
   if (m.el) return { src: m.el, sw: m.w, sh: m.h };
   return null;
 }
-function fxAmount(c, id) { let a = 0; for (const e of c.effects || []) if (e.id === id && !e.off) a += (e.amt == null ? 50 : e.amt) / 100; return a; }
-function fxSpeed(c, id) { const e = (c.effects || []).find(e => e.id === id); return e && e.speed ? e.speed : 1; }
+// the 2D effects (shake, zoom pulse, flash, strobe, blur, light leak): summed strength + settings of the first one
+function fx2D(c, id, lt) {
+  let st = null, a = 0;
+  for (const e of c.effects || []) { if (e.id !== id || e.off) continue; const s = fxState(c, e, lt); a += s.amt; if (!st) st = s; }
+  if (!st || Math.abs(a) < 1e-4) return null;
+  st.amt = a; return st;
+}
+function shakeOffset(st, k) { const t = st.t, d = st.amt * 14 * st.p.dist / 100 * k; return { dx: (Math.sin(t * 71) + Math.sin(t * 37.3)) * d, dy: (Math.cos(t * 63) + Math.sin(t * 29.7)) * d, rot: (Math.sin(t * 53) + Math.sin(t * 23.1)) * st.p.twist / 100 * 4 * st.amt, sc: 1 + st.amt * 0.04 * st.p.dist / 100 + Math.sin(t * 41) * st.p.zoom / 100 * .05 * st.amt }; }
+function zoomPulse(st) { return 1 + Math.pow(Math.abs(Math.sin(st.t * Math.PI)), st.p.punch) * st.p.size / 100 * st.amt; }
+function flashLevel(st) { const n = 2 + (100 - st.p.len) / 100 * 30; return Math.pow(Math.max(0, Math.sin(st.t * Math.PI * 2)), n) * st.amt; }
+function strobeOn(st) { return (st.t * 12) % 2 < 2 * st.p.on / 100; }
 
 // draw one visual clip into ctx (ctx is in project units, k = output pixels per project unit)
 function drawClip(x, c, lt, k) {
@@ -1762,14 +1851,15 @@ function drawClip(x, c, lt, k) {
   x.globalCompositeOperation = c.blend || 'source-over';
   let tx = p.x + s.x, ty = p.y + s.y, sc = 1;
   // 2D effects on the clip
-  const sh = fxAmount(c, 'shake'); if (sh) { const t = lt * fxSpeed(c, 'shake'); tx += (Math.sin(t * 71) + Math.sin(t * 37.3)) * sh * 14; ty += (Math.cos(t * 63) + Math.sin(t * 29.7)) * sh * 14; }
-  const zm = fxAmount(c, 'zoom'); if (zm) { const t = lt * fxSpeed(c, 'zoom'); sc *= 1 + Math.pow(Math.abs(Math.sin(t * Math.PI)), 6) * 0.18 * zm; }
+  let fxRot = 0;
+  const sh = fx2D(c, 'shake', lt); if (sh) { const o = shakeOffset(sh, 1); tx += o.dx; ty += o.dy; fxRot = o.rot; sc *= o.sc; }
+  const zm = fx2D(c, 'zoom', lt); if (zm) sc *= zoomPulse(zm);
   const filt = [];
-  const bl = s.blur + fxAmount(c, 'blur') * 30; if (bl > 0.2) filt.push(`blur(${bl * k}px)`);
-  const fl = fxAmount(c, 'flash'); if (fl) { const t = lt * fxSpeed(c, 'flash'); filt.push(`brightness(${1 + Math.pow(Math.max(0, Math.sin(t * Math.PI * 2)), 8) * fl * 2.5})`); }
-  const sb = fxAmount(c, 'strobe'); if (sb) { const t = lt * fxSpeed(c, 'strobe'); if (Math.floor(t * 12) % 2) filt.push(`brightness(${1 + sb * 1.6})`); }
+  const blS = fx2D(c, 'blur', lt), bl = s.blur + (blS ? blS.amt * blS.p.rad : 0); if (bl > 0.2) filt.push(`blur(${bl * k}px)`);
+  const fl = fx2D(c, 'flash', lt); if (fl) filt.push(`brightness(${1 + flashLevel(fl) * 2.5})`);
+  const sb = fx2D(c, 'strobe', lt); if (sb && strobeOn(sb)) filt.push(`brightness(${1 + sb.amt * 1.6})`);
   if (filt.length) x.filter = filt.join(' ');
-  x.translate(tx, ty); x.rotate((p.rot + s.rot) * Math.PI / 180);
+  x.translate(tx, ty); x.rotate((p.rot + s.rot + fxRot) * Math.PI / 180);
   x.scale(p.scale * s.sx * sc * (c.flipH ? -1 : 1), p.scale * s.sy * sc * (c.flipV ? -1 : 1));
   if (c.type === 'video' || c.type === 'image') drawMediaContent(x, c, lt, k * p.scale * Math.max(s.sx, s.sy) * sc);
   else if (c.type === 'text') drawText(x, c.text, lt, c.dur);
@@ -1834,22 +1924,29 @@ function applyLayerFx(x, c, lt, W, H, k) {
     const out = glProcess(x.canvas, W, H, W, H, q, lt);
     if (out) { x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = alpha; if (alpha >= 1) x.globalCompositeOperation = 'copy'; x.drawImage(out, 0, 0, W, H); x.restore(); }
   }
-  const sh = fxAmount(c, 'shake'), zm = fxAmount(c, 'zoom'), bl = fxAmount(c, 'blur');
+  const sh = fx2D(c, 'shake', lt), zm = fx2D(c, 'zoom', lt), blS = fx2D(c, 'blur', lt), bl = blS ? blS.amt * blS.p.rad / 30 : 0;
   if (sh || zm || bl) {
     const S = scratch('fxc', W, H), s = S.getContext('2d'); s.globalCompositeOperation = 'copy'; s.drawImage(x.canvas, 0, 0);
     x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
-    let dx = 0, dy = 0, sc = 1; const t = lt;
-    if (sh) { const tt = t * fxSpeed(c, 'shake'); dx = (Math.sin(tt * 71) + Math.sin(tt * 37.3)) * sh * 14 * k; dy = (Math.cos(tt * 63) + Math.sin(tt * 29.7)) * sh * 14 * k; sc *= 1 + sh * 0.04; }
-    if (zm) sc *= 1 + Math.pow(Math.abs(Math.sin(t * fxSpeed(c, 'zoom') * Math.PI)), 6) * 0.18 * zm;
+    let dx = 0, dy = 0, sc = 1, rr = 0;
+    if (sh) { const o = shakeOffset(sh, k); dx = o.dx; dy = o.dy; sc *= o.sc; rr = o.rot; }
+    if (zm) sc *= zoomPulse(zm);
     x.globalCompositeOperation = 'copy'; if (bl) x.filter = `blur(${bl * 30 * k}px)`;
-    x.translate(W / 2 + dx, H / 2 + dy); x.scale(sc, sc); x.drawImage(S, -W / 2, -H / 2);
+    x.translate(W / 2 + dx, H / 2 + dy); x.rotate(rr * Math.PI / 180); x.scale(sc, sc); x.drawImage(S, -W / 2, -H / 2);
     x.restore();
   }
-  const fl = fxAmount(c, 'flash'), sb = fxAmount(c, 'strobe'), lk = fxAmount(c, 'leak');
+  const fl = fx2D(c, 'flash', lt), sb = fx2D(c, 'strobe', lt), lk = fx2D(c, 'leak', lt);
   x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
-  if (fl) { const a = Math.pow(Math.max(0, Math.sin(lt * fxSpeed(c, 'flash') * Math.PI * 2)), 8) * fl; x.globalCompositeOperation = 'lighter'; x.fillStyle = `rgba(255,252,240,${a})`; x.fillRect(0, 0, W, H); }
-  if (sb && Math.floor(lt * fxSpeed(c, 'strobe') * 12) % 2) { x.globalCompositeOperation = 'lighter'; x.fillStyle = `rgba(255,255,255,${sb * .6})`; x.fillRect(0, 0, W, H); }
-  if (lk) { const t = lt * fxSpeed(c, 'leak') * .25; const cx = W * (.5 + Math.sin(t * 2.1) * .45), cy = H * (.4 + Math.cos(t * 1.3) * .3); const g = x.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * .7); g.addColorStop(0, `rgba(255,200,110,${.75 * lk})`); g.addColorStop(.35, `rgba(255,96,50,${.4 * lk})`); g.addColorStop(1, 'rgba(255,40,0,0)'); x.globalCompositeOperation = 'screen'; x.fillStyle = g; x.fillRect(0, 0, W, H); }
+  const rgb = col => { const [r, g, b] = hexToRgba(col); return `${r},${g},${b}`; };
+  if (fl) { x.globalCompositeOperation = 'lighter'; x.fillStyle = `rgba(${rgb(fl.p.col)},${clamp(flashLevel(fl), 0, 1)})`; x.fillRect(0, 0, W, H); }
+  if (sb && strobeOn(sb)) { x.globalCompositeOperation = 'lighter'; x.fillStyle = `rgba(${rgb(sb.p.col)},${clamp(sb.amt * .6, 0, 1)})`; x.fillRect(0, 0, W, H); }
+  if (lk) {
+    const t = lk.t * .25 * lk.p.drift / 100, a = clamp(lk.amt, 0, 1), [r, g, b] = hexToRgba(lk.p.col);
+    const cx = W * (.5 + Math.sin(t * 2.1) * .45), cy = H * (.4 + Math.cos(t * 1.3) * .3), R0 = Math.max(W, H) * lk.p.size / 100;
+    const gr = x.createRadialGradient(cx, cy, 0, cx, cy, R0);
+    gr.addColorStop(0, `rgba(${Math.min(255, r + 40)},${Math.min(255, g + 60)},${Math.min(255, b + 60)},${.75 * a})`); gr.addColorStop(.35, `rgba(${r},${Math.round(g * .6)},${Math.round(b * .6)},${.4 * a})`); gr.addColorStop(1, `rgba(${r},${Math.round(g * .25)},0,0)`);
+    x.globalCompositeOperation = 'screen'; x.fillStyle = gr; x.fillRect(0, 0, W, H);
+  }
   x.restore();
 }
 function layerCanvas(key, W, H) { const c = scratch(key, W, H); const x = c.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.filter = 'none'; x.clearRect(0, 0, W, H); return x; }
@@ -2210,7 +2307,7 @@ function clipPointer(e, c, el) {
       let shift = clamp(ns - s0, -s0, maxShift);
       if (c.type === 'video' || c.type === 'audio') shift = Math.max(shift, -in0 / (c.speed || 1));
       c.start = s0 + shift; c.dur = d0 - shift; c.in = in0 + shift * (c.speed || 1);
-      for (const p of KF_PROPS) c.kf[p] = keys0[p].map(k => ({ ...k, t: k.t - shift })).filter(k => k.t >= -1e-6 || true);
+      for (const p of Object.keys(keys0)) c.kf[p] = keys0[p].map(k => ({ ...k, t: k.t - shift })).filter(k => k.t >= -1e-6 || true);
       el.style.left = c.start * TL.pps + 'px'; el.style.width = c.dur * TL.pps + 'px';
     } else {
       let ne = s0 + d0 + dt; const sn = snapT(ne, c); ne = sn.t; showSnap(sn.s);
@@ -2261,12 +2358,12 @@ function kfDrag(e, c, kt, d) {
   SELKF = { t: kt };
   seek(c.start + kt);
   d.setPointerCapture(e.pointerId);
-  const x0 = e.clientX; let moved = false; const keys = KF_PROPS.map(p => (c.kf[p] || []).filter(k => Math.abs(k.t - kt) < 1e-4));
+  const x0 = e.clientX; let moved = false; const keys = kfProps(c).map(p => (c.kf[p] || []).filter(k => Math.abs(k.t - kt) < 1e-4));
   const mv = ev => {
     const dx = ev.clientX - x0; if (!moved && Math.abs(dx) < 3) return; moved = true;
     let nt = clamp(kt + dx / TL.pps, 0, c.dur); nt = Math.round(nt * P.fps) / P.fps;
     for (const ks of keys) for (const k of ks) k.t = nt;
-    for (const p of KF_PROPS) c.kf[p].sort((a, b) => a.t - b.t);
+    for (const p of kfProps(c)) c.kf[p].sort((a, b) => a.t - b.t);
     d.style.left = nt * TL.pps + 'px'; SELKF = { t: nt }; T = c.start + nt; requestRender(); updPlayhead();
   };
   const up = () => { d.removeEventListener('pointermove', mv); d.removeEventListener('pointerup', up); if (moved) commit(); selectClip(c.id, true); openKeyPanel(!moved); };
@@ -2349,7 +2446,7 @@ function initTimelineEvents() {
 /* ================= edit operations ================= */
 function splitKeys(c, at) {
   const A = {}, B = {};
-  for (const p of KF_PROPS) {
+  for (const p of kfProps(c)) {
     const ks = c.kf[p] || [];
     if (!ks.length) { A[p] = []; B[p] = []; continue; }
     const v = evalProp(c, p, at);
@@ -2449,8 +2546,8 @@ function moveLayer(dir) {
 function opKey() {
   const c = selClip(); if (!c || !VISUAL[c.type] || c.type === 'effect' || c.type === 'filter' || c.type === 'adjust') { toast('Select a picture, video, text or sticker clip'); return; }
   if (T < c.start || T > c.start + c.dur) { toast('Put the playhead over the clip'); return; }
-  const lt = T - c.start; const any = KF_PROPS.some(p => keyAt(c, p, lt) >= 0);
-  for (const p of KF_PROPS) { const i = keyAt(c, p, lt); if (any) { if (i >= 0) toggleKey(c, p); } else if (i < 0) toggleKey(c, p); }
+  const lt = T - c.start; const any = kfProps(c).some(p => keyAt(c, p, lt) >= 0);
+  for (const p of any ? kfProps(c) : KF_PROPS) { const i = keyAt(c, p, lt); if (any) { if (i >= 0) toggleKey(c, p); } else if (i < 0) toggleKey(c, p); }
   SELKF = any ? null : { t: lt };
   commit(); refreshAll();
 }
@@ -2993,6 +3090,27 @@ function nrow(label, o) { return row(label, numField(o)); }
 function srow(label, opts, val, on) { return row(label, selectBox({ options: opts, value: val, onChange: on })); }
 function crow(label, obj, key, after) { return row(label, colorBtn({ value: obj[key], onInput: (v, f) => { obj[key] = v; after && after(); chg(f); } })); }
 function rrow(label, obj, key, o) { return rangeRow(label, { min: o.min, max: o.max, step: o.step || 1, value: obj[key], def: o.def, center: o.center, suf: o.suf, dec: o.dec, onInput: (v, f) => { obj[key] = v; o.after && o.after(v); chg(f); } }); }
+// slider + number + keyframe buttons for any setting (effect settings, adjustments, filter strength)
+function kvRow(c, path, label, o) {
+  const lt = () => clamp(T - c.start, 0, c.dur), get = () => evalProp(c, path, lt());
+  if (!c.kf[path]) c.kf[path] = [];
+  const r = rangeRow(label, { min: o.min, max: o.max, step: o.step || 1, value: get(), def: o.def, center: o.center, suf: o.suf, dec: o.dec, onInput: (v, f) => { setProp(c, path, v); chg(f); } });
+  INS.live.push(() => r.set(get()));
+  r.append(...kfButtons(c, path));
+  return r;
+}
+function pathUI(c, p) {
+  const [kind, a, b] = pathParts(p);
+  if (kind === 'fx') {
+    const e = fxByUid(c, a), d = e && EFFECTS[e.id]; if (!d) return { l: p, dec: 2 };
+    if (b === 'amt') return { l: d.n + ' amount', min: d.amin || 0, max: 200, dec: 1, suf: '%' };
+    if (b === 'speed') return { l: d.n + ' speed', min: 0, max: 50, dec: 2, suf: 'x' };
+    const q = fxParamDef(e.id, b); return q ? { l: d.n + ' ' + q[1].toLowerCase(), min: q[2], max: q[3], dec: q[6] == null ? 1 : q[6], suf: q[5] } : { l: p, dec: 2 };
+  }
+  if (kind === 'grade') { const g = GRADE_UI.find(x => x[0] === a); return { l: g ? g[1] : a, min: g && g[2] != null ? g[2] : -100, max: g && g[3] != null ? g[3] : 100, dec: 1 }; }
+  if (kind === 'filter') return { l: 'Filter intensity', min: 0, max: 100, dec: 1, suf: '%' };
+  return { l: p, dec: 2 };
+}
 function tabsFor(c) {
   if (!c) return [['project', 'Project']];
   switch (c.type) {
@@ -3106,7 +3224,7 @@ function speedRow(c) {
       if (!f) return;
       const old = c.speed || 1, srcLen = c.dur * old; c.speed = v;
       let nd = srcLen / v; const md = mediaDur(c); if (isFinite(md)) nd = Math.min(nd, (md - c.in) / v);
-      const r = nd / c.dur; for (const p of KF_PROPS) for (const k of c.kf[p]) k.t *= r;
+      const r = nd / c.dur; for (const p of kfProps(c)) for (const k of c.kf[p]) k.t *= r;
       c.dur = Math.max(1 / P.fps, nd);
       if (trackOf(c).main && TL.magnet) packMain();
       chg(true); refreshAll();
@@ -3137,11 +3255,11 @@ function insAnim(b, c) {
 /* ---------- adjust / filter / chroma ---------- */
 const GRADE_UI = [['brightness', 'Brightness'], ['contrast', 'Contrast'], ['saturation', 'Saturation'], ['exposure', 'Exposure'], ['temperature', 'Temperature'], ['tint', 'Tint'], ['hue', 'Hue', -180, 180], ['highlights', 'Highlights'], ['shadows', 'Shadows'], ['fade', 'Fade', 0, 100], ['vignette', 'Vignette'], ['grain', 'Grain', 0, 100], ['sharpen', 'Sharpen', 0, 100]];
 function gradeRows(c) {
-  return GRADE_UI.map(([k, l, mn, mx]) => rrow(l, c.grade, k, { min: mn == null ? -100 : mn, max: mx == null ? 100 : mx, def: 0, center: mn === 0 ? null : 0 }));
+  return GRADE_UI.map(([k, l, mn, mx]) => kvRow(c, 'grade:' + k, l, { min: mn == null ? -100 : mn, max: mx == null ? 100 : mx, def: 0, center: mn === 0 ? null : 0 }));
 }
 function filterRows(c) {
   return [srow('Filter', Object.keys(FILTERS).map(k => ({ v: k, l: FILTERS[k].n })), c.filter.id, v => { c.filter.id = v; chg(true); renderInspector(); }),
-  c.filter.id !== 'none' ? rrow('Intensity', c.filter, 'amount', { min: 0, max: 100, suf: '%' }) : null];
+  c.filter.id !== 'none' ? kvRow(c, 'filter:amount', 'Intensity', { min: 0, max: 100, suf: '%' }) : null];
 }
 function insAdjust(b, c) {
   b.append(grp('Filter', filterRows(c)));
@@ -3160,19 +3278,33 @@ function insMask(b, c) {
   b.append(row('Invert', checkBox('Show the outside instead', m.invert, v => { m.invert = v; chg(true); })));
 }
 function effectList(b, c) {
-  if (!c.effects.length) b.append(h('div', { class: 'hint' }, 'No effects yet.'));
+  if (!c.effects.length) b.append(h('div', { class: 'hint' }, 'No effects yet. Add one below. Every number can be keyframed with its diamond, and each effect can build up and fade away.'));
   c.effects.forEach((e, i) => {
-    const hd = h('h4', null, EFFECTS[e.id].n);
+    const u = fxUid(e), d = EFFECTS[e.id]; e.p = e.p || {};
+    const hd = h('h4', null, d.n);
     const off = checkBox('', !e.off, v => { e.off = !v; chg(true); });
-    const del = h('button', { class: 'tb', title: 'Remove', html: icon('trash'), onclick: () => { c.effects.splice(i, 1); chg(true); renderInspector(); } });
-    off.style.marginLeft = 'auto'; hd.append(off, del);
-    const g = h('div', { class: 'grp' }, hd, rrow('Amount', e, 'amt', { min: 0, max: 100, suf: '%' }), rrow('Speed', e, 'speed', { min: .1, max: 10, step: .1, dec: 1, suf: 'x' }));
+    const up = i > 0 ? h('button', { class: 'tb', title: 'Move up', html: icon('fwd'), onclick: () => { c.effects.splice(i - 1, 0, c.effects.splice(i, 1)[0]); chg(true); renderInspector(); } }) : null;
+    const del = h('button', { class: 'tb', title: 'Remove', html: icon('trash'), onclick: () => { c.effects.splice(i, 1); for (const p of kfProps(c)) if (p.startsWith('fx:' + u + ':')) delete c.kf[p]; chg(true); renderInspector(); } });
+    off.style.marginLeft = 'auto'; hd.append(off, up || '', del);
+    const g = h('div', { class: 'grp' }, hd);
+    g.append(kvRow(c, 'fx:' + u + ':amt', d.amin ? 'Amount (− pinches)' : 'Amount', { min: d.amin || 0, max: 200, suf: '%', center: d.amin ? 0 : null }));
+    g.append(kvRow(c, 'fx:' + u + ':speed', 'Speed', { min: 0, max: 50, step: .05, dec: 2, suf: 'x' }));
+    for (const q of d.ps || []) g.append(kvRow(c, 'fx:' + u + ':' + q[0], q[1], { min: q[2], max: q[3], step: q[6] ? Math.pow(10, -q[6]) : (q[3] - q[2] > 20 ? 1 : .1), dec: q[6] == null ? (q[3] - q[2] > 20 ? 0 : 1) : q[6], suf: q[5], def: q[4] }));
+    for (const q of d.ch || []) g.append(srow(q[1], q[2].map(([v, l]) => ({ v, l })), e.p[q[0]] == null ? q[3] : e.p[q[0]], v => { e.p[q[0]] = v; chg(true); }));
+    for (const q of d.col || []) { if (e.p[q[0]] == null) e.p[q[0]] = q[2]; g.append(crow(q[1], e.p, q[0])); }
+    // build-up: fade the effect in at the start of the clip and out at the end
+    const bu = h('div', { class: 'grp' }, h('h4', null, 'Build-up', h('small', null, ' fades the effect in and out')));
+    bu.append(rrow('Build in', e, 'rin', { min: 0, max: Math.max(0.1, round(c.dur, 2)), step: .05, dec: 2, suf: 's', def: 0 }));
+    bu.append(rrow('Fade out', e, 'rout', { min: 0, max: Math.max(0.1, round(c.dur, 2)), step: .05, dec: 2, suf: 's', def: 0 }));
+    bu.append(row('Curve', segBox({ options: [{ v: 'linear', l: 'Even' }, { v: 'smooth', l: 'Smooth' }, { v: 'in', l: 'Slow start' }, { v: 'out', l: 'Fast start' }], value: e.rcurve || 'smooth', onChange: v => { e.rcurve = v; chg(true); } })));
+    g.append(bu);
     b.append(g);
   });
-  b.append(h('div', { class: 'row', style: { marginTop: '10px' } }, h('label', null, 'Add effect'), h('div', { class: 'ctl' }, selectBox({ options: Object.keys(EFFECTS).map(k => ({ v: k, l: EFFECTS[k].n })), value: null, placeholder: 'Choose…', onChange: v => { c.effects.push({ id: v, amt: 60, speed: 1 }); chg(true); renderInspector(); } }))));
+  b.append(h('div', { class: 'row', style: { marginTop: '10px' } }, h('label', null, 'Add effect'), h('div', { class: 'ctl' }, selectBox({ options: Object.keys(EFFECTS).map(k => ({ v: k, l: EFFECTS[k].n })), value: null, placeholder: 'Choose…', onChange: v => { c.effects.push({ id: v, amt: 60, speed: 1, uid: uid() }); chg(true); renderInspector(); } }))));
 }
 function insEffects(b, c) { effectList(b, c); }
 function insLayer(b, c) {
+  const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks);
   b.append(propRow(c, 'opacity'));
   b.append(h('div', { class: 'hint' }, 'Opacity sets how strongly this layer changes the picture. It can be keyframed.'));
   if (c.type === 'effect') effectList(b, c);
@@ -3244,7 +3376,7 @@ function currentKeyTime(c) {
 }
 function keysAtTime(c, t) {
   const out = [];
-  for (const p of KPROP === 'all' ? KF_PROPS : [KPROP]) { const i = (c.kf[p] || []).findIndex(k => Math.abs(k.t - t) < 1e-4); if (i >= 0) out.push({ p, k: c.kf[p][i], i, last: i === c.kf[p].length - 1 }); }
+  for (const p of KPROP === 'all' ? kfProps(c) : [KPROP]) { const i = (c.kf[p] || []).findIndex(k => Math.abs(k.t - t) < 1e-4); if (i >= 0) out.push({ p, k: c.kf[p][i], i, last: i === c.kf[p].length - 1 }); }
   return out;
 }
 function insKeys(b, c) {
@@ -3265,7 +3397,7 @@ function insKeys(b, c) {
   // values
   const valBox = h('div');
   for (const { p, k } of ks) {
-    const u = PROP_UI[p], mul = u.mul || 1;
+    const u = PROP_UI[p] || pathUI(c, p), mul = u.mul || 1;
     valBox.append(row(u.l, numField({ value: k.v * mul, min: u.min, max: u.max, dec: u.dec, suf: u.suf, onInput: (v, f) => { k.v = p === 'rot' ? clamp(v / mul, -MAX_ROT, MAX_ROT) : v / mul; chg(f); if (f) refreshInspectorValues(); } })));
     if (p === 'rot') valBox.append(row('Turns', numField({ value: k.v / 360, dec: 4, min: -99999, max: 99999, suf: 'turns', onInput: (v, f) => { k.v = clamp(v * 360, -MAX_ROT, MAX_ROT); chg(f); if (f) renderInspector(); } })));
   }
@@ -3299,7 +3431,7 @@ function insKeys(b, c) {
   b.append(grp('Keyframe value', [valBox]));
   b.append(h('div', { style: { display: 'flex', gap: '6px', marginTop: '12px', flexWrap: 'wrap' } },
     h('button', { class: 'btn sm', html: icon('trash') + ' Delete keyframe', onclick: () => { for (const x of ks) { const v = x.k.v; c.kf[x.p].splice(c.kf[x.p].indexOf(x.k), 1); if (!c.kf[x.p].length) c.tf[x.p] = v; } SELKF = null; chg(true); refreshAll(); } }),
-    seg.length ? h('button', { class: 'btn sm', onclick: () => { const src = seg[0].k; for (const p of KF_PROPS) for (const k of c.kf[p]) { copySeg(k, src); } chg(true); toast('Copied to every keyframe on this clip'); } }, 'Use for all keyframes') : null));
+    seg.length ? h('button', { class: 'btn sm', onclick: () => { const src = seg[0].k; for (const p of kfProps(c)) for (const k of c.kf[p]) { copySeg(k, src); } chg(true); toast('Copied to every keyframe on this clip'); } }, 'Use for all keyframes') : null));
 }
 function curveEditor(k, onChange, bf = 'bez') {
   const box = h('div', { class: 'curve' }), cv = h('canvas'); box.append(cv);
@@ -3684,7 +3816,7 @@ function snapshotPNG() {
   prepFrame(T).then(() => { renderFrame(cv.getContext('2d'), T, w, hh); cv.toBlob(b => { const a = h('a', { href: URL.createObjectURL(b), download: 'frame-' + fmtTime(T, P.fps).replace(/:/g, '-') + '.png' }); document.body.append(a); a.click(); a.remove(); }, 'image/png'); });
 }
 
-const APP_VER = 10;
+const APP_VER = 11;
 /* ================= wiring ================= */
 let zoomSlider = null, EXPORTING = false;
 function refreshAll() {

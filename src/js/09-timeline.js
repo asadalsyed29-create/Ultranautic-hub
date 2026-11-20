@@ -183,7 +183,7 @@ function clipPointer(e, c, el) {
       let shift = clamp(ns - s0, -s0, maxShift);
       if (c.type === 'video' || c.type === 'audio') shift = Math.max(shift, -in0 / (c.speed || 1));
       c.start = s0 + shift; c.dur = d0 - shift; c.in = in0 + shift * (c.speed || 1);
-      for (const p of KF_PROPS) c.kf[p] = keys0[p].map(k => ({ ...k, t: k.t - shift })).filter(k => k.t >= -1e-6 || true);
+      for (const p of Object.keys(keys0)) c.kf[p] = keys0[p].map(k => ({ ...k, t: k.t - shift })).filter(k => k.t >= -1e-6 || true);
       el.style.left = c.start * TL.pps + 'px'; el.style.width = c.dur * TL.pps + 'px';
     } else {
       let ne = s0 + d0 + dt; const sn = snapT(ne, c); ne = sn.t; showSnap(sn.s);
@@ -234,12 +234,12 @@ function kfDrag(e, c, kt, d) {
   SELKF = { t: kt };
   seek(c.start + kt);
   d.setPointerCapture(e.pointerId);
-  const x0 = e.clientX; let moved = false; const keys = KF_PROPS.map(p => (c.kf[p] || []).filter(k => Math.abs(k.t - kt) < 1e-4));
+  const x0 = e.clientX; let moved = false; const keys = kfProps(c).map(p => (c.kf[p] || []).filter(k => Math.abs(k.t - kt) < 1e-4));
   const mv = ev => {
     const dx = ev.clientX - x0; if (!moved && Math.abs(dx) < 3) return; moved = true;
     let nt = clamp(kt + dx / TL.pps, 0, c.dur); nt = Math.round(nt * P.fps) / P.fps;
     for (const ks of keys) for (const k of ks) k.t = nt;
-    for (const p of KF_PROPS) c.kf[p].sort((a, b) => a.t - b.t);
+    for (const p of kfProps(c)) c.kf[p].sort((a, b) => a.t - b.t);
     d.style.left = nt * TL.pps + 'px'; SELKF = { t: nt }; T = c.start + nt; requestRender(); updPlayhead();
   };
   const up = () => { d.removeEventListener('pointermove', mv); d.removeEventListener('pointerup', up); if (moved) commit(); selectClip(c.id, true); openKeyPanel(!moved); };
@@ -322,7 +322,7 @@ function initTimelineEvents() {
 /* ================= edit operations ================= */
 function splitKeys(c, at) {
   const A = {}, B = {};
-  for (const p of KF_PROPS) {
+  for (const p of kfProps(c)) {
     const ks = c.kf[p] || [];
     if (!ks.length) { A[p] = []; B[p] = []; continue; }
     const v = evalProp(c, p, at);
@@ -422,8 +422,8 @@ function moveLayer(dir) {
 function opKey() {
   const c = selClip(); if (!c || !VISUAL[c.type] || c.type === 'effect' || c.type === 'filter' || c.type === 'adjust') { toast('Select a picture, video, text or sticker clip'); return; }
   if (T < c.start || T > c.start + c.dur) { toast('Put the playhead over the clip'); return; }
-  const lt = T - c.start; const any = KF_PROPS.some(p => keyAt(c, p, lt) >= 0);
-  for (const p of KF_PROPS) { const i = keyAt(c, p, lt); if (any) { if (i >= 0) toggleKey(c, p); } else if (i < 0) toggleKey(c, p); }
+  const lt = T - c.start; const any = kfProps(c).some(p => keyAt(c, p, lt) >= 0);
+  for (const p of any ? kfProps(c) : KF_PROPS) { const i = keyAt(c, p, lt); if (any) { if (i >= 0) toggleKey(c, p); } else if (i < 0) toggleKey(c, p); }
   SELKF = any ? null : { t: lt };
   commit(); refreshAll();
 }

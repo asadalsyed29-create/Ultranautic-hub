@@ -65,7 +65,7 @@ function segProgress(k, p) {
 }
 function evalProp(c, prop, lt) {
   const ks = c.kf && c.kf[prop];
-  if (!ks || !ks.length) return c.tf[prop];
+  if (!ks || !ks.length) { const b = c.tf && c.tf[prop]; return b !== undefined ? b : pathBase(c, prop); }
   if (ks.length === 1 || lt <= ks[0].t) return ks[0].v;
   const L = ks[ks.length - 1]; if (lt >= L.t) return L.v;
   let i = 0; while (i < ks.length - 2 && ks[i + 1].t <= lt) i++;
@@ -83,6 +83,24 @@ function evalProp(c, prop, lt) {
   if (u <= 0 || u >= 1) return a.v + (b.v - a.v) * u; // looping past the end keeps the simple path
   return (2 * u3 - 3 * u2 + 1) * a.v + (u3 - 2 * u2 + u) * m0 + (-2 * u3 + 3 * u2) * b.v + (u3 - u2) * m1;
 }
+// settings other than position/scale/rotation/opacity are addressed by a path
+function pathParts(p) { return p.split(':'); }
+function fxByUid(c, uid) { return (c.effects || []).find(e => e.uid === uid); }
+function pathBase(c, p) {
+  const [kind, a, b] = pathParts(p);
+  if (kind === 'fx') { const e = fxByUid(c, a); if (!e) return 0; if (b === 'amt') return e.amt == null ? 50 : e.amt; if (b === 'speed') return e.speed == null ? 1 : e.speed; const d = fxParamDef(e.id, b); return e.p && e.p[b] != null ? e.p[b] : d ? d[4] : 0; }
+  if (kind === 'grade') return c.grade && c.grade[a] != null ? c.grade[a] : 0;
+  if (kind === 'filter') return c.filter && c.filter.amount != null ? c.filter.amount : 100;
+  return 0;
+}
+function setPathBase(c, p, v) {
+  const [kind, a, b] = pathParts(p);
+  if (kind === 'fx') { const e = fxByUid(c, a); if (!e) return; if (b === 'amt') e.amt = v; else if (b === 'speed') e.speed = v; else { e.p = e.p || {}; e.p[b] = v; } }
+  else if (kind === 'grade') { c.grade = c.grade || {}; c.grade[a] = v; }
+  else if (kind === 'filter') c.filter.amount = v;
+}
+function isPath(p) { return p.includes(':'); }
+function kfProps(c) { return Object.keys(c.kf || {}); }
 function propsAt(c, lt) { return { x: evalProp(c, 'x', lt), y: evalProp(c, 'y', lt), scale: evalProp(c, 'scale', lt), rot: evalProp(c, 'rot', lt), opacity: evalProp(c, 'opacity', lt) }; }
 function keyAt(c, prop, lt, tol) { const ks = c.kf[prop] || []; tol = tol == null ? 0.5 / P.fps : tol; return ks.findIndex(k => Math.abs(k.t - lt) <= tol); }
 // set a property: if it is keyframed, add/update the key at the playhead, else set the static value
@@ -94,17 +112,18 @@ function setProp(c, prop, v) {
     const i = keyAt(c, prop, lt);
     if (i >= 0) ks[i].v = v;
     else { const nk = newKey(lt, v); const prev = [...ks].reverse().find(k => k.t < lt); if (prev) { copySeg(nk, prev); } ks.push(nk); ks.sort((a, b) => a.t - b.t); }
-  } else c.tf[prop] = v;
+  } else if (isPath(prop)) setPathBase(c, prop, v); else c.tf[prop] = v;
 }
 function toggleKey(c, prop) {
   const lt = clamp(T - c.start, 0, c.dur);
+  if (!c.kf[prop]) c.kf[prop] = [];
   const ks = c.kf[prop];
   const i = keyAt(c, prop, lt);
-  if (i >= 0) { const v = ks[i].v; ks.splice(i, 1); if (!ks.length) c.tf[prop] = v; return false; }
+  if (i >= 0) { const v = ks[i].v; ks.splice(i, 1); if (!ks.length) { if (isPath(prop)) setPathBase(c, prop, v); else c.tf[prop] = v; } return false; }
   const nk = newKey(lt, evalProp(c, prop, lt));
   ks.push(nk); ks.sort((a, b) => a.t - b.t); return true;
 }
-function clipKeyTimes(c) { const s = new Set(); for (const p of KF_PROPS) for (const k of c.kf[p] || []) s.add(round(k.t, 4)); return [...s].sort((a, b) => a - b); }
+function clipKeyTimes(c) { const s = new Set(); for (const p of kfProps(c)) for (const k of c.kf[p] || []) s.add(round(k.t, 4)); return [...s].sort((a, b) => a - b); }
 
 /* ================= clip in / out / loop animations ================= */
 // each returns a state delta for progress p (in: 0 -> 1 arriving, out: 0 -> 1 leaving)
