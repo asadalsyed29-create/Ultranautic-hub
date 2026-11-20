@@ -290,13 +290,15 @@ function insKeys(b, c) {
     if (p === 'rot') valBox.append(row('Turns', numField({ value: k.v / 360, dec: 4, min: -99999, max: 99999, suf: 'turns', onInput: (v, f) => { k.v = clamp(v * 360, -MAX_ROT, MAX_ROT); chg(f); if (f) renderInspector(); } })));
   }
   b.append(grp('Value', [valBox]));
-  const seg = ks.filter(x => !x.last);
-  if (!seg.length) { b.append(h('div', { class: 'note', style: { marginTop: '10px' } }, 'This is the last keyframe. Motion settings belong to the stretch that leaves a keyframe, so pick an earlier keyframe to set them.')); }
+  // motion settings always show: on the last keyframe they are the ones for the stretch coming into it
+  let seg = ks.filter(x => !x.last), into = false;
+  if (!seg.length) { seg = ks.filter(x => x.i > 0).map(x => ({ p: x.p, k: c.kf[x.p][x.i - 1], i: x.i - 1, last: false })); into = true; }
+  if (!seg.length) { b.append(h('div', { class: 'note', style: { marginTop: '10px' } }, 'Add a second keyframe and the motion settings (Regular / Smooth / Choppy, speed, Loop) show here.')); }
   else {
     const k0 = seg[0].k;
     const all = fn => { for (const x of seg) fn(x.k); };
-    const nextT = Math.min(...seg.map(x => c.kf[x.p][x.i + 1].t));
-    b.append(h('div', { class: 'hint', style: { marginTop: '12px' } }, `Settings below shape the motion from this keyframe to the next one (${round(nextT - kt, 3)}s later).`));
+    const nextT = Math.min(...seg.map(x => c.kf[x.p][x.i + 1].t)), segT = seg[0].k.t;
+    b.append(h('div', { class: 'hint', style: { marginTop: '12px' } }, into ? `This is the last keyframe. Settings below shape the motion coming into it from the keyframe before (${round(nextT - segT, 3)}s).` : `Settings below shape the motion from this keyframe to the next one (${round(nextT - kt, 3)}s later).`));
     const g = h('div', { class: 'grp' }, h('h4', null, 'Interpolation'));
     g.append(row('Mode', segBox({ options: [{ v: 'linear', l: 'Regular' }, { v: 'smooth', l: 'Smooth' }, { v: 'hold', l: 'Choppy' }], value: k0.mode, onChange: v => { all(k => k.mode = v); chg(true); renderInspector(); } })));
     if (k0.mode === 'smooth') g.append(curveEditor(k0, (bz, f) => { all(k => k.bez = bz.slice()); chg(f); drawMotion(); }));
@@ -310,7 +312,7 @@ function insKeys(b, c) {
     g2.append(row('When it ends', segBox({ options: [{ v: 'clamp', l: 'Clamp' }, { v: 'loop', l: 'Loop' }, { v: 'pingpong', l: 'Ping-Pong' }], value: k0.over || 'clamp', onChange: v => { all(k => k.over = v); chg(true); drawMotion(); } })));
     g2.append(h('div', { class: 'hint' }, '0x freezes on this keyframe. 0.5x gets halfway. Above 1x the move finishes early, then Clamp holds the end, Loop starts again, and Ping-Pong goes back and forth, all inside the same time window.'));
     const mot = h('canvas', { class: 'motion' }); g2.append(mot);
-    const drawMotion = () => drawMotionGraph(mot, k0, kt, nextT);
+    const drawMotion = () => drawMotionGraph(mot, k0, segT, nextT);
     requestAnimationFrame(drawMotion);
     b.append(g2);
   }
