@@ -3054,9 +3054,9 @@ function rotationRows(c) {
   return [propRow(c, 'rot'), row('Turns', turns), info, row('', spinBtns)];
 }
 function insClip(b, c) {
-  b.append(propRow(c, 'x'), propRow(c, 'y'), propRow(c, 'scale'), ...rotationRows(c), propRow(c, 'opacity'));
-  // keyframes and the motion between them live in this same tab
+  // keyframes and the motion between them live in this same tab, at the top
   const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks);
+  b.append(h('div', { class: 'grp' }, h('h4', null, 'Transform')), propRow(c, 'x'), propRow(c, 'y'), propRow(c, 'scale'), ...rotationRows(c), propRow(c, 'opacity'));
   b.append(row('', h('button', { class: 'btn sm', onclick: () => { setProp(c, 'x', P.w / 2); setProp(c, 'y', P.h / 2); chg(true); refreshInspectorValues(); } }, 'Center'), h('button', { class: 'btn sm', onclick: () => { setProp(c, 'scale', 1); setProp(c, 'rot', 0); chg(true); refreshInspectorValues(); } }, 'Reset size and turn')));
   b.append(row('Flip', h('button', { class: 'btn sm' + (c.flipH ? ' pri' : ''), html: icon('flipH') + ' Mirror', onclick: () => { c.flipH = !c.flipH; chg(true); renderInspector(); } }), h('button', { class: 'btn sm' + (c.flipV ? ' pri' : ''), html: icon('flipV') + ' Upside down', onclick: () => { c.flipV = !c.flipV; chg(true); renderInspector(); } })));
   const BL = [['source-over', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['overlay', 'Overlay'], ['darken', 'Darken'], ['lighten', 'Lighten'], ['color-dodge', 'Color dodge'], ['color-burn', 'Color burn'], ['hard-light', 'Hard light'], ['soft-light', 'Soft light'], ['difference', 'Difference'], ['exclusion', 'Exclusion'], ['hue', 'Hue'], ['saturation', 'Saturation'], ['color', 'Color'], ['luminosity', 'Luminosity'], ['lighter', 'Add']];
@@ -3235,7 +3235,6 @@ function insKeys(b, c) {
     valBox.append(row(u.l, numField({ value: k.v * mul, min: u.min, max: u.max, dec: u.dec, suf: u.suf, onInput: (v, f) => { k.v = p === 'rot' ? clamp(v / mul, -MAX_ROT, MAX_ROT) : v / mul; chg(f); if (f) refreshInspectorValues(); } })));
     if (p === 'rot') valBox.append(row('Turns', numField({ value: k.v / 360, dec: 4, min: -99999, max: 99999, suf: 'turns', onInput: (v, f) => { k.v = clamp(v * 360, -MAX_ROT, MAX_ROT); chg(f); if (f) renderInspector(); } })));
   }
-  b.append(grp('Value', [valBox]));
   // motion settings always show: on the last keyframe they are the ones for the stretch coming into it
   let seg = ks.filter(x => !x.last), into = false;
   if (!seg.length) { seg = ks.filter(x => x.i > 0).map(x => ({ p: x.p, k: c.kf[x.p][x.i - 1], i: x.i - 1, last: false })); into = true; }
@@ -3262,6 +3261,7 @@ function insKeys(b, c) {
     requestAnimationFrame(drawMotion);
     b.append(g2);
   }
+  b.append(grp('Keyframe value', [valBox]));
   b.append(h('div', { style: { display: 'flex', gap: '6px', marginTop: '12px', flexWrap: 'wrap' } },
     h('button', { class: 'btn sm', html: icon('trash') + ' Delete keyframe', onclick: () => { for (const x of ks) { const v = x.k.v; c.kf[x.p].splice(c.kf[x.p].indexOf(x.k), 1); if (!c.kf[x.p].length) c.tf[x.p] = v; } SELKF = null; chg(true); refreshAll(); } }),
     seg.length ? h('button', { class: 'btn sm', onclick: () => { const src = seg[0].k; for (const p of KF_PROPS) for (const k of c.kf[p]) { k.mode = src.mode; k.bez = src.bez.slice(); k.speed = src.speed; k.over = src.over; k.steps = src.steps; } chg(true); toast('Copied to every keyframe on this clip'); } }, 'Use for all keyframes') : null));
@@ -3605,6 +3605,7 @@ function snapshotPNG() {
   prepFrame(T).then(() => { renderFrame(cv.getContext('2d'), T, w, hh); cv.toBlob(b => { const a = h('a', { href: URL.createObjectURL(b), download: 'frame-' + fmtTime(T, P.fps).replace(/:/g, '-') + '.png' }); document.body.append(a); a.click(); a.remove(); }, 'image/png'); });
 }
 
+const APP_VER = 7;
 /* ================= wiring ================= */
 let zoomSlider = null, EXPORTING = false;
 function refreshAll() {
@@ -3654,7 +3655,7 @@ function bindUI() {
   $('#bFile').onclick = () => {
     const list = h('div');
     const it = (l, f) => list.append(h('div', { class: 'opt', onclick: () => { closePop(); f(); } }, l));
-    it('New project', newProjectAsk); it('Open project file (.fwproj)', () => $('#projIn').click()); it('Save project file (.fwproj)', saveProjectFile); it('Import media', () => { $('#fileIn').accept = 'video/*,image/*,audio/*,.svg,.gif,.webp'; $('#fileIn').click(); }); it('Export video', openExport); it('Install app', installApp);
+    it('New project', newProjectAsk); it('Open project file (.fwproj)', () => $('#projIn').click()); it('Save project file (.fwproj)', saveProjectFile); it('Import media', () => { $('#fileIn').accept = 'video/*,image/*,audio/*,.svg,.gif,.webp'; $('#fileIn').click(); }); it('Export video', openExport); it('Install app', installApp); list.append(h('div', { class: 'note', style: { padding: '8px 12px' } }, 'Version ' + APP_VER));
     openPop($('#bFile'), list);
   };
   $('#pname').addEventListener('change', () => { P.name = $('#pname').value; commit(); });
