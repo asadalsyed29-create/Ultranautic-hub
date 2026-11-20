@@ -1,0 +1,72 @@
+<div id="app">
+  <header id="top">
+    <div class="brand"><svg viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="16" fill="none" stroke="#3fd6c0" stroke-width="1.6"/><path d="M2.5 8.5h19M2.5 15.5h19M7 4v4.5M12 4v4.5M17 4v4.5M7 15.5V20M12 15.5V20M17 15.5V20" stroke="#3fd6c0" stroke-width="1.3"/><path d="M10 10.2l4.2 1.8-4.2 1.8z" fill="#e4e5e8"/></svg><span>Framewright</span></div>
+    <input id="pname" value="Untitled project" spellcheck="false">
+    <button class="tb" id="bUndo" title="Undo (Ctrl+Z)" data-i="undo"></button>
+    <button class="tb" id="bRedo" title="Redo (Ctrl+Shift+Z)" data-i="redo"></button>
+    <div class="sp"></div>
+    <button class="tb" id="bProject" title="Project settings" data-i="ratio"><span class="hide-m" id="ratioLbl">16:9</span></button>
+    <button class="tb" id="bFile" title="Project file" data-i="folder"><span class="hide-m">File</span></button>
+    <button class="btn pri" id="bExport"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14"/></svg>Export</button>
+  </header>
+
+  <aside id="left">
+    <nav id="ltabs"></nav>
+    <button class="tb sheetx" data-i="close" data-close="left"></button>
+    <div id="lbody"></div>
+  </aside>
+
+  <section id="center">
+    <div id="stage"><canvas id="view"></canvas><canvas id="overlay"></canvas></div>
+    <div id="transport">
+      <div id="tc"><b>00:00:00</b> / 00:00:00</div>
+      <div class="sp"></div>
+      <button class="tb" id="bStart" title="Go to start" data-i="start"></button>
+      <button class="tb" id="bPrevF" title="Previous frame" data-i="prevf"></button>
+      <button class="tb" id="playBtn" title="Play / pause (Space)" data-i="play"></button>
+      <button class="tb" id="bNextF" title="Next frame" data-i="nextf"></button>
+      <button class="tb" id="bEnd" title="Go to end" data-i="end"></button>
+      <div class="sp"></div>
+      <button class="tb hide-m" id="bSnap" title="Save this frame as PNG" data-i="camera"></button>
+      <button class="tb" id="bFull" title="Full screen preview" data-i="full"></button>
+    </div>
+  </section>
+
+  <aside id="right">
+    <nav id="rtabs"></nav>
+    <button class="tb sheetx" data-i="close" data-close="right"></button>
+    <div id="rbody"></div>
+  </aside>
+
+  <div id="tlw">
+    <div id="tlgrip"></div>
+    <div id="tltools">
+      <button class="tb" id="tSplit" title="Split at playhead (S)" data-i="split"></button>
+      <button class="tb" id="tDel" title="Delete (Del)" data-i="trash"></button>
+      <button class="tb" id="tDup" title="Duplicate (Ctrl+D)" data-i="dup"></button>
+      <button class="tb" id="tFreeze" title="Freeze frame" data-i="freeze"></button>
+      <button class="tb" id="tDetach" title="Extract audio" data-i="detach"></button>
+      <div class="div"></div>
+      <button class="tb" id="tFront" title="Bring to front" data-i="front"></button>
+      <button class="tb" id="tFwd" title="Bring forward" data-i="fwd"></button>
+      <button class="tb" id="tBack" title="Send backward" data-i="back"></button>
+      <button class="tb" id="tBottom" title="Send to back" data-i="bottom"></button>
+      <div class="div"></div>
+      <button class="tb" id="tKey" title="Add / remove keyframe for position, scale, rotation and opacity" data-i="key"></button>
+      <button class="tb" id="tMagnet" title="Snapping" data-i="magnet"></button>
+      <button class="tb" id="tRec" title="Record voiceover" data-i="mic"></button>
+      <div class="sp"></div>
+      <button class="tb" id="tZout" title="Zoom out" data-i="zout"></button>
+      <div class="rng" id="zoomr"></div>
+      <button class="tb" id="tZin" title="Zoom in" data-i="zin"></button>
+      <button class="tb" id="tFit" title="Fit timeline" data-i="fit"></button>
+    </div>
+    <div id="tl"><div id="tlin"><div id="ruler"><div class="corner"></div><canvas id="rulerc"></canvas></div><div id="tracks"></div><div id="playhead"></div><div id="snapline"></div></div></div>
+  </div>
+
+  <nav id="mobbar"></nav>
+</div>
+<div id="toast"></div>
+<input type="file" id="fileIn" multiple hidden accept="video/*,image/*,audio/*,.svg,.gif,.webp,.apng">
+<input type="file" id="fontIn" hidden accept=".ttf,.otf,.woff,.woff2">
+<input type="file" id="projIn" hidden accept=".fwproj">
