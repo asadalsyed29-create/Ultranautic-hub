@@ -189,9 +189,43 @@ async function prepImage(m, ext, mt) {
     } catch (e) { /* fall back to static */ }
   }
   if (ext === 'svg' || mt === 'image/svg+xml') return prepSVG(m);
+  // Phone photos can be 50-200 megapixels. That is bigger than a phone's graphics chip can draw,
+  // so it shows black. Shrink to at most IMG_MAX on the long side (still sharper than 4K export).
   const img = await loadImg(m.url);
-  m.el = img; m.w = img.naturalWidth; m.h = img.naturalHeight;
-  m.thumbs = [bmpThumb(img)];
+  const W = img.naturalWidth, H = img.naturalHeight;
+  let el = img;
+  const k = Math.min(1, IMG_MAX / Math.max(W, H));
+  if (k < 1 || W * H > 16e6) {
+    const tw = Math.max(1, Math.round(W * k)), th = Math.max(1, Math.round(H * k));
+    el = null;
+    try {
+      let b = await createImageBitmap(m.blob, { resizeWidth: tw, resizeHeight: th, resizeQuality: 'high', imageOrientation: 'from-image' });
+      // some browsers size before turning the photo upright: try the other way round
+      if (Math.abs(b.width / b.height - W / H) > 0.02 || !bmpHasPixels(b)) { b.close(); b = await createImageBitmap(m.blob, { resizeWidth: th, resizeHeight: tw, resizeQuality: 'high', imageOrientation: 'from-image' }); }
+      if (bmpHasPixels(b)) el = b; else b.close();
+    } catch (e) { el = null; }
+    if (!el) el = shrinkSteps(img, tw, th);
+  }
+  m.el = el; m.w = el.naturalWidth || el.width; m.h = el.naturalHeight || el.height;
+  m.thumbs = [bmpThumb(el)];
+}
+const IMG_MAX = 4096;
+function bmpHasPixels(b) {
+  // a failed decode gives an all-black / see-through picture: sample a small copy
+  const c = document.createElement('canvas'); c.width = 16; c.height = 16; const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(b, 0, 0, 16, 16); const d = x.getImageData(0, 0, 16, 16).data;
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] && (d[i] || d[i + 1] || d[i + 2])) return true;
+  return false;
+}
+function shrinkSteps(img, tw, th) {
+  // halve again and again so a huge photo never has to fit in one draw
+  let src = img, w = img.naturalWidth, hh = img.naturalHeight;
+  while (w / 2 >= tw && hh / 2 >= th) {
+    w = Math.round(w / 2); hh = Math.round(hh / 2);
+    const c = document.createElement('canvas'); c.width = w; c.height = hh; const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, w, hh); src = c;
+  }
+  const c = document.createElement('canvas'); c.width = tw; c.height = th; const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, tw, th);
+  return c;
 }
 function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.decoding = 'async'; i.onload = () => res(i); i.onerror = () => rej(new Error('image failed')); i.src = src; }); }
 function bmpThumb(src, th = 96) { const w = src.naturalWidth || src.width, hh = src.naturalHeight || src.height; const c = document.createElement('canvas'); c.height = th; c.width = Math.max(8, Math.round(th * w / hh)); c.getContext('2d').drawImage(src, 0, 0, c.width, c.height); return c.toDataURL('image/png'); }
