@@ -2457,7 +2457,7 @@ function groupDrag(e, c, el, part) {
   };
   const up = () => {
     el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
-    if (!moved) { selectClip(c.id, true); return; }
+    if (!moved) { if (part === 'body') { MSEL.delete(c.id); if (SEL === c.id) SEL = [...MSEL].pop() || null; if (!MSEL.size) TL.multi = false; refreshAll(); } return; } // tap a picked clip to drop it
     for (const tr of P.tracks) { sortTrack(tr); if (tr.main && TL.magnet) packMain(); }
     commit(); refreshAll();
   };
@@ -4026,7 +4026,7 @@ function snapshotPNG() {
   prepFrame(T).then(() => { renderFrame(cv.getContext('2d'), T, w, hh); cv.toBlob(b => { const a = h('a', { href: URL.createObjectURL(b), download: 'frame-' + fmtTime(T, P.fps).replace(/:/g, '-') + '.png' }); document.body.append(a); a.click(); a.remove(); }, 'image/png'); });
 }
 
-const APP_VER = 24;
+const APP_VER = 25;
 /* ================= wiring ================= */
 let zoomSlider = null, EXPORTING = false;
 function refreshAll() {

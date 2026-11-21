@@ -237,7 +237,7 @@ function groupDrag(e, c, el, part) {
   };
   const up = () => {
     el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
-    if (!moved) { selectClip(c.id, true); return; }
+    if (!moved) { if (part === 'body') { MSEL.delete(c.id); if (SEL === c.id) SEL = [...MSEL].pop() || null; if (!MSEL.size) TL.multi = false; refreshAll(); } return; } // tap a picked clip to drop it
     for (const tr of P.tracks) { sortTrack(tr); if (tr.main && TL.magnet) packMain(); }
     commit(); refreshAll();
   };
