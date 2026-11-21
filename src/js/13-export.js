@@ -64,7 +64,7 @@ const MUX = (() => {
 })();
 
 /* ================= export ================= */
-const EXP = { res: 1080, fps: 30, mbps: null, name: '', mode: 'quick' };
+const EXP = { res: 1080, fps: 30, mbps: null, name: '', mode: 'exact' };
 let EXP_QUIET = false;
 function exportDims(cls) {
   const ar = P.w / P.h; let w, hh;
@@ -106,7 +106,7 @@ function openExport() {
   let mb = EXP.mbps || defMbps(EXP.res, EXP.fps);
   const mbF = numField({ value: mb, min: 1, max: 250, dec: 1, suf: 'Mbps', step: 1, onInput: v => { mb = v; EXP.mbps = v; updInfo(); } });
   mbF.querySelector('.num').style.paddingRight = '46px';
-  const updInfo = () => { const [w, hh] = exportDims(EXP.res); const sz = mb * projDur() / 8 + 0.256 * projDur() / 8; dimsTxt.textContent = (EXP.mode === 'quick' ? `Quick: plays the video and records it, so it takes ${fmtDur(projDur())}. ` : 'Exact: builds every frame one by one. Slower, but never skips a frame. ') + `${w} × ${hh} · ${EXP.fps} fps · ${fmtDur(projDur())} · about ${sz < 1000 ? Math.max(1, Math.round(sz)) + ' MB' : (sz / 1000).toFixed(1) + ' GB'}`; };
+  const updInfo = () => { const [w, hh] = exportDims(EXP.res); const sz = mb * projDur() / 8 + 0.256 * projDur() / 8; dimsTxt.textContent = (EXP.mode === 'quick' ? `Quick: plays the video and records it, so it takes ${fmtDur(projDur())}. ` : 'Exact: builds every frame one by one, as fast as this device can. Never skips a frame. ') + `${w} × ${hh} · ${EXP.fps} fps · ${fmtDur(projDur())} · about ${sz < 1000 ? Math.max(1, Math.round(sz)) + ' MB' : (sz / 1000).toFixed(1) + ' GB'}`; };
   const nameIn = h('input', { class: 'txt', value: EXP.name, spellcheck: 'false' }); nameIn.addEventListener('keydown', e => e.stopPropagation()); nameIn.addEventListener('input', () => EXP.name = nameIn.value);
   const resetMb = () => { mb = defMbps(EXP.res, EXP.fps); EXP.mbps = null; mbF.set(mb); updInfo(); };
   body.append(
@@ -127,7 +127,7 @@ async function runExport(mbps) {
   const pv = h('canvas', { class: 'exppv' }); pv.width = 320; pv.height = Math.max(2, Math.round(320 * H / W));
   const dlg = modal('Exporting', h('div', null, EXP.mode === 'quick' ? pv : '', st, pr, sub), [{ l: 'Cancel', onClick: () => { cancel = true; return false; } }], { noX: true, width: 440 });
   const setP = (f, msg, s2) => { pr.firstChild.style.width = (f * 100).toFixed(1) + '%'; if (msg) st.textContent = msg; if (s2 != null) sub.textContent = s2; };
-  let venc, aenc;
+  let venc, aenc; const DECS = new Map();
   EXPORTING = true;
   try {
     const vc = await pickVideoCodec(W, H, fps, bitrate);
@@ -221,7 +221,7 @@ async function runExport(mbps) {
       if (cancel) throw new Error('cancel');
       if (encErr) throw encErr;
       const t = i / fps;
-      await prepFrame(t);
+      await prepFrameFast(t, DECS);
       renderFrame(x, t, W, H);
       const vf = new VideoFrame(cv, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
       venc.encode(vf, { keyFrame: i % (fps * 2) === 0 }); vf.close();
@@ -233,6 +233,7 @@ async function runExport(mbps) {
         await sleep(0);
       }
     }
+    for (const d of DECS.values()) d && d.close(); DECS.clear(); EXPORT_FRAMES.clear();
     setP(1, 'Finishing…');
     await venc.flush(); venc.close(); venc = null;
     if (aenc) { aenc.close(); aenc = null; }
@@ -248,6 +249,7 @@ async function runExport(mbps) {
       h('div', { class: 'note' }, 'The download started. If it did not, use the button below.')),
       [share ? { l: 'Share', onClick: () => { navigator.share({ files: [new File([blob], fname, { type: 'video/mp4' })] }).catch(() => { }); return false; } } : null, { l: 'Download again', pri: 1, onClick: () => { const b2 = h('a', { href: url, download: fname }); document.body.append(b2); b2.click(); b2.remove(); return false; } }, { l: 'Close' }].filter(Boolean));
   } catch (e) {
+    for (const d of DECS.values()) d && d.close(); DECS.clear(); EXPORT_FRAMES.clear();
     EXP_QUIET = false; for (const [, e2] of VP.els) if (!e2.el.paused) e2.el.pause();
     try { venc && venc.state !== 'closed' && venc.close(); } catch (x) { }
     try { aenc && aenc.state !== 'closed' && aenc.close(); } catch (x) { }

@@ -21,7 +21,7 @@ function visibleAt(t) {
 }
 function mediaSize(c) {
   const m = MEDIA[c.media]; if (!m) return [16, 9];
-  if (m.kind === 'video') { const v = VP.peek(c.id); if (v && v.videoWidth) return [v.videoWidth, v.videoHeight]; }
+  if (m.kind === 'video') { const f = EXPORT_FRAMES.get(c.id); if (f) return [f.width, f.height]; const v = VP.peek(c.id); if (v && v.videoWidth) return [v.videoWidth, v.videoHeight]; }
   return [m.w || 16, m.h || 9];
 }
 function contentSize(c) {
@@ -42,7 +42,7 @@ function clipMatrix(c, lt, withAnim) {
 }
 function sourceFor(c, lt) {
   const m = MEDIA[c.media]; if (!m || !m.ready) return null;
-  if (m.kind === 'video') { const v = VP.peek(c.id); if (!v || v.readyState < 2 || !v.videoWidth) return null; return { src: v, sw: v.videoWidth, sh: v.videoHeight }; }
+  if (m.kind === 'video') { const f = EXPORT_FRAMES.get(c.id); if (f) return { src: f, sw: f.width, sh: f.height }; const v = VP.peek(c.id); if (!v || v.readyState < 2 || !v.videoWidth) return null; return { src: v, sw: v.videoWidth, sh: v.videoHeight }; }
   if (m.animated) return { src: mediaFrame(m, lt * (c.speed || 1)), sw: m.w, sh: m.h };
   if (m.el) return { src: m.el, sw: m.w, sh: m.h };
   return null;
