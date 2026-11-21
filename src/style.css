@@ -354,3 +354,4 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
 .phmaskon{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--acc)}
 @media (max-width:520px){.edsw button{padding:0 7px;font-size:11.5px}}
 .brow{display:flex;gap:6px;flex-wrap:wrap}
+.presets button.dis{opacity:.45}

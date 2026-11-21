@@ -462,8 +462,9 @@ function speedEditor(pts, smooth, onChange) {
   const box = h('div', { class: 'curve speedg' }), cv = h('canvas'); box.append(cv);
   const info = h('div', { class: 'hint' });
   const pre = h('div', { class: 'presets' });
-  const same = a => a.every((q, i) => Math.abs(q[0] - pts[i][0]) < 1e-3 && Math.abs(q[1] - pts[i][1]) < 1e-3);
-  const mkPre = () => { pre.innerHTML = ''; for (const e of SP_PRESETS) pre.append(h('button', { class: same(e.p) ? 'on' : '', onclick: () => { e.p.forEach((q, i) => { pts[i][0] = q[0]; pts[i][1] = q[1]; }); onChange(pts, true); draw(); mkPre(); } }, e.n)); };
+  const same = a => a.length === pts.length && a.every((q, i) => Math.abs(q[0] - pts[i][0]) < 1e-3 && Math.abs(q[1] - pts[i][1]) < 1e-3);
+  let picked = -1;
+  const mkPre = () => { pre.innerHTML = ''; for (const e of SP_PRESETS) pre.append(h('button', { class: same(e.p) ? 'on' : '', onclick: () => { pts.length = 0; e.p.forEach(q => pts.push([q[0], q[1]])); picked = -1; onChange(pts, true); draw(); mkPre(); } }, e.n)); pre.append(h('button', { class: picked > 0 && picked < pts.length - 1 ? '' : 'dis', title: 'Remove the point you last touched', onclick: () => { if (!(picked > 0 && picked < pts.length - 1)) { toast('Tap a point in the middle first'); return; } pts.splice(picked, 1); picked = -1; onChange(pts, true); draw(); mkPre(); } }, 'Remove point')); };
   const wrap = h('div', null, box, info, pre);
   const M = 16, ML = 34; let W = 0, H = 0;
   const toPx = (x, y) => [ML + x * (W - ML - M), H - M - y / SP_MAX * (H - 2 * M)];
@@ -482,15 +483,17 @@ function speedEditor(pts, smooth, onChange) {
     const fill = new Path2D(path); const [ex, ey0] = toPx(1, 0), [sx] = toPx(0, 0); fill.lineTo(ex, ey0); fill.lineTo(sx, ey0); fill.closePath();
     x.fillStyle = 'rgba(63,214,192,.12)'; x.fill(fill);
     x.strokeStyle = '#3fd6c0'; x.lineWidth = 2.4; x.stroke(path);
-    pts.forEach((q, i) => { const [px, py] = toPx(q[0], q[1]); x.fillStyle = i === 1 ? '#3fd6c0' : '#e4e5e8'; x.fillRect(px - 7, py - 7, 14, 14); x.strokeStyle = '#000'; x.lineWidth = 1; x.strokeRect(px - 7, py - 7, 14, 14); x.fillStyle = '#e4e5e8'; x.fillText(round(q[1], 2) + 'x', clamp(px - 12, ML, W - 40), py < 24 ? py + 18 : py - 16); });
+    pts.forEach((q, i) => { const [px, py] = toPx(q[0], q[1]); x.fillStyle = i === picked ? '#3fd6c0' : '#e4e5e8'; x.fillRect(px - 7, py - 7, 14, 14); x.strokeStyle = '#000'; x.lineWidth = 1; x.strokeRect(px - 7, py - 7, 14, 14); x.fillStyle = '#e4e5e8'; x.fillText(round(q[1], 2) + 'x', clamp(px - 12, ML, W - 40), py < 24 ? py + 18 : py - 16); });
     x.fillStyle = '#62666e'; x.fillText('time →', W - M - 42, H - 7);
-    info.textContent = 'Up = faster, down = slower. It always lands exactly on the next keyframe.';
+    info.textContent = 'Up = faster, down = slower. Tap the line anywhere to add a point. It always lands exactly on the next keyframe.';
   }
   box.addEventListener('pointerdown', e => {
     e.preventDefault(); box.setPointerCapture(e.pointerId);
     const r = box.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
     let which = 0, best = 1e9; pts.forEach((q, i) => { const [qx, qy] = toPx(q[0], q[1]); const d = Math.hypot(px - qx, py - qy); if (d < best) { best = d; which = i; } });
-    const mv = ev => { const [vx, vy] = fromPx(ev.clientX - r.left, ev.clientY - r.top); pts[which][1] = round(vy, 2); if (which === 1) pts[1][0] = round(clamp(vx, 0.05, 0.95), 3); onChange(pts, false); draw(); };
+    if (best > 22 && pts.length < 24) { const [vx, vy] = fromPx(px, py); let k = pts.findIndex(q => q[0] > vx); if (k <= 0) k = vx <= 0 ? 1 : pts.length - 1; pts.splice(k, 0, [round(clamp(vx, pts[k - 1][0] + .01, pts[k][0] - .01), 3), round(vy, 2)]); which = k; }
+    picked = which;
+    const mv = ev => { const [vx, vy] = fromPx(ev.clientX - r.left, ev.clientY - r.top); pts[which][1] = round(vy, 2); if (which > 0 && which < pts.length - 1) pts[which][0] = round(clamp(vx, pts[which - 1][0] + .01, pts[which + 1][0] - .01), 3); onChange(pts, false); draw(); };
     mv(e);
     const up = () => { box.removeEventListener('pointermove', mv); box.removeEventListener('pointerup', up); onChange(pts, true); mkPre(); };
     box.addEventListener('pointermove', mv); box.addEventListener('pointerup', up);

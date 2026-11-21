@@ -131,7 +131,7 @@ function grainStroke(src, g, out) {
 
 /* ---------- editor state ---------- */
 const DW = { on: false };
-const DW_TOOLS = [['brush', 'Brush', 'dbrush'], ['air', 'Airbrush', 'dair'], ['water', 'Watercolor', 'dwater'], ['eraser', 'Eraser', 'deraser'], ['fill', 'Bucket', 'dfill'], ['pick', 'Eyedropper', 'dpick'], ['line', 'Line', 'dline'], ['shape', 'Shapes', 'dshape'], ['ruler', 'Ruler', 'druler'], ['move', 'Move', 'dmove'], ['photo', 'Photo', 'dphoto']];
+const DW_TOOLS = [['brush', 'Brush', 'dbrush'], ['air', 'Airbrush', 'dair'], ['water', 'Watercolor', 'dwater'], ['eraser', 'Eraser', 'deraser'], ['fill', 'Bucket', 'dfill'], ['pick', 'Eyedropper', 'dpick'], ['line', 'Line', 'dline'], ['shape', 'Shapes', 'dshape'], ['ruler', 'Ruler', 'druler'], ['tf', 'Move', 'dmove'], ['photo', 'Photo', 'dphoto']];
 // paint tools share the brush engine; each keeps its own brush, and Airbrush / Watercolor stay in their family
 const PAINT = { brush: { key: 'brush', size: 'size' }, air: { key: 'air', size: 'asize', cat: 'Airbrush' }, water: { key: 'water', size: 'wsize', cat: 'Watercolor' }, eraser: { key: 'eraser', size: 'esize' } };
 const isPaint = t => t === 'brush' || t === 'air' || t === 'water';
