@@ -121,7 +121,7 @@ function drawRuler() {
   x.stroke();
 }
 function updPlayhead(follow) {
-  const ph = $('#playhead'); ph.style.left = (TL.hw + T * TL.pps) + 'px';
+  const ph = $('#playhead'); ph.style.left = (TL.hw + T * TL.pps) + 'px'; updKeyDel();
   if (follow) { const tl = $('#tl'), px = TL.hw + T * TL.pps; if (px > tl.scrollLeft + tl.clientWidth - 40 || px < tl.scrollLeft + TL.hw) tl.scrollLeft = px - TL.hw - 40; }
   updTime();
 }
@@ -468,7 +468,21 @@ function opKey() {
   SELKF = any ? null : { t: lt };
   commit(); refreshAll();
 }
+// the keyframe that Delete key removes: the picked diamond, or the one under the playhead
+function kfTargetTime(c) {
+  if (!c || !c.kf) return null; const ts = clipKeyTimes(c); if (!ts.length) return null;
+  if (SELKF && ts.some(t => Math.abs(t - SELKF.t) < 1e-4)) return SELKF.t;
+  const lt = T - c.start, t = ts.find(t => Math.abs(t - lt) <= 0.5 / P.fps); return t == null ? null : t;
+}
+function opDelKey() {
+  const c = selClip(), t = kfTargetTime(c); if (t == null) { toast('Tap a keyframe diamond on the clip first'); return; }
+  const T0 = T; T = c.start + t;
+  for (const p of kfProps(c)) { const ks = c.kf[p] || []; if (ks.some(k => Math.abs(k.t - t) < 1e-4) && keyAt(c, p, t, 1e-4) >= 0) toggleKey(c, p); }
+  T = T0; SELKF = null; commit(); refreshAll(); toast('Keyframe deleted');
+}
+function updKeyDel() { const b = $('#tKeyDel'); if (b) b.disabled = kfTargetTime(selClip()) == null; }
 function updToolState() {
+  updKeyDel();
   const c = selClip();
   $('#tDel').disabled = !c; $('#tDup').disabled = !c;
   for (const id of ['#tFront', '#tFwd', '#tBack', '#tBottom']) $(id).disabled = !c || !VISUAL[c.type];

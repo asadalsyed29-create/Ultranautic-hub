@@ -411,6 +411,7 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
     <div id="tltools">
       <button class="tb" id="tSplit" title="Split at playhead (S)" data-i="split"></button>
       <button class="tb" id="tDel" title="Delete (Del)" data-i="trash"></button>
+      <button class="tb" id="tKeyDel" title="Delete the picked keyframe" data-i="trash"><span>Key</span></button>
       <button class="tb" id="tDup" title="Duplicate (Ctrl+D)" data-i="dup"></button>
       <button class="tb" id="tMulti" title="Pick several clips: tap each one" data-i="check"><span>Select</span></button>
       <button class="tb" id="tAll" title="Select all clips"><span>All</span></button>
@@ -2389,7 +2390,7 @@ function drawRuler() {
   x.stroke();
 }
 function updPlayhead(follow) {
-  const ph = $('#playhead'); ph.style.left = (TL.hw + T * TL.pps) + 'px';
+  const ph = $('#playhead'); ph.style.left = (TL.hw + T * TL.pps) + 'px'; updKeyDel();
   if (follow) { const tl = $('#tl'), px = TL.hw + T * TL.pps; if (px > tl.scrollLeft + tl.clientWidth - 40 || px < tl.scrollLeft + TL.hw) tl.scrollLeft = px - TL.hw - 40; }
   updTime();
 }
@@ -2736,7 +2737,21 @@ function opKey() {
   SELKF = any ? null : { t: lt };
   commit(); refreshAll();
 }
+// the keyframe that Delete key removes: the picked diamond, or the one under the playhead
+function kfTargetTime(c) {
+  if (!c || !c.kf) return null; const ts = clipKeyTimes(c); if (!ts.length) return null;
+  if (SELKF && ts.some(t => Math.abs(t - SELKF.t) < 1e-4)) return SELKF.t;
+  const lt = T - c.start, t = ts.find(t => Math.abs(t - lt) <= 0.5 / P.fps); return t == null ? null : t;
+}
+function opDelKey() {
+  const c = selClip(), t = kfTargetTime(c); if (t == null) { toast('Tap a keyframe diamond on the clip first'); return; }
+  const T0 = T; T = c.start + t;
+  for (const p of kfProps(c)) { const ks = c.kf[p] || []; if (ks.some(k => Math.abs(k.t - t) < 1e-4) && keyAt(c, p, t, 1e-4) >= 0) toggleKey(c, p); }
+  T = T0; SELKF = null; commit(); refreshAll(); toast('Keyframe deleted');
+}
+function updKeyDel() { const b = $('#tKeyDel'); if (b) b.disabled = kfTargetTime(selClip()) == null; }
 function updToolState() {
+  updKeyDel();
   const c = selClip();
   $('#tDel').disabled = !c; $('#tDup').disabled = !c;
   for (const id of ['#tFront', '#tFwd', '#tBack', '#tBottom']) $(id).disabled = !c || !VISUAL[c.type];
@@ -3642,6 +3657,7 @@ function insKeys(b, c) {
   b.append(h('div', { style: { display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' } },
     h('button', { class: 'btn sm', html: icon('chevl'), title: 'Previous keyframe', onclick: () => { const lt = T - c.start; const p = times.filter(t => t < lt - 1e-4).pop(); if (p != null) { SELKF = { t: p }; seek(c.start + p); refreshAll(); } } }),
     h('button', { class: 'btn sm pri', html: icon('key') + ' Keyframe here', onclick: opKey }),
+    kfTargetTime(c) != null ? h('button', { class: 'btn sm', html: icon('trash') + ' Delete keyframe', onclick: opDelKey }) : null,
     h('button', { class: 'btn sm', html: icon('chevr'), title: 'Next keyframe', onclick: () => { const lt = T - c.start; const p = times.find(t => t > lt + 1e-4); if (p != null) { SELKF = { t: p }; seek(c.start + p); refreshAll(); } } })));
   if (!times.length) { b.append(h('div', { class: 'note' }, 'No keyframes yet. Move the playhead, then tap “Keyframe here”, or tap the diamond next to Position, Scale, Rotation or Opacity above. Change the value at another time and a new keyframe is made for you.')); return; }
   const kt = currentKeyTime(c);
@@ -3688,7 +3704,6 @@ function insKeys(b, c) {
   }
   b.append(grp('Keyframe value', [valBox]));
   b.append(h('div', { style: { display: 'flex', gap: '6px', marginTop: '12px', flexWrap: 'wrap' } },
-    h('button', { class: 'btn sm', html: icon('trash') + ' Delete keyframe', onclick: () => { for (const x of ks) { const v = x.k.v; c.kf[x.p].splice(c.kf[x.p].indexOf(x.k), 1); if (!c.kf[x.p].length) c.tf[x.p] = v; } SELKF = null; chg(true); refreshAll(); } }),
     seg.length ? h('button', { class: 'btn sm', onclick: () => { const src = seg[0].k; for (const p of kfProps(c)) for (const k of c.kf[p]) { copySeg(k, src); } chg(true); toast('Copied to every keyframe on this clip'); } }, 'Use for all keyframes') : null));
 }
 function curveEditor(k, onChange, bf = 'bez') {
@@ -4243,7 +4258,7 @@ async function prepFrameFast(t, decs) {
   if (slow.length) await prepFrame(t);
 }
 
-const APP_VER = 32;
+const APP_VER = 33;
 /* ================= wiring ================= */
 let zoomSlider = null, EXPORTING = false;
 function refreshAll() {
@@ -4304,7 +4319,7 @@ function bindUI() {
   $('#bSnap').onclick = snapshotPNG;
   $('#bFull').onclick = () => { const s = $('#center'); if (document.fullscreenElement) document.exitFullscreen(); else (s.requestFullscreen || s.webkitRequestFullscreen).call(s); };
   document.addEventListener('fullscreenchange', () => setTimeout(layoutView, 60));
-  $('#tSplit').onclick = opSplit; $('#tDel').onclick = opDelete; $('#tDup').onclick = opDuplicate; $('#tFreeze').onclick = opFreeze; $('#tDetach').onclick = opDetach;
+  $('#tSplit').onclick = opSplit; $('#tDel').onclick = opDelete; $('#tKeyDel').onclick = opDelKey; $('#tDup').onclick = opDuplicate; $('#tFreeze').onclick = opFreeze; $('#tDetach').onclick = opDetach;
   $('#tMulti').onclick = () => { TL.multi = !TL.multi; if (TL.multi && SEL) MSEL.add(SEL); if (!TL.multi && MSEL.size < 2) MSEL.clear(); refreshAll(); toast(TL.multi ? 'Tap clips to pick them. Tap again to drop one.' : (MSEL.size > 1 ? MSEL.size + ' clips stay picked' : 'Picking off')); };
   const pickSet = ids => { MSEL.clear(); ids.forEach(id => MSEL.add(id)); TL.multi = MSEL.size > 0; SEL = MSEL.size ? [...MSEL][MSEL.size - 1] : null; SELKF = null; refreshAll(); };
   $('#tAll').onclick = () => { pickSet(allClips().map(c => c.id)); toast(MSEL.size + ' clips selected'); };

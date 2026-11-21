@@ -361,6 +361,7 @@ function insKeys(b, c) {
   b.append(h('div', { style: { display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' } },
     h('button', { class: 'btn sm', html: icon('chevl'), title: 'Previous keyframe', onclick: () => { const lt = T - c.start; const p = times.filter(t => t < lt - 1e-4).pop(); if (p != null) { SELKF = { t: p }; seek(c.start + p); refreshAll(); } } }),
     h('button', { class: 'btn sm pri', html: icon('key') + ' Keyframe here', onclick: opKey }),
+    kfTargetTime(c) != null ? h('button', { class: 'btn sm', html: icon('trash') + ' Delete keyframe', onclick: opDelKey }) : null,
     h('button', { class: 'btn sm', html: icon('chevr'), title: 'Next keyframe', onclick: () => { const lt = T - c.start; const p = times.find(t => t > lt + 1e-4); if (p != null) { SELKF = { t: p }; seek(c.start + p); refreshAll(); } } })));
   if (!times.length) { b.append(h('div', { class: 'note' }, 'No keyframes yet. Move the playhead, then tap “Keyframe here”, or tap the diamond next to Position, Scale, Rotation or Opacity above. Change the value at another time and a new keyframe is made for you.')); return; }
   const kt = currentKeyTime(c);
@@ -407,7 +408,6 @@ function insKeys(b, c) {
   }
   b.append(grp('Keyframe value', [valBox]));
   b.append(h('div', { style: { display: 'flex', gap: '6px', marginTop: '12px', flexWrap: 'wrap' } },
-    h('button', { class: 'btn sm', html: icon('trash') + ' Delete keyframe', onclick: () => { for (const x of ks) { const v = x.k.v; c.kf[x.p].splice(c.kf[x.p].indexOf(x.k), 1); if (!c.kf[x.p].length) c.tf[x.p] = v; } SELKF = null; chg(true); refreshAll(); } }),
     seg.length ? h('button', { class: 'btn sm', onclick: () => { const src = seg[0].k; for (const p of kfProps(c)) for (const k of c.kf[p]) { copySeg(k, src); } chg(true); toast('Copied to every keyframe on this clip'); } }, 'Use for all keyframes') : null));
 }
 function curveEditor(k, onChange, bf = 'bez') {
