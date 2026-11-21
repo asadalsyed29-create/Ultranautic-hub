@@ -209,7 +209,7 @@ function clipPointer(e, c, el) {
   const up = () => {
     el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
     showSnap(null);
-    if (!moved) { if (wasSel && part === 'body' && !isTouch) { /* click on selected: seek */ } refreshAll(); return; }
+    if (!moved) { if (wasSel && part === 'body') { SEL = null; SELKF = null; MSEL.clear(); } refreshAll(); return; } // tap a picked clip again to drop it
     if (part === 'body') placeClip(c, tr, target);
     else if (tr.main && TL.magnet) packMain();
     commit(); refreshAll();
@@ -338,7 +338,7 @@ function initTimelineEvents() {
   tl.addEventListener('pointerup', e => {
     if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6 || Math.abs(tl.scrollLeft - downAt.sl) > 4) return;
     if (PLAY.on) pause();
-    scrub(e); if (SEL || MSEL.size) { if (TL.multi && MSEL.size) return; SEL = null; SELKF = null; MSEL.clear(); renderTimeline(); renderInspector(); drawOverlay(); updToolState(); }
+    scrub(e); if (SEL || MSEL.size) { TL.multi = false; SEL = null; SELKF = null; MSEL.clear(); renderTimeline(); renderInspector(); drawOverlay(); updToolState(); }
   });
   // zoom: ctrl + wheel, pinch on touch
   tl.addEventListener('wheel', e => {
