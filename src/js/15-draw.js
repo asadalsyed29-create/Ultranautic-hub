@@ -204,7 +204,8 @@ function buildDrawUI() {
   root.append(top, phModeRow(), stage, h('div', { class: 'dwbar' + (DW.mode === 'photo' ? ' ph' : '') }, tools, opts));
   document.body.append(root);
   DW.root = root; DW.cv = cv; DW.x = cv.getContext('2d'); DW.stageEl = stage; DW.opts = opts;
-  new ResizeObserver(() => { if (DW.on) { if (DW.view.fit) dwFit(); dwRender(); } }).observe(stage);
+  let lastR = null;
+  new ResizeObserver(() => { if (!DW.on) return; const r = stage.getBoundingClientRect(); if (!DW.view.fit && lastR) { DW.view.x += (r.width - lastR.width) / 2; DW.view.y += (r.height - lastR.height) / 2; } lastR = { width: r.width, height: r.height }; dwFit(); dwDraw(); }).observe(stage);
   dwBindStage(stage); dwToolUI(); dwUndoUI();
 }
 function dwToolUI() {
