@@ -15,10 +15,11 @@ function clipCorners(c, k) {
 }
 function drawOverlay() {
   const ov = VIEW.ov; if (!ov) return; const x = VIEW.ox;
-  x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, ov.width, ov.height);
-  const k = ov.width / P.w, d = ov.width / VIEW.cssW;
-  if (GUIDE.x != null) { x.strokeStyle = '#ff4fb0'; x.lineWidth = d; x.setLineDash([6 * d, 4 * d]); x.beginPath(); x.moveTo(GUIDE.x * k, 0); x.lineTo(GUIDE.x * k, ov.height); x.stroke(); x.setLineDash([]); }
-  if (GUIDE.y != null) { x.strokeStyle = '#ff4fb0'; x.lineWidth = d; x.setLineDash([6 * d, 4 * d]); x.beginPath(); x.moveTo(0, GUIDE.y * k); x.lineTo(ov.width, GUIDE.y * k); x.stroke(); x.setLineDash([]); }
+  x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, ov.width, ov.height); x.setTransform(1, 0, 0, 1, VIEW.oox || 0, VIEW.ooy || 0);
+  updTopInset();
+  const k = VIEW.ofw / P.w, d = VIEW.ofw / VIEW.cssW;
+  if (GUIDE.x != null) { x.strokeStyle = '#ff4fb0'; x.lineWidth = d; x.setLineDash([6 * d, 4 * d]); x.beginPath(); x.moveTo(GUIDE.x * k, 0); x.lineTo(GUIDE.x * k, VIEW.ofh); x.stroke(); x.setLineDash([]); }
+  if (GUIDE.y != null) { x.strokeStyle = '#ff4fb0'; x.lineWidth = d; x.setLineDash([6 * d, 4 * d]); x.beginPath(); x.moveTo(0, GUIDE.y * k); x.lineTo(VIEW.ofw, GUIDE.y * k); x.stroke(); x.setLineDash([]); }
   updStools();
   if (PLAY.on) return;
   const c = selVisible(); if (!c) return;
@@ -62,7 +63,10 @@ function moveHandles(pts, d) {
   }
   return out;
 }
-function inView(x, y, m) { return { x: clamp(x, m, VIEW.ov.width - m), y: clamp(y, m, VIEW.ov.height - m) }; }
+// keeps a handle on screen: anywhere in the preview area, even past the edge of the video
+function inView(x, y, m) { const ox = VIEW.oox || 0, oy = VIEW.ooy || 0, top = VIEW.topIn || 0; return { x: clamp(x, m - ox, VIEW.ov.width - ox - m), y: clamp(y, m + top - oy, VIEW.ov.height - oy - m) }; }
+// the stage tool rows sit at the top; pinned handles stay below them so they can be reached
+function updTopInset() { const st = $('#stage'); if (!st || !VIEW.ov) return; const r = st.getBoundingClientRect(); let bot = 0; for (const id of ['#stools', '#wbar']) { const e = $(id); if (e && !e.classList.contains('off') && e.offsetParent) bot = Math.max(bot, e.getBoundingClientRect().bottom - r.top); } VIEW.topIn = bot * VIEW.ov.width / Math.max(1, r.width); }
 function sizeHandles(pts, d) { return pts.map(p => { const q = inView(p[0], p[1], 12 * d); return [q.x, q.y]; }); }
 function drawMoveHandle(x, hd, d) {
   const r = (isTouch ? 12 : 9) * d;
@@ -97,7 +101,7 @@ function rotText(deg) {
   const turns = Math.trunc(deg / 360), rest = round(deg - turns * 360, 1);
   return `${round(deg, 1).toLocaleString()}°` + (turns ? `  (${turns.toLocaleString()} turn${Math.abs(turns) === 1 ? '' : 's'} ${rest >= 0 ? '+' : '-'} ${Math.abs(rest)}°)` : '');
 }
-function stagePt(e) { const r = VIEW.ov.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * P.w, y: (e.clientY - r.top) / r.height * P.h, px: (e.clientX - r.left) * VIEW.ov.width / r.width, py: (e.clientY - r.top) * VIEW.ov.height / r.height }; }
+function stagePt(e) { const r = VIEW.ov.getBoundingClientRect(), px = (e.clientX - r.left) * VIEW.ov.width / r.width - (VIEW.oox || 0), py = (e.clientY - r.top) * VIEW.ov.height / r.height - (VIEW.ooy || 0); return { x: px / VIEW.ofw * P.w, y: py / VIEW.ofh * P.h, px, py }; }
 function hitClip(pt) {
   const list = [];
   for (const tr of visualTracks()) { if (tr.hidden || tr.locked) continue; const c = clipAt(tr, T); if (c && !['effect', 'filter', 'adjust'].includes(c.type)) list.push(c); }
@@ -126,7 +130,7 @@ function initStageEvents() {
       gesture = { c, d0: Math.hypot(a.x - b.x, a.y - b.y), a0: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI, s0: evalProp(c, 'scale', lt), r: evalProp(c, 'rot', lt), last: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI };
       drag = null; return;
     }
-    const k = VIEW.ov.width / P.w, d = VIEW.ov.width / VIEW.cssW;
+    const k = VIEW.ofw / P.w, d = VIEW.ofw / VIEW.cssW;
     const sc = selVisible();
     if (sc) {
       const { pts, ctr } = clipCorners(sc, k), lt = clamp(T - sc.start, 0, sc.dur);

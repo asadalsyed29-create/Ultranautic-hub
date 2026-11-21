@@ -78,10 +78,8 @@ function layoutView() {
   let pw = Math.round(cw * dpr), ph = Math.round(ch * dpr);
   const cap = 1920 / Math.max(pw, ph); if (cap < 1) { pw = Math.round(pw * cap); ph = Math.round(ph * cap); }
   VIEW.fw = pw; VIEW.fh = ph;
-  for (const c of [VIEW.cv, VIEW.ov]) {
-    if (c.width !== pw || c.height !== ph) { c.width = pw; c.height = ph; }
-    c.style.width = cw + 'px'; c.style.height = ch + 'px'; c.style.left = Math.round((r.width - cw) / 2) + 'px'; c.style.top = Math.round((r.height - ch) / 2) + 'px';
-  }
+  { const c = VIEW.cv; if (c.width !== pw || c.height !== ph) { c.width = pw; c.height = ph; } c.style.width = cw + 'px'; c.style.height = ch + 'px'; c.style.left = Math.round((r.width - cw) / 2) + 'px'; c.style.top = Math.round((r.height - ch) / 2) + 'px'; }
+  { const o = VIEW.ov, f = pw / cw, ow = Math.max(2, Math.round(r.width * f)), oh = Math.max(2, Math.round(r.height * f)); if (o.width !== ow || o.height !== oh) { o.width = ow; o.height = oh; } o.style.width = r.width + 'px'; o.style.height = r.height + 'px'; o.style.left = '0px'; o.style.top = '0px'; VIEW.ofw = pw; VIEW.ofh = ph; VIEW.oox = Math.round((r.width - cw) / 2) * f; VIEW.ooy = Math.round((r.height - ch) / 2) * f; }
   VIEW.cssW = cw; VIEW.cssH = ch; VIEW.left = Math.round((r.width - cw) / 2); VIEW.top = Math.round((r.height - ch) / 2); VIEW.k = cw / P.w;
   requestRender();
 }

@@ -164,6 +164,8 @@ function phTfApply(cancel) {
 function tfOutline(t) { const P = tfMap(t), o = [], n = t.mode === 'mesh' ? 12 : 1; for (let i = 0; i < n; i++) o.push(P(i / n, 0)); for (let i = 0; i < n; i++) o.push(P(1, i / n)); for (let i = n; i > 0; i--) o.push(P(i / n, 1)); for (let i = n; i > 0; i--) o.push(P(0, i / n)); return o; }
 // points stay evenly spread over the shape; changing the count always starts from the shape you made (not from the last resample)
 function tfResample(t, c, r) { if (!t.mBase) t.mBase = { c: t.m.c, r: t.m.r, p: t.m.p.map(v => v.slice()) }; const P = meshMap(t.mBase), p = []; for (let j = 0; j <= r; j++) for (let i = 0; i <= c; i++) p.push(P(i / c, j / r)); t.m = { c, r, p }; }
+function tfPinS(X, Y, d) { const m = 14 * d; return [clamp(X, m, DW.cv.width - m), clamp(Y, m, DW.cv.height - m)]; }
+function tfPinD(a) { const v = DW.view, W = DW.cv.width / DW.dpr, H = DW.cv.height / DW.dpr, m = 14; return [clamp(a[0], (m - v.x) / v.z, (W - m - v.x) / v.z), clamp(a[1], (m - v.y) / v.z, (H - m - v.y) / v.z)]; }
 PH_H.tf = {
   ui(o) {
     if (!DW.tf || DW.tf.L !== DW.layers[DW.cur]) phTfBegin();
@@ -200,18 +202,18 @@ PH_H.tf = {
   down(p, e) {
     const t = DW.tf; if (!t || t.empty) return;
     if (t.text) { const L = t.L, x0 = L.text.x, y0 = L.text.y; phSnapDoc(); return { move: q => { L.text.x = x0 + q.x - p.x; L.text.y = y0 + q.y - p.y; phRenderText(L); } }; }
-    const z = DW.view.z, hr = 22 / z, near = (a, b) => Math.hypot(a[0] - b.x, a[1] - b.y) < hr;
+    const z = DW.view.z, hr = 22 / z, near = (a, b) => { const q = tfPinD(a); return Math.hypot(q[0] - b.x, q[1] - b.y) < hr; };
     if (t.mode === 'persp') {
       const q0 = t.q.map(v => v.slice()), k = t.q.findIndex(c => near(c, p));
-      if (k >= 0) return { move: q => { t.q[k] = [q.x, q.y]; } };
+      if (k >= 0) return { move: q => { t.q[k] = [q0[k][0] + q.x - p.x, q0[k][1] + q.y - p.y]; } };
       const P = homog(t.q), sides = [[.5, 0, 0, 1], [1, .5, 1, 2], [.5, 1, 2, 3], [0, .5, 3, 0]];
       for (const [u, v, a, b] of sides) if (near(P(u, v), p)) return { move: q => { const dx = q.x - p.x, dy = q.y - p.y; t.q[a] = [q0[a][0] + dx, q0[a][1] + dy]; t.q[b] = [q0[b][0] + dx, q0[b][1] + dy]; } };
       if (inPoly(p, t.q)) return { move: q => { t.q = q0.map(([a, b]) => [a + q.x - p.x, b + q.y - p.y]); } };
       return;
     }
     if (t.mode === 'mesh') {
-      const m = t.m; let k = -1, best = hr; m.p.forEach((c, i) => { const d = Math.hypot(c[0] - p.x, c[1] - p.y); if (d < best) { best = d; k = i; } });
-      if (k >= 0) { t.mBase = null; return { move: q => { m.p[k] = [q.x, q.y]; } }; }
+      const m = t.m; let k = -1, best = hr; m.p.forEach((c, i) => { const cc = tfPinD(c), d = Math.hypot(cc[0] - p.x, cc[1] - p.y); if (d < best) { best = d; k = i; } });
+      if (k >= 0) { t.mBase = null; const k0 = m.p[k].slice(); return { move: q => { m.p[k] = [k0[0] + q.x - p.x, k0[1] + q.y - p.y]; } }; }
       const out = tfOutline(t); if (inPoly(p, out)) { t.mBase = null; const p0 = m.p.map(v => v.slice()); return { move: q => { m.p = p0.map(([a, b]) => [a + q.x - p.x, b + q.y - p.y]); } }; }
       return;
     }
@@ -242,23 +244,23 @@ PH_H.tf = {
       const m = t.m, P = meshMap(m), N = 32, line = f => { x.beginPath(); for (let s = 0; s <= N; s++) { const [X, Y] = S(...f(s / N)); s ? x.lineTo(X, Y) : x.moveTo(X, Y); } x.stroke(); };
       for (let i = 0; i <= m.c; i++) line(s => P(i / m.c, s)); for (let j = 0; j <= m.r; j++) line(s => P(s, j / m.r));
       const a = S(...m.p[0]), bb = S(...m.p[m.p.length - 1]), sp = Math.min(Math.abs(bb[0] - a[0]) / m.c, Math.abs(bb[1] - a[1]) / m.r) || 20, hr_ = clamp(sp * .3, 2.5 * d / 1.5, 6 * d / 1.5);
-      m.p.forEach(c => { const [X, Y] = S(c[0], c[1]); handleDot(x, X, Y, hr_, true); });
+      m.p.forEach(c => { const [X, Y] = tfPinS(...S(c[0], c[1]), d); handleDot(x, X, Y, hr_, true); });
       return;
     }
     if (t.mode === 'persp') {
       const C = t.q.map(c => S(c[0], c[1])), P = homog(t.q);
       x.beginPath(); C.forEach(([X, Y], i) => i ? x.lineTo(X, Y) : x.moveTo(X, Y)); x.closePath(); x.stroke();
       x.globalAlpha = .45; x.lineWidth = 1; for (let k = 1; k < 4; k++) { let a = S(...P(k / 4, 0)), b = S(...P(k / 4, 1)); x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.stroke(); a = S(...P(0, k / 4)); b = S(...P(1, k / 4)); x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.stroke(); } x.globalAlpha = 1;
-      for (const [X, Y] of C) handleDot(x, X, Y, 7 * d / 1.5);
-      for (const [u, w] of [[.5, 0], [1, .5], [.5, 1], [0, .5]]) { const [X, Y] = S(...P(u, w)); handleDot(x, X, Y, 6 * d / 1.5, true); }
+      for (const [X, Y] of C) handleDot(x, ...tfPinS(X, Y, d), 7 * d / 1.5);
+      for (const [u, w] of [[.5, 0], [1, .5], [.5, 1], [0, .5]]) { const [X, Y] = tfPinS(...S(...P(u, w)), d); handleDot(x, X, Y, 6 * d / 1.5, true); }
       return;
     }
     const C = tfCorners(t).map(c => S(c[0], c[1]));
     x.beginPath(); C.forEach(([X, Y], i) => i ? x.lineTo(X, Y) : x.moveTo(X, Y)); x.closePath(); x.stroke();
-    for (const [X, Y] of C) handleDot(x, X, Y, 7 * d / 1.5);
-    for (let k = 0; k < 4; k++) { const a = C[k], b = C[(k + 1) % 4]; handleDot(x, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 5 * d / 1.5); }
+    for (const [X, Y] of C) handleDot(x, ...tfPinS(X, Y, d), 7 * d / 1.5);
+    for (let k = 0; k < 4; k++) { const a = C[k], b = C[(k + 1) % 4]; handleDot(x, ...tfPinS((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, d), 5 * d / 1.5); }
     const top = [(C[0][0] + C[1][0]) / 2, (C[0][1] + C[1][1]) / 2], ang = t.rot - Math.PI / 2, s = Math.sign(t.sy || 1), k = [top[0] + Math.cos(ang) * 34 * d * s, top[1] + Math.sin(ang) * 34 * d * s];
-    x.beginPath(); x.moveTo(top[0], top[1]); x.lineTo(k[0], k[1]); x.stroke(); handleDot(x, k[0], k[1], 7 * d / 1.5, true);
+    const kp = tfPinS(k[0], k[1], d); x.beginPath(); x.moveTo(top[0], top[1]); x.lineTo(kp[0], kp[1]); x.stroke(); handleDot(x, kp[0], kp[1], 7 * d / 1.5, true);
   }
 };
 

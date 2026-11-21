@@ -81,22 +81,23 @@ function warpOverlay(x, c, k, d) {
   const lt = clamp(T - c.start, 0, c.dur), cr = resolveAt(c, lt); if (!cr.warp || cr.warp.mode !== WARPM) return false;
   const { m } = clipCorners(c, k), b = contentSize(c), M = warpMapOf(cr, b), S = (u, v) => { const q = M(u, v), p = m.transformPoint({ x: q[0], y: q[1] }); return [p.x, p.y]; };
   const w = cr.warp, P = warpPts(cr, b).map(q => { const p = m.transformPoint({ x: q[0], y: q[1] }); return [p.x, p.y]; });
+  const pin = q => { const v = inView(q[0], q[1], 12 * d); return [v.x, v.y]; };
   x.strokeStyle = '#3fd6c0'; x.lineWidth = 1.5 * d;
   const line = f => { x.beginPath(); for (let s = 0; s <= 32; s++) { const q = f(s / 32); s ? x.lineTo(q[0], q[1]) : x.moveTo(q[0], q[1]); } x.stroke(); };
   for (let i = 0; i <= w.c; i++) line(s => S(i / w.c, s)); for (let j = 0; j <= w.r; j++) line(s => S(s, j / w.r));
   const sp = Math.min(Math.hypot(P[1][0] - P[0][0], P[1][1] - P[0][1]), Math.hypot(P[w.c + 1][0] - P[0][0], P[w.c + 1][1] - P[0][1])), r = clamp(sp * .3, 3 * d, (isTouch ? 9 : 7) * d);
   const dot = (X, Y, rr, sq) => { x.fillStyle = '#fff'; x.strokeStyle = '#000'; x.lineWidth = d; x.beginPath(); if (sq) x.rect(X - rr, Y - rr, rr * 2, rr * 2); else x.arc(X, Y, rr, 0, 7); x.fill(); x.stroke(); };
-  if (w.mode === 'persp') { for (const q of P) dot(q[0], q[1], r, true); for (const [u, v] of [[.5, 0], [1, .5], [.5, 1], [0, .5]]) { const q = S(u, v); dot(q[0], q[1], r * .8); } }
-  else for (const q of P) dot(q[0], q[1], r);
+  if (w.mode === 'persp') { for (const q of P.map(pin)) dot(q[0], q[1], r, true); for (const [u, v] of [[.5, 0], [1, .5], [.5, 1], [0, .5]]) { const q = pin(S(u, v)); dot(q[0], q[1], r * .8); } }
+  else for (const q of P.map(pin)) dot(q[0], q[1], r);
   return true;
 }
 // a touch on a warp handle starts a bend drag
 function warpHit(c, pt, k, d) {
   const lt = clamp(T - c.start, 0, c.dur), cr = resolveAt(c, lt); if (!cr.warp || cr.warp.mode !== WARPM) return null;
-  const { m } = clipCorners(c, k), inv = m.inverse(), b = contentSize(c), w = cr.warp, P = warpPts(cr, b).map(q => { const p = m.transformPoint({ x: q[0], y: q[1] }); return [p.x, p.y]; });
+  const { m } = clipCorners(c, k), inv = m.inverse(), b = contentSize(c), w = cr.warp, pin = (X, Y) => { const v = inView(X, Y, 12 * d); return [v.x, v.y]; }, P = warpPts(cr, b).map(q => { const p = m.transformPoint({ x: q[0], y: q[1] }); return pin(p.x, p.y); });
   const tol = (isTouch ? 26 : 14) * d; let best = tol, ks = null;
   P.forEach((q, i) => { const dd = Math.hypot(q[0] - pt.px, q[1] - pt.py); if (dd < best) { best = dd; ks = [i]; } });
-  if (!ks && w.mode === 'persp') { const M = warpMapOf(cr, b); for (const [u, v, a, bb] of [[.5, 0, 0, 1], [1, .5, 1, 3], [.5, 1, 2, 3], [0, .5, 0, 2]]) { const q = M(u, v), p = m.transformPoint({ x: q[0], y: q[1] }); if (Math.hypot(p.x - pt.px, p.y - pt.py) < tol) { ks = [a, bb]; break; } } }
+  if (!ks && w.mode === 'persp') { const M = warpMapOf(cr, b); for (const [u, v, a, bb] of [[.5, 0, 0, 1], [1, .5, 1, 3], [.5, 1, 2, 3], [0, .5, 0, 2]]) { const q = M(u, v), p0 = m.transformPoint({ x: q[0], y: q[1] }), p = { x: pin(p0.x, p0.y)[0], y: pin(p0.x, p0.y)[1] }; if (Math.hypot(p.x - pt.px, p.y - pt.py) < tol) { ks = [a, bb]; break; } } }
   if (!ks) return null;
   const l0 = inv.transformPoint({ x: pt.px, y: pt.py });
   return { mode: 'warp', c, ks, inv, b, l0, o0: ks.map(i => [w.p[2 * i] || 0, w.p[2 * i + 1] || 0]), moved: true };
