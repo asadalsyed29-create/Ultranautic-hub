@@ -51,6 +51,7 @@ function syncMedia(t, playing) {
     const hasSound = !w.frozen && (c.type === 'audio' || c.type === 'video');
     if (playing && hasSound) {
       if (AC) { VP.wire(e); if (e.gain) e.gain.gain.value = audioGainAt(c, w.lt, tr); else { el.muted = false; el.volume = clamp(audioGainAt(c, w.lt, tr), 0, 1); } }
+      if (EXP_QUIET) { if (e.gain) e.gain.gain.value = 0; else el.muted = true; }
       const rate = clamp(spd, 0.0625, 16);
       if (spd > 16 || spd < 0.0625) { if (!el.paused) el.pause(); if (Math.abs(el.currentTime - target) > 0.02) el.currentTime = target; continue; }
       if (el.playbackRate !== rate) el.playbackRate = rate;

@@ -315,3 +315,4 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
 }
 
 .gbtn .ctl{flex-wrap:wrap;gap:6px}
+.exppv{display:block;width:100%;height:auto;background:#000;margin-bottom:10px;border:1px solid var(--line)}

@@ -64,7 +64,8 @@ const MUX = (() => {
 })();
 
 /* ================= export ================= */
-const EXP = { res: 1080, fps: 30, mbps: null, name: '' };
+const EXP = { res: 1080, fps: 30, mbps: null, name: '', mode: 'quick' };
+let EXP_QUIET = false;
 function exportDims(cls) {
   const ar = P.w / P.h; let w, hh;
   if (ar >= 1) { hh = cls; w = Math.round(cls * ar); } else { w = cls; hh = Math.round(cls / ar); }
@@ -105,7 +106,7 @@ function openExport() {
   let mb = EXP.mbps || defMbps(EXP.res, EXP.fps);
   const mbF = numField({ value: mb, min: 1, max: 250, dec: 1, suf: 'Mbps', step: 1, onInput: v => { mb = v; EXP.mbps = v; updInfo(); } });
   mbF.querySelector('.num').style.paddingRight = '46px';
-  const updInfo = () => { const [w, hh] = exportDims(EXP.res); const sz = mb * projDur() / 8 + 0.256 * projDur() / 8; dimsTxt.textContent = `${w} × ${hh} · ${EXP.fps} fps · ${fmtDur(projDur())} · about ${sz < 1000 ? Math.max(1, Math.round(sz)) + ' MB' : (sz / 1000).toFixed(1) + ' GB'}`; };
+  const updInfo = () => { const [w, hh] = exportDims(EXP.res); const sz = mb * projDur() / 8 + 0.256 * projDur() / 8; dimsTxt.textContent = (EXP.mode === 'quick' ? `Quick: plays the video and records it, so it takes ${fmtDur(projDur())}. ` : 'Exact: builds every frame one by one. Slower, but never skips a frame. ') + `${w} × ${hh} · ${EXP.fps} fps · ${fmtDur(projDur())} · about ${sz < 1000 ? Math.max(1, Math.round(sz)) + ' MB' : (sz / 1000).toFixed(1) + ' GB'}`; };
   const nameIn = h('input', { class: 'txt', value: EXP.name, spellcheck: 'false' }); nameIn.addEventListener('keydown', e => e.stopPropagation()); nameIn.addEventListener('input', () => EXP.name = nameIn.value);
   const resetMb = () => { mb = defMbps(EXP.res, EXP.fps); EXP.mbps = null; mbF.set(mb); updInfo(); };
   body.append(
@@ -113,6 +114,7 @@ function openExport() {
     row('Resolution', segBox({ options: [{ v: 720, l: '720p' }, { v: 1080, l: '1080p' }, { v: 2160, l: '4K' }], value: EXP.res, onChange: v => { EXP.res = v; resetMb(); } })),
     row('Frame rate', segBox({ options: [{ v: 24, l: '24' }, { v: 30, l: '30' }, { v: 60, l: '60' }], value: EXP.fps, onChange: v => { EXP.fps = v; resetMb(); } })),
     row('Bitrate', mbF), row('', h('div', { class: 'presets', style: { margin: 0 } }, ...[['Lower', .6], ['Recommended', 1], ['Higher', 1.6]].map(([l, f]) => h('button', { onclick: () => { mb = Math.round(defMbps(EXP.res, EXP.fps) * f); EXP.mbps = mb; mbF.set(mb); updInfo(); } }, l)))),
+    row('Speed', segBox({ options: [{ v: 'quick', l: 'Quick' }, { v: 'exact', l: 'Exact' }], value: EXP.mode, onChange: v => { EXP.mode = v; updInfo(); } })),
     row('Format', h('div', { class: 'note', style: { color: 'var(--tx)' } }, 'MP4 · made on this device, no watermark')), dimsTxt);
   updInfo();
   const m = modal('Export video', body, [{ l: 'Cancel' }, { l: 'Export MP4', pri: 1, onClick: () => { EXP.name = nameIn.value || 'video'; runExport(mb); } }], { width: 460 });
@@ -122,7 +124,8 @@ async function runExport(mbps) {
   const bitrate = Math.round(mbps * 1e6);
   const st = h('div', { class: 'note', style: { color: 'var(--tx)' } }, 'Getting ready…'), pr = h('div', { class: 'prog' }, h('i')), sub = h('div', { class: 'hint' });
   let cancel = false;
-  const dlg = modal('Exporting', h('div', null, st, pr, sub), [{ l: 'Cancel', onClick: () => { cancel = true; return false; } }], { noX: true, width: 440 });
+  const pv = h('canvas', { class: 'exppv' }); pv.width = 320; pv.height = Math.max(2, Math.round(320 * H / W));
+  const dlg = modal('Exporting', h('div', null, EXP.mode === 'quick' ? pv : '', st, pr, sub), [{ l: 'Cancel', onClick: () => { cancel = true; return false; } }], { noX: true, width: 440 });
   const setP = (f, msg, s2) => { pr.firstChild.style.width = (f * 100).toFixed(1) + '%'; if (msg) st.textContent = msg; if (s2 != null) sub.textContent = s2; };
   let venc, aenc;
   EXPORTING = true;
@@ -174,10 +177,46 @@ async function runExport(mbps) {
       }
       await aenc.flush();
     }
-    // ---- pictures: one exact frame at a time ----
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const x = cv.getContext('2d', { alpha: false });
     const t0 = performance.now(); let lastUi = 0;
+    const codecName = vc.cfg.codec.startsWith('avc') ? 'H.264' : vc.cfg.codec.startsWith('hvc') ? 'H.265' : 'VP9';
+    if (EXP.mode === 'quick') {
+      // ---- quick: play everything in real time and record what is shown ----
+      const px = pv.getContext('2d');
+      EXP_QUIET = true;
+      setP(0, 'Starting playback…');
+      await prepFrame(0); syncMedia(0, true);
+      const vids = visibleAt(0).filter(v => v.c.type === 'video').map(v => VP.ensure(v.c)).filter(Boolean);
+      const w0 = performance.now(); while (vids.some(e => e.el.readyState < 3 || e.el.paused) && performance.now() - w0 < 3000) { syncMedia(0, true); await sleep(20); }
+      let start = performance.now(), last = -1, dropped = 0;
+      const tick = () => new Promise(r => document.hidden ? setTimeout(r, 1000 / fps) : requestAnimationFrame(() => r()));
+      while (last < N - 1) {
+        if (cancel) throw new Error('cancel');
+        if (encErr) throw encErr;
+        let t = Math.min(dur, (performance.now() - start) / 1000);
+        // follow the playing video so pictures and sound stay in step
+        const lead = visibleAt(t).find(v => v.c.type === 'video' && !v.frozen && VP.peek(v.c.id) && !VP.peek(v.c.id).paused && VP.peek(v.c.id).readyState >= 2);
+        if (lead) { const el = VP.peek(lead.c.id), vt = lead.c.start + (el.currentTime - lead.c.in) / (lead.c.speed || 1); if (Math.abs(vt - t) < .5 && vt >= (last + 1) / fps - 1 / fps) { t = Math.min(dur, Math.max(0, vt)); start = performance.now() - t * 1000; } }
+        const i = Math.min(N - 1, Math.floor(t * fps + 1e-6));
+        if (i > last) {
+          syncMedia(t, true);
+          renderFrame(x, t, W, H);
+          const ts = Math.round(i * 1e6 / fps), d_ = (i === N - 1 ? 1 : 1) * Math.round(1e6 / fps);
+          const vf = new VideoFrame(cv, { timestamp: ts, duration: d_ });
+          venc.encode(vf, { keyFrame: last < 0 || Math.floor(i / (fps * 2)) !== Math.floor(last / (fps * 2)) }); vf.close();
+          dropped += Math.max(0, i - last - 1); last = i;
+          px.drawImage(cv, 0, 0, pv.width, pv.height);
+          const now = performance.now();
+          if (now - lastUi > 200 || i === N - 1) { lastUi = now; setP((i + 1) / N, `Recording ${fmtDur(t)} of ${fmtDur(dur)}`, `${codecName} ${W}×${H}` + (dropped ? ` · ${dropped} frames skipped (this device was busy)` : '')); }
+        }
+        if (t >= dur) break;
+        await tick();
+      }
+      EXP_QUIET = false;
+      for (const [, e] of VP.els) if (!e.el.paused) e.el.pause();
+    } else
+    // ---- exact: one frame at a time ----
     for (let i = 0; i < N; i++) {
       if (cancel) throw new Error('cancel');
       if (encErr) throw encErr;
@@ -190,7 +229,7 @@ async function runExport(mbps) {
       const now = performance.now();
       if (now - lastUi > 150 || i === N - 1) {
         lastUi = now; const el = (now - t0) / 1000, rate = (i + 1) / el, left = (N - i - 1) / Math.max(rate, 0.01);
-        setP((i + 1) / N, `Frame ${i + 1} of ${N}`, `${rate.toFixed(1)} frames a second · about ${fmtDur(left)} left · ${vc.cfg.codec.startsWith('avc') ? 'H.264' : vc.cfg.codec.startsWith('hvc') ? 'H.265' : 'VP9'} ${W}×${H}`);
+        setP((i + 1) / N, `Frame ${i + 1} of ${N}`, `${rate.toFixed(1)} frames a second · about ${fmtDur(left)} left · ${codecName} ${W}×${H}`);
         await sleep(0);
       }
     }
@@ -209,6 +248,7 @@ async function runExport(mbps) {
       h('div', { class: 'note' }, 'The download started. If it did not, use the button below.')),
       [share ? { l: 'Share', onClick: () => { navigator.share({ files: [new File([blob], fname, { type: 'video/mp4' })] }).catch(() => { }); return false; } } : null, { l: 'Download again', pri: 1, onClick: () => { const b2 = h('a', { href: url, download: fname }); document.body.append(b2); b2.click(); b2.remove(); return false; } }, { l: 'Close' }].filter(Boolean));
   } catch (e) {
+    EXP_QUIET = false; for (const [, e2] of VP.els) if (!e2.el.paused) e2.el.pause();
     try { venc && venc.state !== 'closed' && venc.close(); } catch (x) { }
     try { aenc && aenc.state !== 'closed' && aenc.close(); } catch (x) { }
     dlg.close();
