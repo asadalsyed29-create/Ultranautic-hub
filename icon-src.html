@@ -1,0 +1,69 @@
+<!doctype html><html><body style="margin:0;background:#000"><canvas id="c" width="1024" height="1024"></canvas><script>
+const c=document.getElementById('c'),x=c.getContext('2d'),S=1024;
+function R(s){return()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return((s>>>0)%100000)/100000}}const r=R(5150);
+const lay=()=>{const k=document.createElement('canvas');k.width=k.height=S;return k};
+(async()=>{
+await document.fonts.load('900 300px "Inter Display"');
+// ---- sky
+let g=x.createLinearGradient(0,0,0,S);g.addColorStop(0,'#0f4fae');g.addColorStop(.35,'#2f86e0');g.addColorStop(.7,'#7cc0f2');g.addColorStop(1,'#d8eefc');x.fillStyle=g;x.fillRect(0,0,S,S);
+// ---- black hole with a glowing accretion disk, upper right
+{const BX=790,BY=185,RH=56,TL=-.22;
+ // faint halo of light around it
+ x.save();x.globalCompositeOperation='screen';let hg=x.createRadialGradient(BX,BY,RH,BX,BY,330);hg.addColorStop(0,'rgba(255,170,80,.55)');hg.addColorStop(.35,'rgba(255,120,60,.18)');hg.addColorStop(1,'rgba(255,120,60,0)');x.fillStyle=hg;x.fillRect(0,0,S,S);x.restore();
+ const disk=(half)=>{const L=lay(),l=L.getContext('2d');l.translate(BX,BY);l.rotate(TL);
+  for(let i=0;i<70;i++){const t=i/69,rx=RH*1.25+t*RH*2.1,ry=rx*.24;const col=t<.25?`rgba(255,250,225,${.55-t})`:t<.6?`rgba(255,${Math.round(200-t*120)},${Math.round(90-t*80)},.3)`:`rgba(220,70,40,${.25*(1-t)})`;l.strokeStyle=col;l.lineWidth=2.4;l.beginPath();l.ellipse(0,0,rx,ry,0,half?0:Math.PI,half?Math.PI:Math.PI*2);l.stroke();}
+  // swirling streaks in the disk
+  const rr=R(half?5:6);for(let i=0;i<60;i++){const a=(half?0:Math.PI)+rr()*Math.PI,rx=RH*1.3+rr()*RH*2,ry=rx*.24;l.strokeStyle=`rgba(255,${200+rr()*55},${150+rr()*80},${.2+rr()*.35})`;l.lineWidth=1+rr()*1.5;l.beginPath();l.ellipse(0,0,rx,ry,0,a,a+.25+rr()*.4);l.stroke();}
+  x.save();x.filter='blur(1.2px)';x.drawImage(L,0,0);x.globalAlpha=.5;x.drawImage(L,0,0);x.restore();};
+ disk(false); // far side of the disk, behind the hole
+ // light bent over the top and under the bottom of the hole (lensing)
+ x.save();x.translate(BX,BY);
+ for(const [r0,a,w] of [[RH*1.18,.9,5],[RH*1.32,.5,9],[RH*1.55,.22,14]]){x.strokeStyle=`rgba(255,175,80,${Math.min(1,a*1.3)})`;x.lineWidth=w;x.filter='blur(2px)';x.beginPath();x.ellipse(0,0,r0,r0*.92,TL,Math.PI*1.04,Math.PI*1.96);x.stroke();x.beginPath();x.ellipse(0,0,r0*.95,r0*.8,TL,Math.PI*.12,Math.PI*.88);x.globalAlpha=.6;x.stroke();x.globalAlpha=1;}
+ x.restore();
+ // photon ring + the hole itself
+ x.save();x.strokeStyle='rgba(255,220,160,.9)';x.lineWidth=4;x.filter='blur(1.5px)';x.beginPath();x.arc(BX,BY,RH+2,0,7);x.stroke();x.restore();
+ x.fillStyle='#000';x.beginPath();x.arc(BX,BY,RH,0,7);x.fill();
+ disk(true); // near side, crossing in front of the hole
+}
+// fluffy cumulus clouds: many soft puffs, lit from the sun (top right), shaded underneath
+function cloud(cx,cy,w,hh,seed,a){const rr=R(seed),L=lay(),l=L.getContext('2d');const puffs=[];
+ for(let i=0;i<200;i++){const t=rr(),top=Math.pow(Math.sin(t*Math.PI),.6);const px=cx+(t-.5)*w,py=cy-Math.pow(rr(),.7)*hh*top+rr()*hh*.12,rad=(.04+rr()*.09)*w*(.5+top*.6);puffs.push([px,py,rad]);}
+ puffs.sort((p,q)=>p[1]-q[1]);
+ for(const [px,py,rad] of puffs){const sg=l.createRadialGradient(px-rad*.35,py+rad*.45,0,px-rad*.35,py+rad*.45,rad*1.1);sg.addColorStop(0,'rgba(150,175,210,.35)');sg.addColorStop(1,'rgba(150,175,210,0)');const gg=l.createRadialGradient(px,py,0,px,py,rad);gg.addColorStop(0,'rgba(255,255,255,1)');gg.addColorStop(.72,'rgba(250,252,255,.92)');gg.addColorStop(.9,'rgba(236,243,252,.5)');gg.addColorStop(1,'rgba(230,240,252,0)');l.fillStyle=gg;l.beginPath();l.arc(px,py,rad,0,7);l.fill();l.fillStyle=sg;l.beginPath();l.arc(px,py,rad*.95,0,7);l.fill();}
+ // light from the sun (upper right), cool shadow toward the base
+ l.globalCompositeOperation='source-atop';
+ const lg=l.createLinearGradient(cx+w*.4,cy-hh,cx-w*.3,cy+hh*.3);lg.addColorStop(0,'rgba(255,246,220,.35)');lg.addColorStop(.5,'rgba(255,255,255,0)');lg.addColorStop(1,'rgba(90,125,170,.5)');l.fillStyle=lg;l.fillRect(0,0,S,S);
+ const bg=l.createLinearGradient(0,cy-hh*.2,0,cy+hh*.25);bg.addColorStop(0,'rgba(0,0,0,0)');bg.addColorStop(1,'rgba(95,130,175,.45)');l.fillStyle=bg;l.fillRect(0,0,S,S);
+ // soft flat base fading away
+ l.globalCompositeOperation='destination-out';const fo=l.createLinearGradient(0,cy+hh*.05,0,cy+hh*.3);fo.addColorStop(0,'rgba(0,0,0,0)');fo.addColorStop(1,'rgba(0,0,0,1)');l.fillStyle=fo;l.fillRect(0,0,S,S);
+ x.save();x.globalAlpha=a;x.filter='blur(.8px)';x.drawImage(L,0,0);x.restore();}
+// ---- the lettering
+function word3d(word,TX,TY,width,dep){x.font='900 250px "Inter Display"';x.textBaseline='alphabetic';x.textAlign='center';
+let tw=x.measureText(word).width;const fs=Math.floor(250*width/tw);const k=fs/300;x.font=`900 ${fs}px "Inter Display"`;
+const SK=-.12;
+const T=(ctx,dx,dy)=>{ctx.save();ctx.translate(TX+dx,TY+dy);ctx.transform(1,0,SK,1,0,0);ctx.font=x.font;ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillText(word,0,0);ctx.restore();};
+// soft drop shadow on the clouds
+{const L=lay(),l=L.getContext('2d');l.fillStyle='rgba(10,40,90,.55)';T(l,14*k,30*k);x.save();x.filter='blur(18px)';x.drawImage(L,0,0);x.restore();}
+// deep extrusion going down-right
+for(let i=dep;i>=1;i--){const t=i/dep;x.fillStyle=`rgb(${Math.round(12+t*10)},${Math.round(46+t*20)},${Math.round(110+t*25)})`;T(x,i*.7,i*1.05);}
+// face: bright gradient, white top to sky-blue bottom, with a horizon line of light
+{const L=lay(),l=L.getContext('2d');l.fillStyle='#fff';T(l,0,0);l.globalCompositeOperation='source-in';
+ const fg=l.createLinearGradient(0,TY-fs*.75,0,TY+fs*.05);fg.addColorStop(0,'#ffffff');fg.addColorStop(.48,'#e6f6ff');fg.addColorStop(.52,'#9fd8fb');fg.addColorStop(1,'#3d97e6');l.fillStyle=fg;l.fillRect(0,0,S,S);
+ // inner shading at the bottom-right edges (bevel)
+ l.globalCompositeOperation='source-atop';const E=lay(),e=E.getContext('2d');e.fillStyle='#fff';T(e,0,0);e.globalCompositeOperation='destination-out';T(e,-5,-7);l.globalAlpha=.55;l.fillStyle='#000';l.drawImage((()=>{const k=lay(),kk=k.getContext('2d');kk.drawImage(E,0,0);kk.globalCompositeOperation='source-in';kk.fillStyle='#0d3f86';kk.fillRect(0,0,S,S);return k})(),0,0);l.globalAlpha=1;
+ // top-left bevel highlight
+ const H=lay(),hh=H.getContext('2d');hh.fillStyle='#fff';T(hh,0,0);hh.globalCompositeOperation='destination-out';T(hh,4,6);l.drawImage(H,0,0);
+ x.drawImage(L,0,0);}
+// crisp dark outline
+x.save();x.translate(TX,TY);x.transform(1,0,SK,1,0,0);x.lineWidth=5*Math.max(.6,k);x.strokeStyle='#0b2f6a';x.lineJoin='round';x.strokeText(word,0,0);x.restore();
+// sun glint on the letters
+{const L=lay(),l=L.getContext('2d');l.fillStyle='#fff';T(l,0,0);l.globalCompositeOperation='source-in';const sg=l.createRadialGradient(TX+270,TY-170,0,TX+270,TY-170,320);sg.addColorStop(0,'rgba(255,215,170,.45)');sg.addColorStop(1,'rgba(255,250,220,0)');l.fillStyle=sg;l.fillRect(0,0,S,S);x.save();x.globalCompositeOperation='screen';x.drawImage(L,0,0);x.restore();}
+}
+word3d('Nautic',512,520,860,22);
+word3d('Editor',505,740,500,14);
+// a couple of tiny birds far away
+x.strokeStyle='rgba(20,45,80,.7)';x.lineWidth=3;x.lineCap='round';for(const [bx,by,s] of [[300,190,14],[340,215,10],[262,226,9]]){x.beginPath();x.moveTo(bx-s,by-s*.2);x.quadraticCurveTo(bx-s*.4,by-s*.6,bx,by);x.quadraticCurveTo(bx+s*.4,by-s*.6,bx+s,by-s*.2);x.stroke();}
+// grain
+{const im=x.getImageData(0,0,S,S),d=im.data;for(let i=0;i<d.length;i+=4){const n=(r()-.5)*7;d[i]+=n;d[i+1]+=n;d[i+2]+=n;}x.putImageData(im,0,0);}
+window.done=1;})();
+</script></body></html>
