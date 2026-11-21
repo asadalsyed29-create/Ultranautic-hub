@@ -1,6 +1,6 @@
 /* ================= left panel (library) ================= */
 const LTABS = [
-  { id: 'media', n: 'Media', i: 'media' }, { id: 'audio', n: 'Audio', i: 'audio' }, { id: 'text', n: 'Text', i: 'text' }, { id: 'stickers', n: 'Stickers', i: 'sticker' },
+  { id: 'media', n: 'Media', i: 'media' }, { id: 'draw', n: 'Draw', i: 'dbrush' }, { id: 'audio', n: 'Audio', i: 'audio' }, { id: 'text', n: 'Text', i: 'text' }, { id: 'stickers', n: 'Stickers', i: 'sticker' },
   { id: 'effects', n: 'Effects', i: 'effect' }, { id: 'trans', n: 'Transitions', i: 'transition' }, { id: 'filters', n: 'Filters', i: 'filter' }, { id: 'adjust', n: 'Adjust', i: 'adjust' }
 ];
 let LTAB = 'media', APPLY_TO = 'layer';
@@ -10,7 +10,7 @@ function renderLeftTabs() {
 }
 function renderLeft() {
   const b = $('#lbody'); b.innerHTML = '';
-  ({ media: panelMedia, audio: panelAudio, text: panelText, stickers: panelStickers, effects: panelEffects, trans: panelTrans, filters: panelFilters, adjust: panelAdjust })[LTAB](b);
+  ({ media: panelMedia, draw: panelDraw, audio: panelAudio, text: panelText, stickers: panelStickers, effects: panelEffects, trans: panelTrans, filters: panelFilters, adjust: panelAdjust })[LTAB](b);
 }
 function importBtn(label, accept) {
   const d = h('div', { class: 'drop' }, h('div', { html: icon('upload') }), h('div', null, label), h('button', { class: 'btn sm', onclick: () => { const f = $('#fileIn'); f.accept = accept; f.click(); } }, 'Choose files'));
@@ -37,7 +37,7 @@ function mediaTile(m, onAdd, extra) {
 }
 function panelMedia(b) {
   b.append(importBtn('Videos and pictures: MP4, WebM, MOV, PNG, JPG, SVG, GIF', 'video/*,image/*,.svg,.gif,.webp,.apng'));
-  const list = Object.values(MEDIA).filter(m => m.kind !== 'audio');
+  const list = Object.values(MEDIA).filter(m => m.kind !== 'audio' && m.name[0] !== '~');
   if (!list.length) { b.append(h('div', { class: 'note' }, 'Nothing imported yet. Files stay on this device; nothing is uploaded.')); return; }
   b.append(h('div', { class: 'sect' }, 'In this project'));
   const g = h('div', { class: 'grid' });
@@ -100,7 +100,7 @@ function drawTitlePreview(cv, tc) {
 /* ---- stickers ---- */
 function panelStickers(b) {
   b.append(importBtn('Your own stickers: PNG, SVG, GIF, WebP (animated ones too)', 'image/*,.svg,.gif,.webp,.apng'));
-  const mine = Object.values(MEDIA).filter(m => m.kind === 'image');
+  const mine = Object.values(MEDIA).filter(m => m.kind === 'image' && m.name[0] !== '~');
   if (mine.length) {
     b.append(h('div', { class: 'sect' }, 'Your stickers'));
     const g = h('div', { class: 'grid' });
@@ -282,4 +282,21 @@ function addTransition(id) {
   c.trans = { id, dur: c.trans ? c.trans.dur : Math.min(0.8, c.dur / 2) };
   SEL = c.id; commit(); refreshAll(); seek(Math.max(0, c.start - 0.3));
   if (!prevAdjacent(trackOf(c), c)) toast('No clip right before this one, so it transitions in from what is underneath');
+}
+
+/* ---- draw ---- */
+function panelDraw(b) {
+  b.append(h('div', { class: 'grp' }, h('h4', null, 'Draw'),
+    h('div', { class: 'note' }, BRUSHES.length + ' brushes, eraser, bucket (fill or erase), eyedropper, lines, shapes, smudge, layers and photo tools. Erasing makes those parts see-through.'),
+    h('div', { style: { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' } },
+      h('button', { class: 'btn pri', html: icon('plus') + ' New drawing', onclick: () => { closeSheets(); openDraw(null); } }),
+      (() => { const c = selClip(); return c && c.type === 'image' ? h('button', { class: 'btn', html: icon('dbrush') + (c.draw ? ' Edit selected drawing' : ' Draw on selected picture'), onclick: () => { closeSheets(); openDraw(c); } }) : ''; })())));
+  const ds = allClips().filter(c => c.draw);
+  if (ds.length) {
+    b.append(h('div', { class: 'sect' }, 'Drawings in this project'));
+    const g = h('div', { class: 'grid' });
+    for (const c of ds) { const m = MEDIA[c.media]; if (!m) continue; const t = h('div', { class: 'tile media', onclick: () => { closeSheets(); openDraw(c); } }, h('img', { src: m.url, alt: '' }), h('div', { class: 'nm' }, (c.name || 'Drawing') + ' · ' + fmtTime(c.start, P.fps))); g.append(t); }
+    b.append(g);
+  }
+  b.append(h('div', { class: 'note', style: { marginTop: '10px' } }, 'A new drawing goes on top of the video at the playhead. To draw on a photo, select it on the timeline and tap Draw on selected picture.'));
 }

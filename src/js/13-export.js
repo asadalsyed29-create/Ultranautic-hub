@@ -40,7 +40,7 @@ const MUX = (() => {
       box('dinf', x => x.bytes(fbox('dref', 0, 0, y => { y.u32(1); y.bytes(fbox('url ', 0, 1)); }))), stbl));
     const mdia = box('mdia', b => kids(b,
       fbox('mdhd', 0, 0, x => { x.u32(0); x.u32(0); x.u32(ts); x.u32(mediaDur); x.u16(0x55c4); x.u16(0); }),
-      fbox('hdlr', 0, 0, x => { x.u32(0); x.str(isV ? 'vide' : 'soun'); x.zeros(12); x.str(isV ? 'Framewright video' : 'Framewright sound'); x.u8(0); }), minf));
+      fbox('hdlr', 0, 0, x => { x.u32(0); x.str(isV ? 'vide' : 'soun'); x.zeros(12); x.str(isV ? 'Nautic video' : 'Nautic sound'); x.u8(0); }), minf));
     const tdur = Math.round(mediaDur / ts * 1000);
     movieDur.v = Math.max(movieDur.v, tdur);
     return box('trak', b => kids(b,
@@ -256,7 +256,7 @@ async function saveProjectFile() {
 }
 async function openProjectFile(file) {
   const buf = new Uint8Array(await file.arrayBuffer());
-  if (String.fromCharCode(...buf.slice(0, 6)) !== 'FWPROJ') { toast('Not a Framewright project file'); return; }
+  if (String.fromCharCode(...buf.slice(0, 6)) !== 'FWPROJ') { toast('Not a project file from this editor'); return; }
   const n = new DataView(buf.buffer).getUint32(8), head = JSON.parse(new TextDecoder().decode(buf.slice(12, 12 + n)));
   if (!(await confirmBox('Open this project? The current one will be replaced (it is kept only if you saved it as a file).', 'Open'))) return;
   await clearAllMedia();

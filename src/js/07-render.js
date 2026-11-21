@@ -61,6 +61,7 @@ function strobeOn(st) { return (st.t * 12) % 2 < 2 * st.p.on / 100; }
 
 // draw one visual clip into ctx (ctx is in project units, k = output pixels per project unit)
 function drawClip(x, c, lt, k) {
+  if (c._hide) return;
   c = resolveAt(c, lt);
   const p = propsAt(c, lt), s = clipAnimState(c, lt, P.w, P.h);
   let alpha = clamp(p.opacity / 100, 0, 1) * clamp(s.a, 0, 1);

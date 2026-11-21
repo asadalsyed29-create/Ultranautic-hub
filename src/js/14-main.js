@@ -1,4 +1,4 @@
-const APP_VER = 12;
+const APP_VER = 13;
 /* ================= wiring ================= */
 let zoomSlider = null, EXPORTING = false;
 function refreshAll() {
@@ -12,7 +12,7 @@ function openSheet(which) {
   updMobBar();
 }
 function closeSheets() { $('#left').classList.remove('open'); $('#right').classList.remove('open'); updMobBar(); }
-const MOB = [['media', 'Media', 'media'], ['audio', 'Audio', 'audio'], ['text', 'Text', 'text'], ['stickers', 'Stickers', 'sticker'], ['effects', 'Effects', 'effect'], ['trans', 'Transitions', 'transition'], ['filters', 'Filters', 'filter'], ['adjust', 'Adjust', 'adjust'], ['edit', 'Edit', 'edit']];
+const MOB = [['media', 'Media', 'media'], ['draw', 'Draw', 'dbrush'], ['audio', 'Audio', 'audio'], ['text', 'Text', 'text'], ['stickers', 'Stickers', 'sticker'], ['effects', 'Effects', 'effect'], ['trans', 'Transitions', 'transition'], ['filters', 'Filters', 'filter'], ['adjust', 'Adjust', 'adjust'], ['edit', 'Edit', 'edit']];
 function renderMobBar() {
   const b = $('#mobbar'); b.innerHTML = '';
   for (const [id, n, i] of MOB) b.append(h('button', { 'data-m': id, html: icon(i), onclick: () => {
@@ -120,11 +120,11 @@ async function main() {
 /* installable app (when opened from a website, e.g. GitHub Pages) */
 let installEvt = null;
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; });
-addEventListener('appinstalled', () => { installEvt = null; toast('Framewright is installed'); });
+addEventListener('appinstalled', () => { installEvt = null; toast('Nautic Editor is installed'); });
 async function installApp() {
   if (matchMedia('(display-mode: standalone)').matches) { toast('You are already using the installed app'); return; }
   if (installEvt) { installEvt.prompt(); const r = await installEvt.userChoice; installEvt = null; if (r.outcome === 'accepted') toast('Installing…'); return; }
-  modal('Install Framewright', h('div', { class: 'note', style: { color: 'var(--tx)', lineHeight: '1.6' } },
+  modal('Install Nautic Editor', h('div', { class: 'note', style: { color: 'var(--tx)', lineHeight: '1.6' } },
     location.protocol.startsWith('http') ? 'Open your browser menu (the ⋮ button in Chrome) and tap “Install app” or “Add to Home screen”.' : 'Installing works when the editor is opened from its web link (for example your GitHub Pages link), not from a downloaded file.'), [{ l: 'OK', pri: 1 }]);
 }
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {

@@ -122,7 +122,15 @@ const ICONS = {
   tmove: 'M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3',
   trot: 'M19 12a7 7 0 11-2.05-4.95M17 3.5v4h-4',
   tsize: 'M4 4h5v5H4zM15 15h5v5h-5zM9 9l6 6',
-  curve: 'M3 18c5 0 6-12 18-12'
+  curve: 'M3 18c5 0 6-12 18-12',
+  dbrush: 'M20 4c-3 1-8 5.5-10.5 9l1.5 1.5C14.5 12 19 7 20 4zM9.5 13c-2 0-3.5 1.5-3.5 3.5 0 1.5-1 2.5-2.5 3 3.5 1 7.5 0 7.5-3.5z',
+  deraser: 'M14 4.5l5.5 5.5-9 9H6L3.5 16.5zM9 9.5l5.5 5.5M10.5 19.5h10',
+  dfill: 'M5.5 11.5l6-6 7 7-6 6zM11.5 5.5L9 3M5.5 11.5h13M20 15.5s1.5 2 1.5 3a1.5 1.5 0 01-3 0c0-1 1.5-3 1.5-3z',
+  dpick: 'M14.5 4.5l5 5M12 7l5 5M15 10l-8.5 8.5H4v-2.5L12.5 7.5M17 3.5a2 2 0 013.5 3.5L18 9.5',
+  dline: 'M5 19L19 5M5 19a1.5 1.5 0 100-.01M19 5a1.5 1.5 0 100-.01',
+  dshape: 'M3.5 10.5h8v9h-8zM16.5 4a4 4 0 110 8 4 4 0 010-8z',
+  dmove: 'M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3',
+  dphoto: 'M3.5 6.5h17v13h-17zM3.5 15.5l5-5 4 4 2.5-2.5 5.5 5M16 3.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z'
 };
 function icon(n, cls = 'i') { return `<svg class="${cls}" viewBox="0 0 24 24"><path d="${ICONS[n] || ''}"/></svg>`; }
 function iconEl(n) { const d = document.createElement('span'); d.innerHTML = icon(n); return d.firstChild; }
