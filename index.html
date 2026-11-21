@@ -2204,6 +2204,7 @@ function layoutView() {
   const dpr = Math.min(devicePixelRatio || 1, 2.5);
   let pw = Math.round(cw * dpr), ph = Math.round(ch * dpr);
   const cap = 1920 / Math.max(pw, ph); if (cap < 1) { pw = Math.round(pw * cap); ph = Math.round(ph * cap); }
+  VIEW.fw = pw; VIEW.fh = ph;
   for (const c of [VIEW.cv, VIEW.ov]) {
     if (c.width !== pw || c.height !== ph) { c.width = pw; c.height = ph; }
     c.style.width = cw + 'px'; c.style.height = ch + 'px'; c.style.left = Math.round((r.width - cw) / 2) + 'px'; c.style.top = Math.round((r.height - ch) / 2) + 'px';
@@ -2213,8 +2214,11 @@ function layoutView() {
 }
 let rafPending = false;
 function requestRender() { VIEW.need = true; if (!rafPending) { rafPending = true; requestAnimationFrame(frameLoop); } }
+// when heavy effects make playback drop frames, the preview draws at a lower resolution while playing so it stays smooth; paused frames are always sharp
+VIEW.dq = 1; VIEW.ft = 16; VIEW.lt = 0;
 function renderPreview() {
   const c = VIEW.cv;
+  if (VIEW.fw) { const q = PLAY.on ? VIEW.dq : 1, w = Math.max(2, Math.round(VIEW.fw * q)), hh = Math.max(2, Math.round(VIEW.fh * q)); if (c.width !== w || c.height !== hh) { c.width = w; c.height = hh; } }
   try { renderFrame(VIEW.x, T, c.width, c.height); } catch (e) { console.error(e); }
   drawOverlay();
   updTime();
@@ -2225,7 +2229,10 @@ function frameLoop() {
   if (EXPORTING) return;
   if (PLAY.on) {
     const end = projDur();
-    T = PLAY.t0 + (performance.now() - PLAY.w0) / 1000;
+    const now = performance.now();
+    if (VIEW.lt) { VIEW.ft = VIEW.ft * .85 + Math.min(200, now - VIEW.lt) * .15; if (VIEW.ft > 24 && VIEW.dq > .3) { VIEW.dq = Math.max(.3, VIEW.dq * .85); VIEW.ft = 18; } else if (VIEW.ft < 13 && VIEW.dq < 1) { VIEW.dq = Math.min(1, VIEW.dq * 1.1); VIEW.ft = 16; } }
+    VIEW.lt = now;
+    T = PLAY.t0 + (now - PLAY.w0) / 1000;
     if (T >= end) { T = end; pause(); }
     syncMedia(T, PLAY.on);
     renderPreview(); updPlayhead(true);
@@ -2244,7 +2251,7 @@ function play() {
   rafPending = true; requestAnimationFrame(frameLoop);
 }
 function pause() {
-  PLAY.on = false; $('#playBtn').innerHTML = icon('play');
+  PLAY.on = false; VIEW.lt = 0; $('#playBtn').innerHTML = icon('play');
   for (const [, e] of VP.els) if (!e.el.paused) e.el.pause();
   T = Math.round(T * P.fps) / P.fps;
   requestRender(); updPlayhead(); refreshInspectorValues();
@@ -4232,7 +4239,7 @@ async function prepFrameFast(t, decs) {
   if (slow.length) await prepFrame(t);
 }
 
-const APP_VER = 28;
+const APP_VER = 29;
 /* ================= wiring ================= */
 let zoomSlider = null, EXPORTING = false;
 function refreshAll() {
