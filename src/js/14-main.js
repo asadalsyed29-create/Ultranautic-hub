@@ -1,4 +1,4 @@
-const APP_VER = 22;
+const APP_VER = 23;
 /* ================= wiring ================= */
 let zoomSlider = null, EXPORTING = false;
 function refreshAll() {
@@ -61,6 +61,10 @@ function bindUI() {
   document.addEventListener('fullscreenchange', () => setTimeout(layoutView, 60));
   $('#tSplit').onclick = opSplit; $('#tDel').onclick = opDelete; $('#tDup').onclick = opDuplicate; $('#tFreeze').onclick = opFreeze; $('#tDetach').onclick = opDetach;
   $('#tMulti').onclick = () => { TL.multi = !TL.multi; if (TL.multi && SEL) MSEL.add(SEL); if (!TL.multi && MSEL.size < 2) MSEL.clear(); refreshAll(); toast(TL.multi ? 'Tap clips to pick them. Tap again to drop one.' : (MSEL.size > 1 ? MSEL.size + ' clips stay picked' : 'Picking off')); };
+  const pickSet = ids => { MSEL.clear(); ids.forEach(id => MSEL.add(id)); TL.multi = MSEL.size > 0; SEL = MSEL.size ? [...MSEL][MSEL.size - 1] : null; SELKF = null; refreshAll(); };
+  $('#tAll').onclick = () => { pickSet(allClips().map(c => c.id)); toast(MSEL.size + ' clips selected'); };
+  $('#tNone').onclick = () => { pickSet([]); toast('Nothing selected'); };
+  $('#tInv').onclick = () => { const had = new Set(MSEL.size ? MSEL : SEL ? [SEL] : []); pickSet(allClips().map(c => c.id).filter(id => !had.has(id))); toast(MSEL.size + ' clips selected'); };
   $('#tFront').onclick = () => moveLayer('front'); $('#tFwd').onclick = () => moveLayer(1); $('#tBack').onclick = () => moveLayer(-1); $('#tBottom').onclick = () => moveLayer('bottom');
   $('#tKey').onclick = opKey; $('#tMagnet').onclick = () => { TL.snap = !TL.snap; updToolState(); toast(TL.snap ? 'Snapping on' : 'Snapping off'); };
   $('#tRec').onclick = opRecord;

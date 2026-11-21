@@ -11,7 +11,8 @@ function tlWidth() { const v = $('#tl').clientWidth; return Math.max(v, hw() + (
 function renderTimeline() {
   if (!P) return;
   TL.hw = hw();
-  const box = $('#tracks'); box.innerHTML = '';
+  const box = $('#tracks'), tlEl = $('#tl'), keepY = tlEl.scrollTop, keepX = tlEl.scrollLeft;
+  box.style.minHeight = box.offsetHeight + 'px'; box.innerHTML = ''; // keep the height so the scroll does not jump back up
   $('#tlin').style.width = tlWidth() + 'px';
   let vi = visualTracks().length, ai = 0;
   for (const tr of trackOrder()) {
@@ -33,6 +34,7 @@ function renderTimeline() {
     el.append(th, lane);
     box.append(el);
   }
+  box.style.minHeight = ''; tlEl.scrollTop = keepY; tlEl.scrollLeft = keepX;
   drawRuler(); updPlayhead();
 }
 function clipLabel(c) {
