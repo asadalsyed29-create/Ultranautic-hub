@@ -287,7 +287,7 @@ function kfDrag(e, c, kt, d) {
 }
 function selectClip(id, keepKf) {
   if (SEL !== id) SELKF = null;
-  SEL = id;
+  SEL = id; { const cc = findClip(id); WARPM = cc && cc.warp ? cc.warp.mode : 'free'; }
   for (const el of $$('#tracks .clip')) el.classList.toggle('sel', el.dataset.cid === id);
   scheduleTL(); renderInspector(); drawOverlay(); updToolState();
 }
@@ -464,7 +464,7 @@ function opKey() {
   const c = selClip(); if (!c || !VISUAL[c.type] || c.type === 'effect' || c.type === 'filter' || c.type === 'adjust') { toast('Select a picture, video, text or sticker clip'); return; }
   if (T < c.start || T > c.start + c.dur) { toast('Put the playhead over the clip'); return; }
   const lt = T - c.start; const any = kfProps(c).some(p => keyAt(c, p, lt) >= 0);
-  for (const p of any ? kfProps(c) : KF_PROPS) { const i = keyAt(c, p, lt); if (any) { if (i >= 0) toggleKey(c, p); } else if (i < 0) toggleKey(c, p); }
+  for (const p of any ? kfProps(c) : KF_PROPS.concat(c.warp ? warpPaths(c) : [])) { const i = keyAt(c, p, lt); if (any) { if (i >= 0) toggleKey(c, p); } else if (i < 0) toggleKey(c, p); }
   SELKF = any ? null : { t: lt };
   commit(); refreshAll();
 }

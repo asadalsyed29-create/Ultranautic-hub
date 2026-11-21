@@ -113,7 +113,7 @@ function tfSetMode(t, mode) {
   const P = tfMap(t);
   if (mode === 'free') { tfBake(t); }
   else if (mode === 'persp') { t.q = [P(0, 0), P(1, 0), P(1, 1), P(0, 1)]; t.m = null; }
-  else { const n = DW_PREF.meshN || 3; t.m = { c: n, r: n, p: [] }; for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) t.m.p.push(P(i / n, j / n)); t.q = null; }
+  else { const n = DW_PREF.meshC || 3, rr = DW_PREF.meshR || 3; t.m = { c: n, r: rr, p: [] }; t.mBase = null; for (let j = 0; j <= rr; j++) for (let i = 0; i <= n; i++) t.m.p.push(P(i / n, j / rr)); t.q = null; }
   t.mode = mode; DW_PREF.tfMode = mode; savePref();
 }
 // turns a bent shape back into a plain box so Regular move can carry on from it
@@ -129,8 +129,10 @@ function drawWarp(x, img, P, N) {
   const W = img.width, H = img.height, grid = [];
   for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) grid.push(P(i / N, j / N));
   const at = (i, j) => grid[j * (N + 1) + i];
+  // grow each triangle by about one screen pixel so neighbours overlap and no seams show
+  const tm = x.getTransform(), upx = 1.1 / Math.max(1e-6, Math.sqrt(Math.abs(tm.a * tm.d - tm.b * tm.c)));
   const tri = (s0, s1, s2, d0, d1, d2) => {
-    x.save(); const cx = (d0[0] + d1[0] + d2[0]) / 3, cy = (d0[1] + d1[1] + d2[1]) / 3, g = p => [p[0] + (p[0] - cx) * .02, p[1] + (p[1] - cy) * .02];
+    x.save(); const cx = (d0[0] + d1[0] + d2[0]) / 3, cy = (d0[1] + d1[1] + d2[1]) / 3, g = p => { const vx = p[0] - cx, vy = p[1] - cy, l = Math.hypot(vx, vy) || 1; return [p[0] + vx / l * upx, p[1] + vy / l * upx]; };
     const e0 = g(d0), e1 = g(d1), e2 = g(d2); x.beginPath(); x.moveTo(e0[0], e0[1]); x.lineTo(e1[0], e1[1]); x.lineTo(e2[0], e2[1]); x.closePath(); x.clip();
     const den = s0[0] * (s1[1] - s2[1]) + s1[0] * (s2[1] - s0[1]) + s2[0] * (s0[1] - s1[1]); if (Math.abs(den) < 1e-9) { x.restore(); return; }
     const a = (d0[0] * (s1[1] - s2[1]) + d1[0] * (s2[1] - s0[1]) + d2[0] * (s0[1] - s1[1])) / den, b = (d0[1] * (s1[1] - s2[1]) + d1[1] * (s2[1] - s0[1]) + d2[1] * (s0[1] - s1[1])) / den;
@@ -145,7 +147,7 @@ function drawWarp(x, img, P, N) {
 }
 function phTfDraw(x, t) {
   if (t.mode === 'persp' && t.q) drawWarp(x, t.fl, homog(t.q), 18);
-  else if (t.mode === 'mesh' && t.m) drawWarp(x, t.fl, meshMap(t.m), clamp(Math.max(t.m.c, t.m.r) * 6, 18, 36));
+  else if (t.mode === 'mesh' && t.m) drawWarp(x, t.fl, meshMap(t.m), clamp(Math.max(t.m.c, t.m.r) * 4, 18, 48));
   else { x.save(); x.translate(t.cx, t.cy); x.rotate(t.rot); x.scale(t.sx, t.sy); x.drawImage(t.fl, -t.w / 2, -t.h / 2); x.restore(); }
 }
 function phTfImage(t = DW.tf) { const o = tmpCv('tfo'), x = o.getContext('2d'); x.drawImage(t.base, 0, 0); phTfDraw(x, t); return o; }
@@ -160,12 +162,21 @@ function phTfApply(cancel) {
 }
 // the outline of the moved part, for "tap inside to drag it all"
 function tfOutline(t) { const P = tfMap(t), o = [], n = t.mode === 'mesh' ? 12 : 1; for (let i = 0; i < n; i++) o.push(P(i / n, 0)); for (let i = 0; i < n; i++) o.push(P(1, i / n)); for (let i = n; i > 0; i--) o.push(P(i / n, 1)); for (let i = n; i > 0; i--) o.push(P(0, i / n)); return o; }
-function tfResample(t, c, r) { const P = meshMap(t.m), p = []; for (let j = 0; j <= r; j++) for (let i = 0; i <= c; i++) p.push(P(i / c, j / r)); t.m = { c, r, p }; }
+// points stay evenly spread over the shape; changing the count always starts from the shape you made (not from the last resample)
+function tfResample(t, c, r) { if (!t.mBase) t.mBase = { c: t.m.c, r: t.m.r, p: t.m.p.map(v => v.slice()) }; const P = meshMap(t.mBase), p = []; for (let j = 0; j <= r; j++) for (let i = 0; i <= c; i++) p.push(P(i / c, j / r)); t.m = { c, r, p }; }
 PH_H.tf = {
   ui(o) {
     if (!DW.tf || DW.tf.L !== DW.layers[DW.cur]) phTfBegin();
     const t = DW.tf; if (!t) return;
-    if (t.empty) { o.append(h('div', { class: 'hint' }, 'This layer is empty here. Pick another layer in Layers.')); return; }
+    if (t.empty) {
+      // still show the modes, so the controls are always there
+      o.append(h('div', { class: 'dwo' }, h('label', null, 'Mode'), segBox({ options: [{ v: 'free', l: 'Regular' }, { v: 'mesh', l: 'Mesh' }, { v: 'persp', l: 'Perspective' }], value: DW_PREF.tfMode || 'free', onChange: v => { DW_PREF.tfMode = v; savePref(); } })));
+      const has = i => { const L = DW.layers[i]; if (!L || L.kind === 'adj') return false; if (L.kind === 'text') return true; const d = L.cv.getContext('2d').getImageData(0, 0, DW.w, DW.h).data; for (let k = 3; k < d.length; k += 16) if (d[k]) return true; return false; };
+      let pick = -1; for (let i = DW.cur - 1; i >= 0 && pick < 0; i--) if (has(i)) pick = i; for (let i = DW.layers.length - 1; i > DW.cur && pick < 0; i--) if (has(i)) pick = i;
+      o.append(h('div', { class: 'hint' }, DW.sel ? 'Nothing on this layer inside the selection. ' : 'This layer has nothing on it yet, so there is nothing to move. '));
+      if (pick >= 0) o.append(h('div', { class: 'dwo' }, h('label', null, ''), h('button', { class: 'btn pri sm', onclick: () => { DW.cur = pick; DW.editMask = false; DW.tf = null; dwToolUI(); dwRender(); } }, 'Move “' + DW.layers[pick].name + '” instead')));
+      return;
+    }
     if (t.text) { o.append(h('div', { class: 'hint' }, 'Drag to move the text. Use the Text tool to change it.')); return; }
     o.append(h('div', { class: 'dwo' }, h('label', null, 'Mode'), segBox({ options: [{ v: 'free', l: 'Regular' }, { v: 'mesh', l: 'Mesh' }, { v: 'persp', l: 'Perspective' }], value: t.mode, onChange: v => { tfSetMode(t, v); dwToolUI(); dwRender(); } })));
     const b = (l, f) => h('button', { class: 'btn sm', onclick: () => { f(); dwRender(); } }, l);
@@ -177,15 +188,14 @@ PH_H.tf = {
     } else if (t.mode === 'persp') {
       o.append(h('div', { class: 'dwo' }, h('label', null, ''), b('Mirror', () => { t.q = flipQ(t.q, 'm'); }), b('Flip', () => { t.q = flipQ(t.q, 'f'); }), b('Turn 90°', () => { t.q = flipQ(t.q, 't'); })));
     } else {
-      const cnt = h('span', { class: 'hint' }, (t.m.c + 1) * (t.m.r + 1) + ' points');
-      const set = (c, r) => { c = clamp(c, 1, 12); r = clamp(r, 1, 12); if (c === t.m.c && r === t.m.r) return; tfResample(t, c, r); DW_PREF.meshN = Math.max(c, r); savePref(); cnt.textContent = (c + 1) * (r + 1) + ' points'; dwRender(); };
-      o.append(h('div', { class: 'dwo' }, h('label', null, 'Points'), b('More', () => set(t.m.c + 1, t.m.r + 1)), b('Fewer', () => set(t.m.c - 1, t.m.r - 1)), cnt));
-      o.append(h('div', { class: 'dwo' }, h('label', null, ''), b('More across', () => set(t.m.c + 1, t.m.r)), b('More down', () => set(t.m.c, t.m.r + 1))));
-      o.append(h('div', { class: 'dwo' }, h('label', null, ''), b('Mirror', () => flipM('m')), b('Flip', () => flipM('f')), b('Straighten', () => { const n = t.m.c, r = t.m.r, P = tfMap({ ...t, mode: 'persp', q: [t.m.p[0], t.m.p[n], t.m.p[(r + 1) * (n + 1) - 1], t.m.p[r * (n + 1)]] }), p = []; for (let j = 0; j <= r; j++) for (let i = 0; i <= n; i++) p.push(P(i / n, j / r)); t.m.p = p; })));
+      const set = (c, r) => { c = clamp(Math.round(c), 1, 49); r = clamp(Math.round(r), 1, 49); if (c === t.m.c && r === t.m.r) return; tfResample(t, c, r); DW_PREF.meshC = c; DW_PREF.meshR = r; savePref(); dwRender(); };
+      o.append(rangeRow('Points across', { min: 2, max: 50, step: 1, value: t.m.c + 1, onInput: v => set(v - 1, t.m.r) }));
+      o.append(rangeRow('Points down', { min: 2, max: 50, step: 1, value: t.m.r + 1, onInput: v => set(t.m.c, v - 1) }));
+      o.append(h('div', { class: 'dwo' }, h('label', null, ''), b('Mirror', () => { flipM('m'); t.mBase = null; }), b('Flip', () => { flipM('f'); t.mBase = null; }), b('Straighten', () => { t.mBase = null; const n = t.m.c, r = t.m.r, P = tfMap({ ...t, mode: 'persp', q: [t.m.p[0], t.m.p[n], t.m.p[(r + 1) * (n + 1) - 1], t.m.p[r * (n + 1)]] }), p = []; for (let j = 0; j <= r; j++) for (let i = 0; i <= n; i++) p.push(P(i / n, j / r)); t.m.p = p; })));
     }
     o.append(h('div', { class: 'dwo' }, h('label', null, ''), h('button', { class: 'btn pri sm', onclick: () => { phTfApply(); phTfBegin(); dwToolUI(); } }, 'Apply'), h('button', { class: 'btn sm', onclick: () => { phTfApply(true); phTfBegin(); dwToolUI(); } }, 'Cancel')));
     const what = DW.sel ? 'Moving the selected part. ' : 'Moving the whole layer. ';
-    o.append(h('div', { class: 'hint' }, what + (t.mode === 'mesh' ? 'Drag any point to bend the picture, including the points along the sides and top. Tap a line between points to add a row or column there. Drag inside to move it all.' : t.mode === 'persp' ? 'Drag a corner for perspective. Drag the middle of a side or the top to move that whole edge. Drag inside to move it all.' : 'Drag inside to move, corners or side handles to resize, the round handle (or outside the box) to turn.')));
+    o.append(h('div', { class: 'hint' }, what + (t.mode === 'mesh' ? 'Drag any point to bend the picture, including the points along the sides and top. Points across and Points down set how many there are, always evenly spaced. Drag inside to move it all.' : t.mode === 'persp' ? 'Drag a corner for perspective. Drag the middle of a side or the top to move that whole edge. Drag inside to move it all.' : 'Drag inside to move, corners or side handles to resize, the round handle (or outside the box) to turn.')));
   },
   down(p, e) {
     const t = DW.tf; if (!t || t.empty) return;
@@ -201,18 +211,8 @@ PH_H.tf = {
     }
     if (t.mode === 'mesh') {
       const m = t.m; let k = -1, best = hr; m.p.forEach((c, i) => { const d = Math.hypot(c[0] - p.x, c[1] - p.y); if (d < best) { best = d; k = i; } });
-      if (k >= 0) return { move: q => { m.p[k] = [q.x, q.y]; } };
-      // tap on a line between points: add a row or a column of points right there
-      const P = meshMap(m), S = 40; let hit = null, hb = hr * .7;
-      for (let i = 0; i <= m.c; i++) for (let s = 0; s <= S; s++) { const c = P(i / m.c, s / S), d = Math.hypot(c[0] - p.x, c[1] - p.y); if (d < hb) { hb = d; hit = { dir: 'row', v: s / S }; } }
-      for (let j = 0; j <= m.r; j++) for (let s = 0; s <= S; s++) { const c = P(s / S, j / m.r), d = Math.hypot(c[0] - p.x, c[1] - p.y); if (d < hb) { hb = d; hit = { dir: 'col', u: s / S }; } }
-      if (hit && ((hit.dir === 'row' && m.r < 12) || (hit.dir === 'col' && m.c < 12))) {
-        const us = [], vs = []; for (let i = 0; i <= m.c; i++) us.push(i / m.c); for (let j = 0; j <= m.r; j++) vs.push(j / m.r);
-        if (hit.dir === 'row') { if (vs.some(v => Math.abs(v - hit.v) < .03)) hit = null; else { vs.push(hit.v); vs.sort((a, b) => a - b); } }
-        else { if (us.some(u => Math.abs(u - hit.u) < .03)) hit = null; else { us.push(hit.u); us.sort((a, b) => a - b); } }
-        if (hit) { const np = []; for (const v of vs) for (const u of us) np.push(P(u, v)); t.m = { c: us.length - 1, r: vs.length - 1, p: np }; dwToolUI(); return; }
-      }
-      const out = tfOutline(t); if (inPoly(p, out)) { const p0 = m.p.map(v => v.slice()); return { move: q => { m.p = p0.map(([a, b]) => [a + q.x - p.x, b + q.y - p.y]); } }; }
+      if (k >= 0) { t.mBase = null; return { move: q => { m.p[k] = [q.x, q.y]; } }; }
+      const out = tfOutline(t); if (inPoly(p, out)) { t.mBase = null; const p0 = m.p.map(v => v.slice()); return { move: q => { m.p = p0.map(([a, b]) => [a + q.x - p.x, b + q.y - p.y]); } }; }
       return;
     }
     const C = tfCorners(t);
@@ -241,7 +241,8 @@ PH_H.tf = {
     if (t.mode === 'mesh') {
       const m = t.m, P = meshMap(m), N = 32, line = f => { x.beginPath(); for (let s = 0; s <= N; s++) { const [X, Y] = S(...f(s / N)); s ? x.lineTo(X, Y) : x.moveTo(X, Y); } x.stroke(); };
       for (let i = 0; i <= m.c; i++) line(s => P(i / m.c, s)); for (let j = 0; j <= m.r; j++) line(s => P(s, j / m.r));
-      m.p.forEach(c => { const [X, Y] = S(c[0], c[1]); handleDot(x, X, Y, 6 * d / 1.5, true); });
+      const a = S(...m.p[0]), bb = S(...m.p[m.p.length - 1]), sp = Math.min(Math.abs(bb[0] - a[0]) / m.c, Math.abs(bb[1] - a[1]) / m.r) || 20, hr_ = clamp(sp * .3, 2.5 * d / 1.5, 6 * d / 1.5);
+      m.p.forEach(c => { const [X, Y] = S(c[0], c[1]); handleDot(x, X, Y, hr_, true); });
       return;
     }
     if (t.mode === 'persp') {

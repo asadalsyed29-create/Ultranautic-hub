@@ -183,7 +183,7 @@ function rotationRows(c) {
 }
 function insClip(b, c) {
   // keyframes and the motion between them live in this same tab, at the top
-  const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks);
+  const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks); insWarp(b, c);
   if (c.type === 'image') b.append(row('Edit', h('div', { class: 'brow' }, h('button', { class: 'btn sm', html: icon('dbrush') + ' Draw', onclick: () => openDraw(c, { mode: 'draw' }) }), h('button', { class: 'btn sm', html: icon('image') + ' Photo', onclick: () => openDraw(c, { mode: 'photo' }) }))));
   b.append(h('div', { class: 'grp' }, h('h4', null, 'Transform')), propRow(c, 'x'), propRow(c, 'y'), propRow(c, 'scale'), ...rotationRows(c), propRow(c, 'opacity'));
   b.append(row('', h('button', { class: 'btn sm', onclick: () => { setProp(c, 'x', P.w / 2); setProp(c, 'y', P.h / 2); chg(true); refreshInspectorValues(); } }, 'Center'), h('button', { class: 'btn sm', onclick: () => { setProp(c, 'scale', 1); setProp(c, 'rot', 0); chg(true); refreshInspectorValues(); } }, 'Reset size and turn')));
@@ -281,7 +281,7 @@ function effectList(b, c) {
 }
 function insEffects(b, c) { effectList(b, c); }
 function insLayer(b, c) {
-  const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks);
+  const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks); insWarp(b, c);
   b.append(propRow(c, 'opacity'));
   b.append(h('div', { class: 'hint' }, 'Opacity sets how strongly this layer changes the picture. It can be keyframed.'));
   if (c.type === 'effect') effectList(b, c);
@@ -462,10 +462,16 @@ function speedEditor(pts, smooth, onChange) {
   const box = h('div', { class: 'curve speedg' }), cv = h('canvas'); box.append(cv);
   const info = h('div', { class: 'hint' });
   const pre = h('div', { class: 'presets' });
-  const same = a => a.length === pts.length && a.every((q, i) => Math.abs(q[0] - pts[i][0]) < 1e-3 && Math.abs(q[1] - pts[i][1]) < 1e-3);
-  let picked = -1;
-  const mkPre = () => { pre.innerHTML = ''; for (const e of SP_PRESETS) pre.append(h('button', { class: same(e.p) ? 'on' : '', onclick: () => { pts.length = 0; e.p.forEach(q => pts.push([q[0], q[1]])); picked = -1; onChange(pts, true); draw(); mkPre(); } }, e.n)); pre.append(h('button', { class: picked > 0 && picked < pts.length - 1 ? '' : 'dis', title: 'Remove the point you last touched', onclick: () => { if (!(picked > 0 && picked < pts.length - 1)) { toast('Tap a point in the middle first'); return; } pts.splice(picked, 1); picked = -1; onChange(pts, true); draw(); mkPre(); } }, 'Remove point')); };
-  const wrap = h('div', null, box, info, pre);
+  // the points always sit evenly spaced in time; you only drag them up (faster) or down (slower)
+  const even = (src, n) => { const o = []; for (let i = 0; i < n; i++) { const x = n > 1 ? i / (n - 1) : 0; o.push([round(x, 4), round(spVal(src, smooth, x), 2)]); } return o; };
+  const setPts = a => { pts.length = 0; a.forEach(q => pts.push(q)); };
+  if (pts.some((q, i) => Math.abs(q[0] - (pts.length > 1 ? i / (pts.length - 1) : 0)) > 1e-3)) setPts(even(pts.map(q => q.slice()), pts.length));
+  let shape = pts.map(q => q.slice()), drag = -1, snap = true; try { snap = localStorage.getItem('fw-spsnap') !== '0'; } catch (e) { }
+  const snapV = v => { if (!snap) return v; const r = Math.round(v * 2) / 2; return Math.abs(v - r) < .15 ? r : v; };
+  const same = a => { const e = even(a, pts.length); return e.every((q, i) => Math.abs(q[1] - pts[i][1]) < 1e-2); };
+  const mkPre = () => { pre.innerHTML = ''; for (const e of SP_PRESETS) pre.append(h('button', { class: same(e.p) ? 'on' : '', onclick: () => { setPts(even(e.p, pts.length)); shape = pts.map(q => q.slice()); onChange(pts, true); draw(); mkPre(); } }, e.n)); };
+  const count = rangeRow('Points', { min: 2, max: 50, step: 1, value: pts.length, onInput: (v, f) => { v = clamp(Math.round(v), 2, 50); if (v !== pts.length) { setPts(even(shape, v)); onChange(pts, false); draw(); } if (f) { onChange(pts, true); mkPre(); } } });
+  const wrap = h('div', null, count, row('', checkBox('Snap to whole and .5 speeds', snap, v => { snap = v; try { localStorage.setItem('fw-spsnap', v ? '1' : '0'); } catch (e) { } })), box, info, pre);
   const M = 16, ML = 34; let W = 0, H = 0;
   const toPx = (x, y) => [ML + x * (W - ML - M), H - M - y / SP_MAX * (H - 2 * M)];
   const fromPx = (px, py) => [clamp((px - ML) / (W - ML - M), 0, 1), clamp((H - M - py) / (H - 2 * M) * SP_MAX, 0, SP_MAX)];
@@ -477,25 +483,22 @@ function speedEditor(pts, smooth, onChange) {
     for (let s = 0; s <= SP_MAX; s++) { const [, gy] = toPx(0, s); x.strokeStyle = '#2b2d33'; x.lineWidth = 1; x.beginPath(); x.moveTo(ML, gy); x.lineTo(W - M, gy); x.stroke(); x.fillStyle = s === 1 ? '#c9ccd2' : '#62666e'; x.fillText(s + 'x', 6, gy); }
     const [, ny] = toPx(0, 1); x.strokeStyle = '#8d919a'; x.setLineDash([5, 4]); x.beginPath(); x.moveTo(ML, ny); x.lineTo(W - M, ny); x.stroke(); x.setLineDash([]);
     x.fillStyle = '#8d919a'; x.fillText('normal', W - M - 40, ny - 9);
-    // area under the line (how far it gets)
-    x.beginPath(); const N = 160; for (let i = 0; i <= N; i++) { const [px, py] = toPx(i / N, spVal(pts, smooth, i / N)); i ? x.lineTo(px, py) : x.moveTo(px, py); }
-    const path = new Path2D(); for (let i = 0; i <= N; i++) { const [px, py] = toPx(i / N, spVal(pts, smooth, i / N)); i ? path.lineTo(px, py) : path.moveTo(px, py); }
+    const N = 200, path = new Path2D(); for (let i = 0; i <= N; i++) { const [px, py] = toPx(i / N, spVal(pts, smooth, i / N)); i ? path.lineTo(px, py) : path.moveTo(px, py); }
     const fill = new Path2D(path); const [ex, ey0] = toPx(1, 0), [sx] = toPx(0, 0); fill.lineTo(ex, ey0); fill.lineTo(sx, ey0); fill.closePath();
     x.fillStyle = 'rgba(63,214,192,.12)'; x.fill(fill);
     x.strokeStyle = '#3fd6c0'; x.lineWidth = 2.4; x.stroke(path);
-    pts.forEach((q, i) => { const [px, py] = toPx(q[0], q[1]); x.fillStyle = i === picked ? '#3fd6c0' : '#e4e5e8'; x.fillRect(px - 7, py - 7, 14, 14); x.strokeStyle = '#000'; x.lineWidth = 1; x.strokeRect(px - 7, py - 7, 14, 14); x.fillStyle = '#e4e5e8'; x.fillText(round(q[1], 2) + 'x', clamp(px - 12, ML, W - 40), py < 24 ? py + 18 : py - 16); });
+    const gap = (W - ML - M) / Math.max(1, pts.length - 1), hs = clamp(gap * .45, 3, 7), labels = gap > 34;
+    pts.forEach((q, i) => { const [px, py] = toPx(q[0], q[1]); x.fillStyle = i === drag ? '#3fd6c0' : '#e4e5e8'; x.fillRect(px - hs, py - hs, hs * 2, hs * 2); x.strokeStyle = '#000'; x.lineWidth = 1; x.strokeRect(px - hs, py - hs, hs * 2, hs * 2); if (labels || i === drag) { x.fillStyle = '#e4e5e8'; x.fillText(round(q[1], 2) + 'x', clamp(px - 12, ML, W - 40), py < 24 ? py + 18 : py - 16); } });
     x.fillStyle = '#62666e'; x.fillText('time →', W - M - 42, H - 7);
-    info.textContent = 'Up = faster, down = slower. Tap the line anywhere to add a point. It always lands exactly on the next keyframe.';
+    info.textContent = 'Drag a point up = faster, down = slower. Points stay evenly spaced; change how many with Points. It always lands exactly on the next keyframe.';
   }
   box.addEventListener('pointerdown', e => {
     e.preventDefault(); box.setPointerCapture(e.pointerId);
-    const r = box.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-    let which = 0, best = 1e9; pts.forEach((q, i) => { const [qx, qy] = toPx(q[0], q[1]); const d = Math.hypot(px - qx, py - qy); if (d < best) { best = d; which = i; } });
-    if (best > 22 && pts.length < 24) { const [vx, vy] = fromPx(px, py); let k = pts.findIndex(q => q[0] > vx); if (k <= 0) k = vx <= 0 ? 1 : pts.length - 1; pts.splice(k, 0, [round(clamp(vx, pts[k - 1][0] + .01, pts[k][0] - .01), 3), round(vy, 2)]); which = k; }
-    picked = which;
-    const mv = ev => { const [vx, vy] = fromPx(ev.clientX - r.left, ev.clientY - r.top); pts[which][1] = round(vy, 2); if (which > 0 && which < pts.length - 1) pts[which][0] = round(clamp(vx, pts[which - 1][0] + .01, pts[which + 1][0] - .01), 3); onChange(pts, false); draw(); };
+    const r = box.getBoundingClientRect(), px = e.clientX - r.left;
+    let best = 1e9; pts.forEach((q, i) => { const d = Math.abs(toPx(q[0], q[1])[0] - px); if (d < best) { best = d; drag = i; } });
+    const mv = ev => { const [, vy] = fromPx(ev.clientX - r.left, ev.clientY - r.top); pts[drag][1] = round(snapV(vy), 2); onChange(pts, false); draw(); };
     mv(e);
-    const up = () => { box.removeEventListener('pointermove', mv); box.removeEventListener('pointerup', up); onChange(pts, true); mkPre(); };
+    const up = () => { box.removeEventListener('pointermove', mv); box.removeEventListener('pointerup', up); drag = -1; shape = pts.map(q => q.slice()); onChange(pts, true); draw(); mkPre(); };
     box.addEventListener('pointermove', mv); box.addEventListener('pointerup', up);
   });
   mkPre();

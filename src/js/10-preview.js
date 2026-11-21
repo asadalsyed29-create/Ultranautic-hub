@@ -26,7 +26,8 @@ function drawOverlay() {
   x.strokeStyle = '#ffffff'; x.lineWidth = 1.5 * d;
   x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.stroke();
   x.strokeStyle = 'rgba(0,0,0,.5)'; x.lineWidth = .8 * d; x.stroke();
-  if (TOOL === 'move') for (const hd of moveHandles(pts, d)) drawMoveHandle(x, hd, d);
+  if (TOOL === 'move' && WARPM !== 'free' && warpOverlay(x, c, k, d)) { }
+  else if (TOOL === 'move') for (const hd of moveHandles(pts, d)) drawMoveHandle(x, hd, d);
   else if (TOOL === 'size') for (const p of sizeHandles(pts, d)) drawCube(x, p[0], p[1], (isTouch ? 9 : 7) * d, d);
   else if (TOOL === 'rot') {
     const ring = rotRing(c, pts, ctr, d), a = (evalProp(c, 'rot', clamp(T - c.start, 0, c.dur)) - 90) * Math.PI / 180;
@@ -49,8 +50,8 @@ function drawOverlay() {
   }
 }
 let TOOL = 'move';
-function setTool(t) { TOOL = t; for (const b of $$('#stools button')) b.classList.toggle('on', b.dataset.t === t); drawOverlay(); }
-function updStools() { const s = $('#stools'); if (s) s.classList.toggle('off', !selVisible() || PLAY.on); }
+function setTool(t) { TOOL = t; for (const b of $$('#stools button')) b.classList.toggle('on', b.dataset.t === t); drawOverlay(); updWarpBar(); }
+function updStools() { const s = $('#stools'); if (s) s.classList.toggle('off', !selVisible() || PLAY.on); updWarpBar(); }
 function moveHandles(pts, d) {
   // one handle outside the middle of each side
   const ctr = [(pts[0][0] + pts[2][0]) / 2, (pts[0][1] + pts[2][1]) / 2], out = [];
@@ -140,6 +141,7 @@ function initStageEvents() {
       if (TOOL === 'size') for (const q of sizeHandles(pts, d)) if (near(q[0], q[1], isTouch ? 24 : 13)) {
         drag = { mode: 'scale', c: sc, ctr, d0: Math.hypot(pt.px - ctr[0], pt.py - ctr[1]), s0: evalProp(sc, 'scale', lt) }; return;
       }
+      if (TOOL === 'move' && WARPM !== 'free') { const w = warpHit(sc, pt, k, d); if (w) { drag = w; return; } }
       if (TOOL === 'move') for (const hd of moveHandles(pts, d)) if (near(hd.x, hd.y, isTouch ? 24 : 14)) {
         drag = { mode: 'move', c: sc, p0: pt, x0: evalProp(sc, 'x', lt), y0: evalProp(sc, 'y', lt), moved: false }; return;
       }
@@ -174,6 +176,7 @@ function initStageEvents() {
       if (Math.abs(nx - P.w / 2) < thr) { nx = P.w / 2; GUIDE.x = P.w / 2; }
       if (Math.abs(ny - P.h / 2) < thr) { ny = P.h / 2; GUIDE.y = P.h / 2; }
       setProp(c, 'x', round(nx, 2)); setProp(c, 'y', round(ny, 2));
+    } else if (drag.mode === 'warp') { warpDrag(drag, pt);
     } else if (drag.mode === 'scale') {
       const dd = Math.hypot(pt.px - drag.ctr[0], pt.py - drag.ctr[1]);
       setProp(c, 'scale', clamp(round(drag.s0 * dd / Math.max(1, drag.d0), 4), 0.01, 100));

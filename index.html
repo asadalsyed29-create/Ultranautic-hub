@@ -365,6 +365,13 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
 @media (max-width:520px){.edsw button{padding:0 7px;font-size:11.5px}}
 .brow{display:flex;gap:6px;flex-wrap:wrap}
 .presets button.dis{opacity:.45}
+#wbar{position:absolute;left:6px;top:40px;display:flex;flex-wrap:wrap;gap:2px;z-index:3;align-items:center}
+#wbar.off{display:none}
+#wbar button{height:28px;padding:0 9px;background:rgba(20,22,26,.88);border:1px solid var(--line);color:var(--tx);font:inherit;font-size:12px;cursor:pointer}
+#wbar button.on{background:var(--acc);color:#04201b;border-color:var(--acc)}
+#wbar .wpts{display:flex;align-items:center;gap:2px;margin-left:6px}
+#wbar .wlab{font-size:12px;color:var(--tx);background:rgba(20,22,26,.88);padding:5px 8px;border:1px solid var(--line)}
+#wbar .wstep{width:30px;padding:0}
 </style></head><body>
 <div id="app">
   <header id="top">
@@ -1997,9 +2004,9 @@ function drawClip(x, c, lt, k) {
   if (filt.length) x.filter = filt.join(' ');
   x.translate(tx, ty); x.rotate((p.rot + s.rot + fxRot) * Math.PI / 180);
   x.scale(p.scale * s.sx * sc * (c.flipH ? -1 : 1), p.scale * s.sy * sc * (c.flipV ? -1 : 1));
-  if (c.type === 'video' || c.type === 'image') drawMediaContent(x, c, lt, k * p.scale * Math.max(s.sx, s.sy) * sc);
-  else if (c.type === 'text') drawText(x, c.text, lt, c.dur);
-  else if (c.type === 'sticker') drawSticker(x, c.sticker, lt);
+  const kd = k * p.scale * Math.max(s.sx, s.sy) * sc;
+  const paint = xx => { if (c.type === 'video' || c.type === 'image') drawMediaContent(xx, c, lt, kd); else if (c.type === 'text') drawText(xx, c.text, lt, c.dur); else if (c.type === 'sticker') drawSticker(xx, c.sticker, lt); };
+  if (warpActive(c)) drawWarped(x, c, lt, kd, paint); else paint(x);
   x.restore();
 }
 function drawMediaContent(x, c, lt, kd) {
@@ -2556,7 +2563,7 @@ function kfDrag(e, c, kt, d) {
 }
 function selectClip(id, keepKf) {
   if (SEL !== id) SELKF = null;
-  SEL = id;
+  SEL = id; { const cc = findClip(id); WARPM = cc && cc.warp ? cc.warp.mode : 'free'; }
   for (const el of $$('#tracks .clip')) el.classList.toggle('sel', el.dataset.cid === id);
   scheduleTL(); renderInspector(); drawOverlay(); updToolState();
 }
@@ -2733,7 +2740,7 @@ function opKey() {
   const c = selClip(); if (!c || !VISUAL[c.type] || c.type === 'effect' || c.type === 'filter' || c.type === 'adjust') { toast('Select a picture, video, text or sticker clip'); return; }
   if (T < c.start || T > c.start + c.dur) { toast('Put the playhead over the clip'); return; }
   const lt = T - c.start; const any = kfProps(c).some(p => keyAt(c, p, lt) >= 0);
-  for (const p of any ? kfProps(c) : KF_PROPS) { const i = keyAt(c, p, lt); if (any) { if (i >= 0) toggleKey(c, p); } else if (i < 0) toggleKey(c, p); }
+  for (const p of any ? kfProps(c) : KF_PROPS.concat(c.warp ? warpPaths(c) : [])) { const i = keyAt(c, p, lt); if (any) { if (i >= 0) toggleKey(c, p); } else if (i < 0) toggleKey(c, p); }
   SELKF = any ? null : { t: lt };
   commit(); refreshAll();
 }
@@ -2813,7 +2820,8 @@ function drawOverlay() {
   x.strokeStyle = '#ffffff'; x.lineWidth = 1.5 * d;
   x.beginPath(); pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.stroke();
   x.strokeStyle = 'rgba(0,0,0,.5)'; x.lineWidth = .8 * d; x.stroke();
-  if (TOOL === 'move') for (const hd of moveHandles(pts, d)) drawMoveHandle(x, hd, d);
+  if (TOOL === 'move' && WARPM !== 'free' && warpOverlay(x, c, k, d)) { }
+  else if (TOOL === 'move') for (const hd of moveHandles(pts, d)) drawMoveHandle(x, hd, d);
   else if (TOOL === 'size') for (const p of sizeHandles(pts, d)) drawCube(x, p[0], p[1], (isTouch ? 9 : 7) * d, d);
   else if (TOOL === 'rot') {
     const ring = rotRing(c, pts, ctr, d), a = (evalProp(c, 'rot', clamp(T - c.start, 0, c.dur)) - 90) * Math.PI / 180;
@@ -2836,8 +2844,8 @@ function drawOverlay() {
   }
 }
 let TOOL = 'move';
-function setTool(t) { TOOL = t; for (const b of $$('#stools button')) b.classList.toggle('on', b.dataset.t === t); drawOverlay(); }
-function updStools() { const s = $('#stools'); if (s) s.classList.toggle('off', !selVisible() || PLAY.on); }
+function setTool(t) { TOOL = t; for (const b of $$('#stools button')) b.classList.toggle('on', b.dataset.t === t); drawOverlay(); updWarpBar(); }
+function updStools() { const s = $('#stools'); if (s) s.classList.toggle('off', !selVisible() || PLAY.on); updWarpBar(); }
 function moveHandles(pts, d) {
   // one handle outside the middle of each side
   const ctr = [(pts[0][0] + pts[2][0]) / 2, (pts[0][1] + pts[2][1]) / 2], out = [];
@@ -2927,6 +2935,7 @@ function initStageEvents() {
       if (TOOL === 'size') for (const q of sizeHandles(pts, d)) if (near(q[0], q[1], isTouch ? 24 : 13)) {
         drag = { mode: 'scale', c: sc, ctr, d0: Math.hypot(pt.px - ctr[0], pt.py - ctr[1]), s0: evalProp(sc, 'scale', lt) }; return;
       }
+      if (TOOL === 'move' && WARPM !== 'free') { const w = warpHit(sc, pt, k, d); if (w) { drag = w; return; } }
       if (TOOL === 'move') for (const hd of moveHandles(pts, d)) if (near(hd.x, hd.y, isTouch ? 24 : 14)) {
         drag = { mode: 'move', c: sc, p0: pt, x0: evalProp(sc, 'x', lt), y0: evalProp(sc, 'y', lt), moved: false }; return;
       }
@@ -2961,6 +2970,7 @@ function initStageEvents() {
       if (Math.abs(nx - P.w / 2) < thr) { nx = P.w / 2; GUIDE.x = P.w / 2; }
       if (Math.abs(ny - P.h / 2) < thr) { ny = P.h / 2; GUIDE.y = P.h / 2; }
       setProp(c, 'x', round(nx, 2)); setProp(c, 'y', round(ny, 2));
+    } else if (drag.mode === 'warp') { warpDrag(drag, pt);
     } else if (drag.mode === 'scale') {
       const dd = Math.hypot(pt.px - drag.ctr[0], pt.py - drag.ctr[1]);
       setProp(c, 'scale', clamp(round(drag.s0 * dd / Math.max(1, drag.d0), 4), 0.01, 100));
@@ -2989,6 +2999,132 @@ function initStageEvents() {
     else setProp(c, 'scale', clamp(evalProp(c, 'scale', lt) * Math.exp(-e.deltaY * 0.0015), 0.01, 100));
     requestRender(); refreshInspectorValues(); clearTimeout(st._wt); st._wt = setTimeout(commit, 400);
   }, { passive: false });
+}
+
+/* ================= Move modes in Animate: Regular, Mesh (bend with a grid of points) and Perspective =================
+   c.warp = { mode: 'mesh'|'persp', c: columns, r: rows, p: [dx0, dy0, dx1, dy1, ...] }
+   p holds how far each grid point moved from its resting place, as a share of the picture's width / height,
+   so every number can be keyframed like anything else ('o:warp.p.N'). */
+let WARPM = 'free';
+function warpActive(cr) { return !!(cr && cr.warp && cr.warp.p && cr.warp.p.some(v => Math.abs(v) > 1e-6)); }
+// grid points in the clip's own units (before position / scale / rotation)
+function warpPts(cr, b) {
+  const w = cr.warp, out = [];
+  for (let j = 0; j <= w.r; j++) for (let i = 0; i <= w.c; i++) { const k = j * (w.c + 1) + i; out.push([b.x + i / w.c * b.w + (w.p[2 * k] || 0) * b.w, b.y + j / w.r * b.h + (w.p[2 * k + 1] || 0) * b.h]); }
+  return out;
+}
+function warpMapOf(cr, b) {
+  const w = cr.warp, P = warpPts(cr, b);
+  if (w.mode === 'persp') return homog([P[0], P[1], P[3], P[2]]);
+  return meshMap({ c: w.c, r: w.r, p: P });
+}
+// draws a clip's picture bent by its warp; x is already in the clip's own units
+function drawWarped(x, c, lt, kd, drawFn) {
+  const b = contentSize(c), f = clamp(Math.abs(kd), .05, 4096 / Math.max(1, b.w, b.h));
+  const W = Math.max(2, Math.ceil(b.w * f)), H = Math.max(2, Math.ceil(b.h * f));
+  const S = scratch('warp-' + c.id, W, H), sx = S.getContext('2d');
+  sx.setTransform(1, 0, 0, 1, 0, 0); sx.globalAlpha = 1; sx.globalCompositeOperation = 'source-over'; sx.filter = 'none'; sx.clearRect(0, 0, W, H);
+  sx.setTransform(W / b.w, 0, 0, H / b.h, -b.x * W / b.w, -b.y * H / b.h); drawFn(sx);
+  const w = c.warp, N = w.mode === 'persp' ? 16 : clamp(Math.max(w.c, w.r) * 3, 12, 40);
+  drawWarp(x, S, warpMapOf(c, b), N);
+}
+function warpPaths(c) { const n = c.warp ? (c.warp.c + 1) * (c.warp.r + 1) * 2 : 0, o = []; for (let i = 0; i < n; i++) o.push('o:warp.p.' + i); return o; }
+function warpKeyed(c) { return !!(c.kf && Object.keys(c.kf).some(p => p.startsWith('o:warp.p.') && c.kf[p].length)); }
+// change the mode or the number of points; keeps the current shape (and the shape at every keyframe), with the points evenly spread
+function warpRebuild(c, mode, nc, nr) {
+  const b = contentSize(c), times = new Set();
+  if (c.kf) for (const p in c.kf) if (p.startsWith('o:warp.p.')) for (const k of c.kf[p]) times.add(k.t);
+  const shapeAt = lt => {
+    const cr = resolveAt(c, lt); if (!cr.warp) return new Array((nc + 1) * (nr + 1) * 2).fill(0);
+    const M = warpMapOf(cr, b), out = [];
+    for (let j = 0; j <= nr; j++) for (let i = 0; i <= nc; i++) { const q = M(i / nc, j / nr); out.push((q[0] - (b.x + i / nc * b.w)) / b.w, (q[1] - (b.y + j / nr * b.h)) / b.h); }
+    return out.map(v => round(v, 5));
+  };
+  const keyed = [...times].sort((a, b) => a - b).map(t => { const pk = Object.keys(c.kf).find(p => p.startsWith('o:warp.p.') && c.kf[p].some(k => Math.abs(k.t - t) < 1e-6)); const src = pk ? c.kf[pk].find(k => Math.abs(k.t - t) < 1e-6) : null; return { t, v: shapeAt(t), src }; });
+  const base = shapeAt(clamp(T - c.start, 0, c.dur));
+  if (c.kf) for (const p of Object.keys(c.kf)) if (p.startsWith('o:warp.p.')) delete c.kf[p];
+  c.warp = { mode, c: nc, r: nr, p: base };
+  if (keyed.length) for (let i = 0; i < base.length; i++) c.kf['o:warp.p.' + i] = keyed.map(K => { const nk = newKey(K.t, K.v[i]); if (K.src) copySeg(nk, K.src); return nk; });
+}
+function warpSetMode(m) {
+  WARPM = m; const c = selClip();
+  if (c && VISUAL[c.type] && m !== 'free') {
+    const want = m === 'persp' ? [1, 1] : [c.warp && c.warp.mode === 'mesh' ? c.warp.c : (PREFS_WARP.c || 3), c.warp && c.warp.mode === 'mesh' ? c.warp.r : (PREFS_WARP.r || 3)];
+    if (!c.warp || c.warp.mode !== m) { warpRebuild(c, m, want[0], want[1]); commit(); }
+  }
+  updWarpBar(); drawOverlay(); requestRender(); if (typeof renderInspector === 'function') renderInspector();
+}
+const PREFS_WARP = (() => { try { return JSON.parse(localStorage.getItem('fw-warp') || '{}'); } catch (e) { return {}; } })();
+function warpSetCount(c, nc, nr) {
+  nc = clamp(Math.round(nc), 1, 49); nr = clamp(Math.round(nr), 1, 49);
+  if (!c.warp || c.warp.mode !== 'mesh') return;
+  if (nc === c.warp.c && nr === c.warp.r) return;
+  // always spread from the shape you last made, so changing the count back and forth does not wear the shape down
+  warpRebuild(c, 'mesh', nc, nr); PREFS_WARP.c = nc; PREFS_WARP.r = nr; try { localStorage.setItem('fw-warp', JSON.stringify(PREFS_WARP)); } catch (e) { }
+  requestRender(); drawOverlay();
+}
+// the little row under Move / Rotate / Size
+function updWarpBar() {
+  let bar = $('#wbar'); const st = $('#stage'); if (!st) return;
+  if (!bar) {
+    bar = h('div', { id: 'wbar' });
+    for (const [v, l] of [['free', 'Regular'], ['mesh', 'Mesh'], ['persp', 'Perspective']]) { const b = h('button', { 'data-w': v, onclick: e => { e.stopPropagation(); warpSetMode(v); } }, l); b.addEventListener('pointerdown', e => e.stopPropagation()); bar.append(b); }
+    const pts = h('span', { class: 'wpts' });
+    const mk = (l, f) => { const b = h('button', { class: 'wstep', onclick: e => { e.stopPropagation(); const c = selClip(); if (c && c.warp) { f(c); commit(); updWarpBar(); renderInspector(); } } }, l); b.addEventListener('pointerdown', e => e.stopPropagation()); return b; };
+    pts.append(h('span', { class: 'wlab' }, ''), mk('−', c => warpSetCount(c, c.warp.c - 1, c.warp.r - 1)), mk('+', c => warpSetCount(c, c.warp.c + 1, c.warp.r + 1)));
+    bar.append(pts); st.append(bar);
+  }
+  const c = selVisible();
+  bar.classList.toggle('off', TOOL !== 'move' || !c || PLAY.on);
+  for (const b of bar.querySelectorAll('[data-w]')) b.classList.toggle('on', b.dataset.w === WARPM);
+  const p = bar.querySelector('.wpts'); p.style.display = WARPM === 'mesh' && c && c.warp && c.warp.mode === 'mesh' ? '' : 'none';
+  if (c && c.warp) p.querySelector('.wlab').textContent = 'Points ' + (c.warp.c + 1) + ' × ' + (c.warp.r + 1);
+}
+function warpOverlay(x, c, k, d) {
+  const lt = clamp(T - c.start, 0, c.dur), cr = resolveAt(c, lt); if (!cr.warp || cr.warp.mode !== WARPM) return false;
+  const { m } = clipCorners(c, k), b = contentSize(c), M = warpMapOf(cr, b), S = (u, v) => { const q = M(u, v), p = m.transformPoint({ x: q[0], y: q[1] }); return [p.x, p.y]; };
+  const w = cr.warp, P = warpPts(cr, b).map(q => { const p = m.transformPoint({ x: q[0], y: q[1] }); return [p.x, p.y]; });
+  x.strokeStyle = '#3fd6c0'; x.lineWidth = 1.5 * d;
+  const line = f => { x.beginPath(); for (let s = 0; s <= 32; s++) { const q = f(s / 32); s ? x.lineTo(q[0], q[1]) : x.moveTo(q[0], q[1]); } x.stroke(); };
+  for (let i = 0; i <= w.c; i++) line(s => S(i / w.c, s)); for (let j = 0; j <= w.r; j++) line(s => S(s, j / w.r));
+  const sp = Math.min(Math.hypot(P[1][0] - P[0][0], P[1][1] - P[0][1]), Math.hypot(P[w.c + 1][0] - P[0][0], P[w.c + 1][1] - P[0][1])), r = clamp(sp * .3, 3 * d, (isTouch ? 9 : 7) * d);
+  const dot = (X, Y, rr, sq) => { x.fillStyle = '#fff'; x.strokeStyle = '#000'; x.lineWidth = d; x.beginPath(); if (sq) x.rect(X - rr, Y - rr, rr * 2, rr * 2); else x.arc(X, Y, rr, 0, 7); x.fill(); x.stroke(); };
+  if (w.mode === 'persp') { for (const q of P) dot(q[0], q[1], r, true); for (const [u, v] of [[.5, 0], [1, .5], [.5, 1], [0, .5]]) { const q = S(u, v); dot(q[0], q[1], r * .8); } }
+  else for (const q of P) dot(q[0], q[1], r);
+  return true;
+}
+// a touch on a warp handle starts a bend drag
+function warpHit(c, pt, k, d) {
+  const lt = clamp(T - c.start, 0, c.dur), cr = resolveAt(c, lt); if (!cr.warp || cr.warp.mode !== WARPM) return null;
+  const { m } = clipCorners(c, k), inv = m.inverse(), b = contentSize(c), w = cr.warp, P = warpPts(cr, b).map(q => { const p = m.transformPoint({ x: q[0], y: q[1] }); return [p.x, p.y]; });
+  const tol = (isTouch ? 26 : 14) * d; let best = tol, ks = null;
+  P.forEach((q, i) => { const dd = Math.hypot(q[0] - pt.px, q[1] - pt.py); if (dd < best) { best = dd; ks = [i]; } });
+  if (!ks && w.mode === 'persp') { const M = warpMapOf(cr, b); for (const [u, v, a, bb] of [[.5, 0, 0, 1], [1, .5, 1, 3], [.5, 1, 2, 3], [0, .5, 0, 2]]) { const q = M(u, v), p = m.transformPoint({ x: q[0], y: q[1] }); if (Math.hypot(p.x - pt.px, p.y - pt.py) < tol) { ks = [a, bb]; break; } } }
+  if (!ks) return null;
+  const l0 = inv.transformPoint({ x: pt.px, y: pt.py });
+  return { mode: 'warp', c, ks, inv, b, l0, o0: ks.map(i => [w.p[2 * i] || 0, w.p[2 * i + 1] || 0]), moved: true };
+}
+function warpDrag(dr, pt) {
+  const l = dr.inv.transformPoint({ x: pt.px, y: pt.py }), dx = (l.x - dr.l0.x) / dr.b.w, dy = (l.y - dr.l0.y) / dr.b.h;
+  dr.ks.forEach((i, n) => { setProp(dr.c, 'o:warp.p.' + (2 * i), round(dr.o0[n][0] + dx, 5)); setProp(dr.c, 'o:warp.p.' + (2 * i + 1), round(dr.o0[n][1] + dy, 5)); });
+}
+// inspector group for the selected clip
+function insWarp(b, c) {
+  if (!VISUAL[c.type] || ['effect', 'filter', 'adjust'].includes(c.type)) return;
+  const g = [];
+  g.push(row('Move mode', segBox({ options: [{ v: 'free', l: 'Regular' }, { v: 'mesh', l: 'Mesh' }, { v: 'persp', l: 'Perspective' }], value: WARPM, onChange: v => { setTool('move'); warpSetMode(v); } })));
+  if (c.warp && c.warp.mode === 'mesh') {
+    g.push(rangeRow('Points across', { min: 2, max: 50, step: 1, value: c.warp.c + 1, onInput: (v, f) => { warpSetCount(c, v - 1, c.warp.r); updWarpBar(); if (f) commit(); } }));
+    g.push(rangeRow('Points down', { min: 2, max: 50, step: 1, value: c.warp.r + 1, onInput: (v, f) => { warpSetCount(c, c.warp.c, v - 1); updWarpBar(); if (f) commit(); } }));
+  }
+  if (c.warp) {
+    const keyed = warpKeyed(c);
+    g.push(h('div', { class: 'brow' },
+      h('button', { class: 'btn sm' + (keyed ? ' pri' : ''), html: icon('key') + (keyed ? ' Bend keyframe here' : ' Keyframe the bend'), onclick: () => { if (T < c.start || T > c.start + c.dur) { toast('Put the playhead over the clip'); return; } const lt = clamp(T - c.start, 0, c.dur); for (const p of warpPaths(c)) { c.kf[p] = c.kf[p] || []; if (keyAt(c, p, lt) < 0) { const nk = newKey(lt, evalProp(c, p, lt)); c.kf[p].push(nk); c.kf[p].sort((a, b) => a.t - b.t); } } SELKF = { t: lt }; commit(); refreshAll(); toast('The bend is keyframed here'); } }),
+      h('button', { class: 'btn sm', onclick: () => { for (const p of Object.keys(c.kf)) if (p.startsWith('o:warp.p.')) delete c.kf[p]; delete c.warp; WARPM = 'free'; commit(); refreshAll(); updWarpBar(); } }, 'Remove bend')));
+  }
+  g.push(h('div', { class: 'hint' }, WARPM === 'mesh' ? 'Drag the points on the picture to bend it, including the points on the sides and top. Points stay evenly spread.' : WARPM === 'persp' ? 'Drag a corner for perspective. The round handles in the middle of each side and the top move that whole edge.' : 'Pick Mesh or Perspective to bend the picture. Regular moves it as a whole.'));
+  b.append(grp('Move mode', g));
 }
 
 /* ================= left panel (library) ================= */
@@ -3479,7 +3615,7 @@ function rotationRows(c) {
 }
 function insClip(b, c) {
   // keyframes and the motion between them live in this same tab, at the top
-  const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks);
+  const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks); insWarp(b, c);
   if (c.type === 'image') b.append(row('Edit', h('div', { class: 'brow' }, h('button', { class: 'btn sm', html: icon('dbrush') + ' Draw', onclick: () => openDraw(c, { mode: 'draw' }) }), h('button', { class: 'btn sm', html: icon('image') + ' Photo', onclick: () => openDraw(c, { mode: 'photo' }) }))));
   b.append(h('div', { class: 'grp' }, h('h4', null, 'Transform')), propRow(c, 'x'), propRow(c, 'y'), propRow(c, 'scale'), ...rotationRows(c), propRow(c, 'opacity'));
   b.append(row('', h('button', { class: 'btn sm', onclick: () => { setProp(c, 'x', P.w / 2); setProp(c, 'y', P.h / 2); chg(true); refreshInspectorValues(); } }, 'Center'), h('button', { class: 'btn sm', onclick: () => { setProp(c, 'scale', 1); setProp(c, 'rot', 0); chg(true); refreshInspectorValues(); } }, 'Reset size and turn')));
@@ -3577,7 +3713,7 @@ function effectList(b, c) {
 }
 function insEffects(b, c) { effectList(b, c); }
 function insLayer(b, c) {
-  const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks);
+  const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks); insWarp(b, c);
   b.append(propRow(c, 'opacity'));
   b.append(h('div', { class: 'hint' }, 'Opacity sets how strongly this layer changes the picture. It can be keyframed.'));
   if (c.type === 'effect') effectList(b, c);
@@ -3758,10 +3894,16 @@ function speedEditor(pts, smooth, onChange) {
   const box = h('div', { class: 'curve speedg' }), cv = h('canvas'); box.append(cv);
   const info = h('div', { class: 'hint' });
   const pre = h('div', { class: 'presets' });
-  const same = a => a.length === pts.length && a.every((q, i) => Math.abs(q[0] - pts[i][0]) < 1e-3 && Math.abs(q[1] - pts[i][1]) < 1e-3);
-  let picked = -1;
-  const mkPre = () => { pre.innerHTML = ''; for (const e of SP_PRESETS) pre.append(h('button', { class: same(e.p) ? 'on' : '', onclick: () => { pts.length = 0; e.p.forEach(q => pts.push([q[0], q[1]])); picked = -1; onChange(pts, true); draw(); mkPre(); } }, e.n)); pre.append(h('button', { class: picked > 0 && picked < pts.length - 1 ? '' : 'dis', title: 'Remove the point you last touched', onclick: () => { if (!(picked > 0 && picked < pts.length - 1)) { toast('Tap a point in the middle first'); return; } pts.splice(picked, 1); picked = -1; onChange(pts, true); draw(); mkPre(); } }, 'Remove point')); };
-  const wrap = h('div', null, box, info, pre);
+  // the points always sit evenly spaced in time; you only drag them up (faster) or down (slower)
+  const even = (src, n) => { const o = []; for (let i = 0; i < n; i++) { const x = n > 1 ? i / (n - 1) : 0; o.push([round(x, 4), round(spVal(src, smooth, x), 2)]); } return o; };
+  const setPts = a => { pts.length = 0; a.forEach(q => pts.push(q)); };
+  if (pts.some((q, i) => Math.abs(q[0] - (pts.length > 1 ? i / (pts.length - 1) : 0)) > 1e-3)) setPts(even(pts.map(q => q.slice()), pts.length));
+  let shape = pts.map(q => q.slice()), drag = -1, snap = true; try { snap = localStorage.getItem('fw-spsnap') !== '0'; } catch (e) { }
+  const snapV = v => { if (!snap) return v; const r = Math.round(v * 2) / 2; return Math.abs(v - r) < .15 ? r : v; };
+  const same = a => { const e = even(a, pts.length); return e.every((q, i) => Math.abs(q[1] - pts[i][1]) < 1e-2); };
+  const mkPre = () => { pre.innerHTML = ''; for (const e of SP_PRESETS) pre.append(h('button', { class: same(e.p) ? 'on' : '', onclick: () => { setPts(even(e.p, pts.length)); shape = pts.map(q => q.slice()); onChange(pts, true); draw(); mkPre(); } }, e.n)); };
+  const count = rangeRow('Points', { min: 2, max: 50, step: 1, value: pts.length, onInput: (v, f) => { v = clamp(Math.round(v), 2, 50); if (v !== pts.length) { setPts(even(shape, v)); onChange(pts, false); draw(); } if (f) { onChange(pts, true); mkPre(); } } });
+  const wrap = h('div', null, count, row('', checkBox('Snap to whole and .5 speeds', snap, v => { snap = v; try { localStorage.setItem('fw-spsnap', v ? '1' : '0'); } catch (e) { } })), box, info, pre);
   const M = 16, ML = 34; let W = 0, H = 0;
   const toPx = (x, y) => [ML + x * (W - ML - M), H - M - y / SP_MAX * (H - 2 * M)];
   const fromPx = (px, py) => [clamp((px - ML) / (W - ML - M), 0, 1), clamp((H - M - py) / (H - 2 * M) * SP_MAX, 0, SP_MAX)];
@@ -3773,25 +3915,22 @@ function speedEditor(pts, smooth, onChange) {
     for (let s = 0; s <= SP_MAX; s++) { const [, gy] = toPx(0, s); x.strokeStyle = '#2b2d33'; x.lineWidth = 1; x.beginPath(); x.moveTo(ML, gy); x.lineTo(W - M, gy); x.stroke(); x.fillStyle = s === 1 ? '#c9ccd2' : '#62666e'; x.fillText(s + 'x', 6, gy); }
     const [, ny] = toPx(0, 1); x.strokeStyle = '#8d919a'; x.setLineDash([5, 4]); x.beginPath(); x.moveTo(ML, ny); x.lineTo(W - M, ny); x.stroke(); x.setLineDash([]);
     x.fillStyle = '#8d919a'; x.fillText('normal', W - M - 40, ny - 9);
-    // area under the line (how far it gets)
-    x.beginPath(); const N = 160; for (let i = 0; i <= N; i++) { const [px, py] = toPx(i / N, spVal(pts, smooth, i / N)); i ? x.lineTo(px, py) : x.moveTo(px, py); }
-    const path = new Path2D(); for (let i = 0; i <= N; i++) { const [px, py] = toPx(i / N, spVal(pts, smooth, i / N)); i ? path.lineTo(px, py) : path.moveTo(px, py); }
+    const N = 200, path = new Path2D(); for (let i = 0; i <= N; i++) { const [px, py] = toPx(i / N, spVal(pts, smooth, i / N)); i ? path.lineTo(px, py) : path.moveTo(px, py); }
     const fill = new Path2D(path); const [ex, ey0] = toPx(1, 0), [sx] = toPx(0, 0); fill.lineTo(ex, ey0); fill.lineTo(sx, ey0); fill.closePath();
     x.fillStyle = 'rgba(63,214,192,.12)'; x.fill(fill);
     x.strokeStyle = '#3fd6c0'; x.lineWidth = 2.4; x.stroke(path);
-    pts.forEach((q, i) => { const [px, py] = toPx(q[0], q[1]); x.fillStyle = i === picked ? '#3fd6c0' : '#e4e5e8'; x.fillRect(px - 7, py - 7, 14, 14); x.strokeStyle = '#000'; x.lineWidth = 1; x.strokeRect(px - 7, py - 7, 14, 14); x.fillStyle = '#e4e5e8'; x.fillText(round(q[1], 2) + 'x', clamp(px - 12, ML, W - 40), py < 24 ? py + 18 : py - 16); });
+    const gap = (W - ML - M) / Math.max(1, pts.length - 1), hs = clamp(gap * .45, 3, 7), labels = gap > 34;
+    pts.forEach((q, i) => { const [px, py] = toPx(q[0], q[1]); x.fillStyle = i === drag ? '#3fd6c0' : '#e4e5e8'; x.fillRect(px - hs, py - hs, hs * 2, hs * 2); x.strokeStyle = '#000'; x.lineWidth = 1; x.strokeRect(px - hs, py - hs, hs * 2, hs * 2); if (labels || i === drag) { x.fillStyle = '#e4e5e8'; x.fillText(round(q[1], 2) + 'x', clamp(px - 12, ML, W - 40), py < 24 ? py + 18 : py - 16); } });
     x.fillStyle = '#62666e'; x.fillText('time →', W - M - 42, H - 7);
-    info.textContent = 'Up = faster, down = slower. Tap the line anywhere to add a point. It always lands exactly on the next keyframe.';
+    info.textContent = 'Drag a point up = faster, down = slower. Points stay evenly spaced; change how many with Points. It always lands exactly on the next keyframe.';
   }
   box.addEventListener('pointerdown', e => {
     e.preventDefault(); box.setPointerCapture(e.pointerId);
-    const r = box.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-    let which = 0, best = 1e9; pts.forEach((q, i) => { const [qx, qy] = toPx(q[0], q[1]); const d = Math.hypot(px - qx, py - qy); if (d < best) { best = d; which = i; } });
-    if (best > 22 && pts.length < 24) { const [vx, vy] = fromPx(px, py); let k = pts.findIndex(q => q[0] > vx); if (k <= 0) k = vx <= 0 ? 1 : pts.length - 1; pts.splice(k, 0, [round(clamp(vx, pts[k - 1][0] + .01, pts[k][0] - .01), 3), round(vy, 2)]); which = k; }
-    picked = which;
-    const mv = ev => { const [vx, vy] = fromPx(ev.clientX - r.left, ev.clientY - r.top); pts[which][1] = round(vy, 2); if (which > 0 && which < pts.length - 1) pts[which][0] = round(clamp(vx, pts[which - 1][0] + .01, pts[which + 1][0] - .01), 3); onChange(pts, false); draw(); };
+    const r = box.getBoundingClientRect(), px = e.clientX - r.left;
+    let best = 1e9; pts.forEach((q, i) => { const d = Math.abs(toPx(q[0], q[1])[0] - px); if (d < best) { best = d; drag = i; } });
+    const mv = ev => { const [, vy] = fromPx(ev.clientX - r.left, ev.clientY - r.top); pts[drag][1] = round(snapV(vy), 2); onChange(pts, false); draw(); };
     mv(e);
-    const up = () => { box.removeEventListener('pointermove', mv); box.removeEventListener('pointerup', up); onChange(pts, true); mkPre(); };
+    const up = () => { box.removeEventListener('pointermove', mv); box.removeEventListener('pointerup', up); drag = -1; shape = pts.map(q => q.slice()); onChange(pts, true); draw(); mkPre(); };
     box.addEventListener('pointermove', mv); box.addEventListener('pointerup', up);
   });
   mkPre();
@@ -4258,7 +4397,7 @@ async function prepFrameFast(t, decs) {
   if (slow.length) await prepFrame(t);
 }
 
-const APP_VER = 33;
+const APP_VER = 34;
 /* ================= wiring ================= */
 let zoomSlider = null, EXPORTING = false;
 function refreshAll() {
@@ -5603,7 +5742,7 @@ function tfSetMode(t, mode) {
   const P = tfMap(t);
   if (mode === 'free') { tfBake(t); }
   else if (mode === 'persp') { t.q = [P(0, 0), P(1, 0), P(1, 1), P(0, 1)]; t.m = null; }
-  else { const n = DW_PREF.meshN || 3; t.m = { c: n, r: n, p: [] }; for (let j = 0; j <= n; j++) for (let i = 0; i <= n; i++) t.m.p.push(P(i / n, j / n)); t.q = null; }
+  else { const n = DW_PREF.meshC || 3, rr = DW_PREF.meshR || 3; t.m = { c: n, r: rr, p: [] }; t.mBase = null; for (let j = 0; j <= rr; j++) for (let i = 0; i <= n; i++) t.m.p.push(P(i / n, j / rr)); t.q = null; }
   t.mode = mode; DW_PREF.tfMode = mode; savePref();
 }
 // turns a bent shape back into a plain box so Regular move can carry on from it
@@ -5619,8 +5758,10 @@ function drawWarp(x, img, P, N) {
   const W = img.width, H = img.height, grid = [];
   for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) grid.push(P(i / N, j / N));
   const at = (i, j) => grid[j * (N + 1) + i];
+  // grow each triangle by about one screen pixel so neighbours overlap and no seams show
+  const tm = x.getTransform(), upx = 1.1 / Math.max(1e-6, Math.sqrt(Math.abs(tm.a * tm.d - tm.b * tm.c)));
   const tri = (s0, s1, s2, d0, d1, d2) => {
-    x.save(); const cx = (d0[0] + d1[0] + d2[0]) / 3, cy = (d0[1] + d1[1] + d2[1]) / 3, g = p => [p[0] + (p[0] - cx) * .02, p[1] + (p[1] - cy) * .02];
+    x.save(); const cx = (d0[0] + d1[0] + d2[0]) / 3, cy = (d0[1] + d1[1] + d2[1]) / 3, g = p => { const vx = p[0] - cx, vy = p[1] - cy, l = Math.hypot(vx, vy) || 1; return [p[0] + vx / l * upx, p[1] + vy / l * upx]; };
     const e0 = g(d0), e1 = g(d1), e2 = g(d2); x.beginPath(); x.moveTo(e0[0], e0[1]); x.lineTo(e1[0], e1[1]); x.lineTo(e2[0], e2[1]); x.closePath(); x.clip();
     const den = s0[0] * (s1[1] - s2[1]) + s1[0] * (s2[1] - s0[1]) + s2[0] * (s0[1] - s1[1]); if (Math.abs(den) < 1e-9) { x.restore(); return; }
     const a = (d0[0] * (s1[1] - s2[1]) + d1[0] * (s2[1] - s0[1]) + d2[0] * (s0[1] - s1[1])) / den, b = (d0[1] * (s1[1] - s2[1]) + d1[1] * (s2[1] - s0[1]) + d2[1] * (s0[1] - s1[1])) / den;
@@ -5635,7 +5776,7 @@ function drawWarp(x, img, P, N) {
 }
 function phTfDraw(x, t) {
   if (t.mode === 'persp' && t.q) drawWarp(x, t.fl, homog(t.q), 18);
-  else if (t.mode === 'mesh' && t.m) drawWarp(x, t.fl, meshMap(t.m), clamp(Math.max(t.m.c, t.m.r) * 6, 18, 36));
+  else if (t.mode === 'mesh' && t.m) drawWarp(x, t.fl, meshMap(t.m), clamp(Math.max(t.m.c, t.m.r) * 4, 18, 48));
   else { x.save(); x.translate(t.cx, t.cy); x.rotate(t.rot); x.scale(t.sx, t.sy); x.drawImage(t.fl, -t.w / 2, -t.h / 2); x.restore(); }
 }
 function phTfImage(t = DW.tf) { const o = tmpCv('tfo'), x = o.getContext('2d'); x.drawImage(t.base, 0, 0); phTfDraw(x, t); return o; }
@@ -5650,12 +5791,21 @@ function phTfApply(cancel) {
 }
 // the outline of the moved part, for "tap inside to drag it all"
 function tfOutline(t) { const P = tfMap(t), o = [], n = t.mode === 'mesh' ? 12 : 1; for (let i = 0; i < n; i++) o.push(P(i / n, 0)); for (let i = 0; i < n; i++) o.push(P(1, i / n)); for (let i = n; i > 0; i--) o.push(P(i / n, 1)); for (let i = n; i > 0; i--) o.push(P(0, i / n)); return o; }
-function tfResample(t, c, r) { const P = meshMap(t.m), p = []; for (let j = 0; j <= r; j++) for (let i = 0; i <= c; i++) p.push(P(i / c, j / r)); t.m = { c, r, p }; }
+// points stay evenly spread over the shape; changing the count always starts from the shape you made (not from the last resample)
+function tfResample(t, c, r) { if (!t.mBase) t.mBase = { c: t.m.c, r: t.m.r, p: t.m.p.map(v => v.slice()) }; const P = meshMap(t.mBase), p = []; for (let j = 0; j <= r; j++) for (let i = 0; i <= c; i++) p.push(P(i / c, j / r)); t.m = { c, r, p }; }
 PH_H.tf = {
   ui(o) {
     if (!DW.tf || DW.tf.L !== DW.layers[DW.cur]) phTfBegin();
     const t = DW.tf; if (!t) return;
-    if (t.empty) { o.append(h('div', { class: 'hint' }, 'This layer is empty here. Pick another layer in Layers.')); return; }
+    if (t.empty) {
+      // still show the modes, so the controls are always there
+      o.append(h('div', { class: 'dwo' }, h('label', null, 'Mode'), segBox({ options: [{ v: 'free', l: 'Regular' }, { v: 'mesh', l: 'Mesh' }, { v: 'persp', l: 'Perspective' }], value: DW_PREF.tfMode || 'free', onChange: v => { DW_PREF.tfMode = v; savePref(); } })));
+      const has = i => { const L = DW.layers[i]; if (!L || L.kind === 'adj') return false; if (L.kind === 'text') return true; const d = L.cv.getContext('2d').getImageData(0, 0, DW.w, DW.h).data; for (let k = 3; k < d.length; k += 16) if (d[k]) return true; return false; };
+      let pick = -1; for (let i = DW.cur - 1; i >= 0 && pick < 0; i--) if (has(i)) pick = i; for (let i = DW.layers.length - 1; i > DW.cur && pick < 0; i--) if (has(i)) pick = i;
+      o.append(h('div', { class: 'hint' }, DW.sel ? 'Nothing on this layer inside the selection. ' : 'This layer has nothing on it yet, so there is nothing to move. '));
+      if (pick >= 0) o.append(h('div', { class: 'dwo' }, h('label', null, ''), h('button', { class: 'btn pri sm', onclick: () => { DW.cur = pick; DW.editMask = false; DW.tf = null; dwToolUI(); dwRender(); } }, 'Move “' + DW.layers[pick].name + '” instead')));
+      return;
+    }
     if (t.text) { o.append(h('div', { class: 'hint' }, 'Drag to move the text. Use the Text tool to change it.')); return; }
     o.append(h('div', { class: 'dwo' }, h('label', null, 'Mode'), segBox({ options: [{ v: 'free', l: 'Regular' }, { v: 'mesh', l: 'Mesh' }, { v: 'persp', l: 'Perspective' }], value: t.mode, onChange: v => { tfSetMode(t, v); dwToolUI(); dwRender(); } })));
     const b = (l, f) => h('button', { class: 'btn sm', onclick: () => { f(); dwRender(); } }, l);
@@ -5667,15 +5817,14 @@ PH_H.tf = {
     } else if (t.mode === 'persp') {
       o.append(h('div', { class: 'dwo' }, h('label', null, ''), b('Mirror', () => { t.q = flipQ(t.q, 'm'); }), b('Flip', () => { t.q = flipQ(t.q, 'f'); }), b('Turn 90°', () => { t.q = flipQ(t.q, 't'); })));
     } else {
-      const cnt = h('span', { class: 'hint' }, (t.m.c + 1) * (t.m.r + 1) + ' points');
-      const set = (c, r) => { c = clamp(c, 1, 12); r = clamp(r, 1, 12); if (c === t.m.c && r === t.m.r) return; tfResample(t, c, r); DW_PREF.meshN = Math.max(c, r); savePref(); cnt.textContent = (c + 1) * (r + 1) + ' points'; dwRender(); };
-      o.append(h('div', { class: 'dwo' }, h('label', null, 'Points'), b('More', () => set(t.m.c + 1, t.m.r + 1)), b('Fewer', () => set(t.m.c - 1, t.m.r - 1)), cnt));
-      o.append(h('div', { class: 'dwo' }, h('label', null, ''), b('More across', () => set(t.m.c + 1, t.m.r)), b('More down', () => set(t.m.c, t.m.r + 1))));
-      o.append(h('div', { class: 'dwo' }, h('label', null, ''), b('Mirror', () => flipM('m')), b('Flip', () => flipM('f')), b('Straighten', () => { const n = t.m.c, r = t.m.r, P = tfMap({ ...t, mode: 'persp', q: [t.m.p[0], t.m.p[n], t.m.p[(r + 1) * (n + 1) - 1], t.m.p[r * (n + 1)]] }), p = []; for (let j = 0; j <= r; j++) for (let i = 0; i <= n; i++) p.push(P(i / n, j / r)); t.m.p = p; })));
+      const set = (c, r) => { c = clamp(Math.round(c), 1, 49); r = clamp(Math.round(r), 1, 49); if (c === t.m.c && r === t.m.r) return; tfResample(t, c, r); DW_PREF.meshC = c; DW_PREF.meshR = r; savePref(); dwRender(); };
+      o.append(rangeRow('Points across', { min: 2, max: 50, step: 1, value: t.m.c + 1, onInput: v => set(v - 1, t.m.r) }));
+      o.append(rangeRow('Points down', { min: 2, max: 50, step: 1, value: t.m.r + 1, onInput: v => set(t.m.c, v - 1) }));
+      o.append(h('div', { class: 'dwo' }, h('label', null, ''), b('Mirror', () => { flipM('m'); t.mBase = null; }), b('Flip', () => { flipM('f'); t.mBase = null; }), b('Straighten', () => { t.mBase = null; const n = t.m.c, r = t.m.r, P = tfMap({ ...t, mode: 'persp', q: [t.m.p[0], t.m.p[n], t.m.p[(r + 1) * (n + 1) - 1], t.m.p[r * (n + 1)]] }), p = []; for (let j = 0; j <= r; j++) for (let i = 0; i <= n; i++) p.push(P(i / n, j / r)); t.m.p = p; })));
     }
     o.append(h('div', { class: 'dwo' }, h('label', null, ''), h('button', { class: 'btn pri sm', onclick: () => { phTfApply(); phTfBegin(); dwToolUI(); } }, 'Apply'), h('button', { class: 'btn sm', onclick: () => { phTfApply(true); phTfBegin(); dwToolUI(); } }, 'Cancel')));
     const what = DW.sel ? 'Moving the selected part. ' : 'Moving the whole layer. ';
-    o.append(h('div', { class: 'hint' }, what + (t.mode === 'mesh' ? 'Drag any point to bend the picture, including the points along the sides and top. Tap a line between points to add a row or column there. Drag inside to move it all.' : t.mode === 'persp' ? 'Drag a corner for perspective. Drag the middle of a side or the top to move that whole edge. Drag inside to move it all.' : 'Drag inside to move, corners or side handles to resize, the round handle (or outside the box) to turn.')));
+    o.append(h('div', { class: 'hint' }, what + (t.mode === 'mesh' ? 'Drag any point to bend the picture, including the points along the sides and top. Points across and Points down set how many there are, always evenly spaced. Drag inside to move it all.' : t.mode === 'persp' ? 'Drag a corner for perspective. Drag the middle of a side or the top to move that whole edge. Drag inside to move it all.' : 'Drag inside to move, corners or side handles to resize, the round handle (or outside the box) to turn.')));
   },
   down(p, e) {
     const t = DW.tf; if (!t || t.empty) return;
@@ -5691,18 +5840,8 @@ PH_H.tf = {
     }
     if (t.mode === 'mesh') {
       const m = t.m; let k = -1, best = hr; m.p.forEach((c, i) => { const d = Math.hypot(c[0] - p.x, c[1] - p.y); if (d < best) { best = d; k = i; } });
-      if (k >= 0) return { move: q => { m.p[k] = [q.x, q.y]; } };
-      // tap on a line between points: add a row or a column of points right there
-      const P = meshMap(m), S = 40; let hit = null, hb = hr * .7;
-      for (let i = 0; i <= m.c; i++) for (let s = 0; s <= S; s++) { const c = P(i / m.c, s / S), d = Math.hypot(c[0] - p.x, c[1] - p.y); if (d < hb) { hb = d; hit = { dir: 'row', v: s / S }; } }
-      for (let j = 0; j <= m.r; j++) for (let s = 0; s <= S; s++) { const c = P(s / S, j / m.r), d = Math.hypot(c[0] - p.x, c[1] - p.y); if (d < hb) { hb = d; hit = { dir: 'col', u: s / S }; } }
-      if (hit && ((hit.dir === 'row' && m.r < 12) || (hit.dir === 'col' && m.c < 12))) {
-        const us = [], vs = []; for (let i = 0; i <= m.c; i++) us.push(i / m.c); for (let j = 0; j <= m.r; j++) vs.push(j / m.r);
-        if (hit.dir === 'row') { if (vs.some(v => Math.abs(v - hit.v) < .03)) hit = null; else { vs.push(hit.v); vs.sort((a, b) => a - b); } }
-        else { if (us.some(u => Math.abs(u - hit.u) < .03)) hit = null; else { us.push(hit.u); us.sort((a, b) => a - b); } }
-        if (hit) { const np = []; for (const v of vs) for (const u of us) np.push(P(u, v)); t.m = { c: us.length - 1, r: vs.length - 1, p: np }; dwToolUI(); return; }
-      }
-      const out = tfOutline(t); if (inPoly(p, out)) { const p0 = m.p.map(v => v.slice()); return { move: q => { m.p = p0.map(([a, b]) => [a + q.x - p.x, b + q.y - p.y]); } }; }
+      if (k >= 0) { t.mBase = null; return { move: q => { m.p[k] = [q.x, q.y]; } }; }
+      const out = tfOutline(t); if (inPoly(p, out)) { t.mBase = null; const p0 = m.p.map(v => v.slice()); return { move: q => { m.p = p0.map(([a, b]) => [a + q.x - p.x, b + q.y - p.y]); } }; }
       return;
     }
     const C = tfCorners(t);
@@ -5731,7 +5870,8 @@ PH_H.tf = {
     if (t.mode === 'mesh') {
       const m = t.m, P = meshMap(m), N = 32, line = f => { x.beginPath(); for (let s = 0; s <= N; s++) { const [X, Y] = S(...f(s / N)); s ? x.lineTo(X, Y) : x.moveTo(X, Y); } x.stroke(); };
       for (let i = 0; i <= m.c; i++) line(s => P(i / m.c, s)); for (let j = 0; j <= m.r; j++) line(s => P(s, j / m.r));
-      m.p.forEach(c => { const [X, Y] = S(c[0], c[1]); handleDot(x, X, Y, 6 * d / 1.5, true); });
+      const a = S(...m.p[0]), bb = S(...m.p[m.p.length - 1]), sp = Math.min(Math.abs(bb[0] - a[0]) / m.c, Math.abs(bb[1] - a[1]) / m.r) || 20, hr_ = clamp(sp * .3, 2.5 * d / 1.5, 6 * d / 1.5);
+      m.p.forEach(c => { const [X, Y] = S(c[0], c[1]); handleDot(x, X, Y, hr_, true); });
       return;
     }
     if (t.mode === 'persp') {

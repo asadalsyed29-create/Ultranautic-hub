@@ -81,9 +81,9 @@ function drawClip(x, c, lt, k) {
   if (filt.length) x.filter = filt.join(' ');
   x.translate(tx, ty); x.rotate((p.rot + s.rot + fxRot) * Math.PI / 180);
   x.scale(p.scale * s.sx * sc * (c.flipH ? -1 : 1), p.scale * s.sy * sc * (c.flipV ? -1 : 1));
-  if (c.type === 'video' || c.type === 'image') drawMediaContent(x, c, lt, k * p.scale * Math.max(s.sx, s.sy) * sc);
-  else if (c.type === 'text') drawText(x, c.text, lt, c.dur);
-  else if (c.type === 'sticker') drawSticker(x, c.sticker, lt);
+  const kd = k * p.scale * Math.max(s.sx, s.sy) * sc;
+  const paint = xx => { if (c.type === 'video' || c.type === 'image') drawMediaContent(xx, c, lt, kd); else if (c.type === 'text') drawText(xx, c.text, lt, c.dur); else if (c.type === 'sticker') drawSticker(xx, c.sticker, lt); };
+  if (warpActive(c)) drawWarped(x, c, lt, kd, paint); else paint(x);
   x.restore();
 }
 function drawMediaContent(x, c, lt, kd) {
