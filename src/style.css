@@ -177,10 +177,16 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
 .clip .lbl{position:absolute;left:5px;top:3px;font-size:10.5px;color:#fff;white-space:nowrap;text-shadow:0 1px 2px #000;pointer-events:none;display:flex;align-items:center;gap:4px;max-width:calc(100% - 10px);overflow:hidden}
 .clip .lbl svg{width:12px;height:12px}
 .clip canvas.wave{position:absolute;left:0;bottom:0;pointer-events:none}
-.clip .hl,.clip .hr{position:absolute;top:0;bottom:0;width:10px;cursor:ew-resize;z-index:3;display:none}
-.clip .hl{left:0;background:linear-gradient(90deg,#fff 0 3px,transparent 3px)}
-.clip .hr{right:0;background:linear-gradient(270deg,#fff 0 3px,transparent 3px)}
-.clip.sel .hl,.clip.sel .hr{display:block}
+.clip .hl,.clip .hr{position:absolute;top:-2px;bottom:-2px;width:16px;cursor:ew-resize;z-index:5;display:none;background:#fff;touch-action:none}
+.clip .hl{left:-16px}
+.clip .hr{right:-16px}
+.clip .hl i,.clip .hr i{position:absolute;left:50%;top:50%;width:6px;height:14px;margin:-7px 0 0 -3px;border-left:2px solid #555;border-right:2px solid #555}
+.clip .hl::after,.clip .hr::after{content:"";position:absolute;top:0;bottom:0;left:-10px;right:-10px}
+.clip.sel .hl,.clip.sel .hr,.clip.msel .hl,.clip.msel .hr{display:block}
+.clip.sel,.clip.msel{overflow:visible}
+.clip.msel{border:2px solid var(--acc);z-index:2}
+.clip.msel .hl,.clip.msel .hr{background:var(--acc)}
+#tMulti.on{color:#04201b;background:var(--acc)}
 .clip .kfd{position:absolute;bottom:3px;width:11px;height:11px;margin-left:-5.5px;transform:rotate(45deg);background:#e8e8e8;border:1px solid #000;z-index:4;cursor:pointer}
 .clip .kfd.sel{background:var(--acc)}
 .clip .trn{position:absolute;left:-1px;top:50%;width:18px;height:18px;margin-top:-9px;background:#fff;color:#000;display:flex;align-items:center;justify-content:center;z-index:4}
@@ -280,6 +286,9 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
 .bpick{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;background:var(--p3);border:1px solid var(--line2);padding:4px 8px 4px 4px;flex:1;min-width:0}
 .bpick canvas{grid-row:span 2;width:96px;height:24px;background:var(--p2)}
 .bpick small{color:var(--dim);font-size:11px}
+.bsearch{flex:1;min-width:0;height:34px;background:var(--p2);border:1px solid var(--line2);padding:0 10px;font-size:14px;outline:0}
+.bsearch:focus{border-color:var(--acc)}
+.modal h3 .bsearch{margin-right:6px}
 .bsheet{display:flex;flex-direction:column;gap:8px;max-height:62vh}
 .bcats{display:flex;gap:4px;overflow-x:auto;flex:none;padding-bottom:4px}
 .bcats button{white-space:nowrap;padding:5px 9px;background:var(--p3);border:1px solid var(--line2);color:var(--dim)}
@@ -304,3 +313,5 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
   .dwtools button{min-width:0;width:calc(25% - 1px)}
   .dwtools .sp{display:none}
 }
+
+.gbtn .ctl{flex-wrap:wrap;gap:6px}

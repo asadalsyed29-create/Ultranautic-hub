@@ -131,9 +131,14 @@ function grainStroke(src, g, out) {
 
 /* ---------- editor state ---------- */
 const DW = { on: false };
-const DW_TOOLS = [['brush', 'Brush', 'dbrush'], ['eraser', 'Eraser', 'deraser'], ['fill', 'Bucket', 'dfill'], ['pick', 'Eyedropper', 'dpick'], ['line', 'Line', 'dline'], ['shape', 'Shapes', 'dshape'], ['move', 'Move', 'dmove'], ['photo', 'Photo', 'dphoto']];
-const DW_PREF = { tool: 'brush', brush: 0, eraser: 1, size: null, esize: 30, op: 100, color: '#1b1d22ff', steady: 30, fillMode: 'fill', tol: 24, grow: 1, sample: 'layer', shape: 'rect', filled: false, ref: true };
+const DW_TOOLS = [['brush', 'Brush', 'dbrush'], ['air', 'Airbrush', 'dair'], ['water', 'Watercolor', 'dwater'], ['eraser', 'Eraser', 'deraser'], ['fill', 'Bucket', 'dfill'], ['pick', 'Eyedropper', 'dpick'], ['line', 'Line', 'dline'], ['shape', 'Shapes', 'dshape'], ['ruler', 'Ruler', 'druler'], ['move', 'Move', 'dmove'], ['photo', 'Photo', 'dphoto']];
+// paint tools share the brush engine; each keeps its own brush, and Airbrush / Watercolor stay in their family
+const PAINT = { brush: { key: 'brush', size: 'size' }, air: { key: 'air', size: 'asize', cat: 'Airbrush' }, water: { key: 'water', size: 'wsize', cat: 'Watercolor' }, eraser: { key: 'eraser', size: 'esize' } };
+const isPaint = t => t === 'brush' || t === 'air' || t === 'water';
+const DW_PREF = { tool: 'brush', brush: 0, eraser: 1, size: null, esize: 30, asize: 60, wsize: 40, ruler: 'off', even: false, sides: 6, op: 100, color: '#1b1d22ff', steady: 30, fillMode: 'fill', tol: 24, grow: 1, sample: 'layer', shape: 'rect', filled: false, ref: true };
 try { Object.assign(DW_PREF, JSON.parse(localStorage.getItem('fw-draw') || '{}')); } catch (e) { }
+if (DW_PREF.air == null) DW_PREF.air = BRUSHES.findIndex(b => b.cat === 'Airbrush');
+if (DW_PREF.water == null) DW_PREF.water = BRUSHES.findIndex(b => b.cat === 'Watercolor');
 function savePref() { try { localStorage.setItem('fw-draw', JSON.stringify(DW_PREF)); } catch (e) { } }
 
 function newLayerCanvas(w, hh) { const c = document.createElement('canvas'); c.width = w; c.height = hh; return c; }
@@ -188,19 +193,21 @@ function buildDrawUI() {
 }
 function dwToolUI() {
   for (const b of $$('.dwtools [data-t]', DW.root)) b.classList.toggle('on', b.dataset.t === DW_PREF.tool);
+  if (isPaint(DW_PREF.tool)) DW.lastPaint = DW_PREF.tool;
   if (DW_PREF.tool !== 'photo' && DW.live && !DW.stroking) { DW.live = null; dwRender(); }
   const o = DW.opts; o.innerHTML = '';
   const t = DW_PREF.tool;
   const colorRow = () => { const cb = colorBtn({ value: DW_PREF.color, onInput: v => { DW_PREF.color = v; savePref(); } }); DW.colorBtn = cb; return h('div', { class: 'dwo' }, h('label', null, 'Color'), cb); };
   const sizeRow = (key, max) => { const r = rangeRow('Size', { min: 1, max: max || 500, step: 1, value: DW_PREF[key], suf: 'px', onInput: v => { DW_PREF[key] = v; savePref(); } }); return r; };
-  if (t === 'brush' || t === 'eraser') {
-    const bi = t === 'brush' ? DW_PREF.brush : DW_PREF.eraser, b = BRUSHES[bi];
+  if (isPaint(t) || t === 'eraser') {
+    const pk = PAINT[t], bi = DW_PREF[pk.key], b = BRUSHES[bi];
     const pv = h('canvas', { class: 'bprev' }); pv.width = 160; pv.height = 40; brushPreview(pv, b, t === 'eraser' ? '#e4e5e8ff' : DW_PREF.color);
-    o.append(h('div', { class: 'dwo' }, h('label', null, t === 'eraser' ? 'Eraser tip' : 'Brush'), h('button', { class: 'bpick', onclick: () => dwBrushSheet(t) }, pv, h('span', null, b.n), h('small', null, b.cat))));
-    o.append(sizeRow(t === 'brush' ? 'size' : 'esize'));
+    o.append(h('div', { class: 'dwo' }, h('label', null, t === 'eraser' ? 'Eraser tip' : t === 'air' ? 'Airbrush' : t === 'water' ? 'Watercolor' : 'Brush'), h('button', { class: 'bpick', onclick: () => dwBrushSheet(t) }, pv, h('span', null, b.n), h('small', null, b.cat))));
+    o.append(sizeRow(pk.size));
     o.append(rangeRow(t === 'eraser' ? 'Strength' : 'Opacity', { min: 1, max: 100, step: 1, value: DW_PREF.op, suf: '%', onInput: v => { DW_PREF.op = v; savePref(); } }));
     o.append(rangeRow('Steady', { min: 0, max: 95, step: 1, value: DW_PREF.steady, suf: '%', onInput: v => { DW_PREF.steady = v; savePref(); } }));
-    if (t === 'brush' && b.mode !== 'smudge' && b.mode !== 'blur') o.append(colorRow());
+    if (isPaint(t) && b.mode !== 'smudge' && b.mode !== 'blur') o.append(colorRow());
+    if (DW_PREF.ruler !== 'off') o.append(h('div', { class: 'hint' }, 'The ruler is on: strokes that start near it follow it.'));
     if (t === 'eraser') o.append(h('div', { class: 'hint' }, 'Erasing makes those parts see-through. Any brush can be an eraser tip.'));
   } else if (t === 'fill') {
     o.append(h('div', { class: 'dwo' }, h('label', null, 'Mode'), segBox({ options: [{ v: 'fill', l: 'Fill' }, { v: 'erase', l: 'Erase' }], value: DW_PREF.fillMode, onChange: v => { DW_PREF.fillMode = v; savePref(); dwToolUI(); } })));
@@ -211,11 +218,20 @@ function dwToolUI() {
   } else if (t === 'pick') {
     o.append(colorRow(), h('div', { class: 'hint' }, 'Tap the picture to take a color. It goes straight back to the brush.'));
   } else if (t === 'line' || t === 'shape') {
-    if (t === 'shape') o.append(h('div', { class: 'dwo' }, h('label', null, 'Shape'), segBox({ options: [{ v: 'rect', l: 'Box' }, { v: 'ellipse', l: 'Circle' }, { v: 'tri', l: 'Triangle' }, { v: 'star', l: 'Star' }], value: DW_PREF.shape, onChange: v => { DW_PREF.shape = v; savePref(); } })),
-      h('div', { class: 'dwo' }, h('label', null, ''), checkBox('Filled', DW_PREF.filled, v => { DW_PREF.filled = v; savePref(); })));
+    if (t === 'shape') {
+      o.append(h('div', { class: 'dwo' }, h('label', null, 'Shape'), selectBox({ options: DW_SHAPES.map(([v, l]) => ({ v, l })), value: DW_PREF.shape, onChange: v => { DW_PREF.shape = v; savePref(); dwToolUI(); } })));
+      if (DW_PREF.shape === 'poly' || DW_PREF.shape === 'star') o.append(rangeRow(DW_PREF.shape === 'star' ? 'Points' : 'Sides', { min: 3, max: 24, step: 1, value: DW_PREF.sides, onInput: v => { DW_PREF.sides = v; savePref(); } }));
+      if (DW_PREF.shape === 'rrect') o.append(rangeRow('Corner', { min: 0, max: 50, step: 1, value: DW_PREF.corner == null ? 20 : DW_PREF.corner, suf: '%', onInput: v => { DW_PREF.corner = v; savePref(); } }));
+      o.append(h('div', { class: 'dwo' }, h('label', null, ''), checkBox('Filled', DW_PREF.filled, v => { DW_PREF.filled = v; savePref(); }), checkBox('Keep even', DW_PREF.even, v => { DW_PREF.even = v; savePref(); })));
+      o.append(h('div', { class: 'hint' }, 'Drag from one corner to the other. Keep even makes circles round and boxes square.'));
+    }
     o.append(rangeRow('Line width', { min: 1, max: 200, step: 1, value: DW_PREF.lw || 6, suf: 'px', onInput: v => { DW_PREF.lw = v; savePref(); } }));
     o.append(rangeRow('Opacity', { min: 1, max: 100, step: 1, value: DW_PREF.op, suf: '%', onInput: v => { DW_PREF.op = v; savePref(); } }));
     o.append(colorRow());
+  } else if (t === 'ruler') {
+    o.append(h('div', { class: 'dwo' }, h('label', null, 'Ruler'), segBox({ options: [{ v: 'off', l: 'Off' }, { v: 'line', l: 'Straight' }, { v: 'circle', l: 'Circle' }], value: DW_PREF.ruler, onChange: v => { DW_PREF.ruler = v; savePref(); dwRender(); } })));
+    o.append(h('div', { class: 'dwo' }, h('label', null, ''), h('button', { class: 'btn sm', onclick: () => { dwRulerReset(); dwRender(); } }, 'Put it back in the middle')));
+    o.append(h('div', { class: 'hint' }, 'Drag the ruler to move it. Drag its round handles to turn it, stretch it or change the circle size. Then pick a brush: strokes that start near the ruler follow it exactly.'));
   } else if (t === 'photo') photoUI(o);
   else if (t === 'move') o.append(h('div', { class: 'hint' }, 'Drag to move everything on the current layer.'));
 }
@@ -228,23 +244,32 @@ function brushPreview(cv, b, color) {
   x.drawImage(b.grain ? grainStroke(S, b.grain, newLayerCanvas(S.width, S.height)) : S, 0, 0);
 }
 function dwBrushSheet(which) {
-  let cat = BRUSHES[which === 'brush' ? DW_PREF.brush : DW_PREF.eraser].cat;
+  const pk = PAINT[which];
+  let cat = pk.cat || BRUSHES[DW_PREF[pk.key]].cat, query = '';
   const body = h('div', { class: 'bsheet' });
   const cats = h('div', { class: 'bcats' }), grid = h('div', { class: 'bgrid' });
+  const search = h('input', { class: 'bsearch', type: 'text', placeholder: 'Search ' + (pk.cat ? pk.cat.toLowerCase() + ' brushes' : BRUSHES.length + ' brushes'), spellcheck: 'false', autocomplete: 'off' });
+  search.addEventListener('input', () => { query = search.value.trim().toLowerCase(); fill(); });
   const fill = () => {
     cats.innerHTML = ''; grid.innerHTML = '';
-    for (const c of BRUSH_CATS) cats.append(h('button', { class: c === cat ? 'on' : '', onclick: () => { cat = c; fill(); } }, c));
+    if (!pk.cat) for (const c of BRUSH_CATS) cats.append(h('button', { class: !query && c === cat ? 'on' : '', onclick: () => { cat = c; search.value = ''; query = ''; fill(); } }, c));
+    cats.style.display = pk.cat || query ? 'none' : '';
+    let n = 0;
     BRUSHES.forEach((b, i) => {
-      if (b.cat !== cat) return;
+      if (pk.cat && b.cat !== pk.cat) return;
+      if (query) { const words = query.split(/\s+/); if (!words.every(w => (b.n + ' ' + b.cat).toLowerCase().includes(w))) return; }
+      else if (b.cat !== cat) return;
       if (which === 'eraser' && b.mode) return;
+      n++;
       const pv = h('canvas'); pv.width = 160; pv.height = 40; brushPreview(pv, b, '#e4e5e8ff');
-      const sel = i === (which === 'brush' ? DW_PREF.brush : DW_PREF.eraser);
-      grid.append(h('button', { class: 'bitem' + (sel ? ' on' : ''), onclick: () => { if (which === 'brush') { DW_PREF.brush = i; DW_PREF.size = b.sz; } else { DW_PREF.eraser = i; DW_PREF.esize = Math.max(10, b.sz); } savePref(); dwToolUI(); close(); } }, pv, h('span', null, b.n)));
+      const sel = i === DW_PREF[pk.key];
+      grid.append(h('button', { class: 'bitem' + (sel ? ' on' : ''), onclick: () => { DW_PREF[pk.key] = i; DW_PREF[pk.size] = which === 'eraser' ? Math.max(10, b.sz) : b.sz; savePref(); dwToolUI(); close(); } }, pv, h('span', null, b.n), query ? h('small', null, b.cat) : ''));
     });
+    if (!n) grid.append(h('div', { class: 'note' }, 'No brush matches "' + search.value + '".'));
   };
   fill();
   body.append(cats, grid);
-  const close = modal(BRUSHES.length + ' brushes', body, [{ l: 'Close' }], { width: 560 });
+  const close = modal(search, body, [{ l: 'Close' }], { width: 560 });
 }
 function dwLayersSheet() {
   const body = h('div', { class: 'lsheet' });
@@ -307,6 +332,7 @@ function dwDraw() {
     x.globalAlpha = L.op / 100; x.globalCompositeOperation = L.blend; x.drawImage(src, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
   });
   x.setTransform(1, 0, 0, 1, 0, 0); x.strokeStyle = '#383a41'; x.lineWidth = 1; x.strokeRect(d * v.x - .5, d * v.y - .5, DW.w * v.z * d + 1, DW.h * v.z * d + 1);
+  if (DW_PREF.ruler !== 'off') dwDrawRuler(x, d, v);
   if (DW.cursor) { const c = DW.cursor; x.strokeStyle = 'rgba(255,255,255,.8)'; x.beginPath(); x.arc(d * (v.x + c.x * v.z), d * (v.y + c.y * v.z), Math.max(2, c.r * v.z * d), 0, 7); x.stroke(); x.strokeStyle = 'rgba(0,0,0,.6)'; x.beginPath(); x.arc(d * (v.x + c.x * v.z), d * (v.y + c.y * v.z), Math.max(2, c.r * v.z * d) + 1, 0, 7); x.stroke(); }
 }
 function dwPt(e) { const r = DW.stageEl.getBoundingClientRect(); return { x: (e.clientX - r.left - DW.view.x) / DW.view.z, y: (e.clientY - r.top - DW.view.y) / DW.view.z }; }
@@ -373,7 +399,7 @@ function smudgeAt(x, st, px, py, size) {
   }
 }
 function dwBindStage(stage) {
-  const pts = new Map(); let st = null, pinch = null, sm = null;
+  const pts = new Map(); let st = null, pinch = null, sm = null, rd = null;
   stage.addEventListener('pointerdown', e => {
     e.preventDefault(); stage.setPointerCapture(e.pointerId);
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -387,10 +413,13 @@ function dwBindStage(stage) {
     if (t === 'pick') { dwPick(p); return; }
     if (t === 'fill') { dwFill(p); return; }
     if (t === 'photo') return;
-    st = dwStartStroke(t, p, e); sm = { x: p.x, y: p.y }; DW.stroking = true;
+    if (t === 'ruler') { rd = dwRulerGrab(p); if (rd) { DW.rulerDrag = 1; } return; }
+    let snap = false;
+    if ((PAINT[t]) && DW_PREF.ruler !== 'off' && dwRulerDist(p) * DW.view.z < 60) { snap = true; Object.assign(p, dwRulerSnap(p)); }
+    st = dwStartStroke(t, p, e); st.snap = snap; sm = { x: p.x, y: p.y }; DW.stroking = true;
   });
   stage.addEventListener('pointermove', e => {
-    if (!pts.has(e.pointerId)) { if (e.pointerType === 'mouse' && (DW_PREF.tool === 'brush' || DW_PREF.tool === 'eraser')) { const p = dwPt(e); DW.cursor = { x: p.x, y: p.y, r: (DW_PREF.tool === 'brush' ? DW_PREF.size : DW_PREF.esize) / 2 }; dwRender(); } return; }
+    if (!pts.has(e.pointerId)) { if (e.pointerType === 'mouse' && PAINT[DW_PREF.tool]) { const p = dwPt(e); DW.cursor = { x: p.x, y: p.y, r: DW_PREF[PAINT[DW_PREF.tool].size] / 2 }; dwRender(); } return; }
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch && pts.size === 2) {
       const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, r = stage.getBoundingClientRect();
@@ -398,12 +427,14 @@ function dwBindStage(stage) {
       const cx = (pinch.mx - r.left - pinch.vx) / pinch.z, cy = (pinch.my - r.top - pinch.vy) / pinch.z;
       DW.view = { z, x: mx - r.left - cx * z, y: my - r.top - cy * z, fit: false }; dwRender(); return;
     }
+    if (rd) { dwRulerMove(rd, dwPt(e)); dwRender(); return; }
     if (!st) return;
     const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
     for (const ev of evs.length ? evs : [e]) {
-      const p = dwPt(ev), k = DW_PREF.steady / 100;
+      const p = dwPt(ev), k = st.snap ? 0 : DW_PREF.steady / 100;
       sm.x += (p.x - sm.x) * (1 - k); sm.y += (p.y - sm.y) * (1 - k);
-      dwMoveStroke(st, sm.x, sm.y, ev.pressure || .5, p);
+      if (st.snap) { const q = dwRulerSnap(sm); dwMoveStroke(st, q.x, q.y, ev.pressure || .5, q); }
+      else dwMoveStroke(st, sm.x, sm.y, ev.pressure || .5, p);
     }
     if (e.pointerType === 'mouse') { const p = dwPt(e); DW.cursor = { x: p.x, y: p.y, r: st.size / 2 }; }
     dwRender();
@@ -411,6 +442,7 @@ function dwBindStage(stage) {
   const up = e => {
     pts.delete(e.pointerId);
     if (pinch) { if (pts.size < 2) pinch = null; return; }
+    if (rd) { rd = null; DW.rulerDrag = 0; savePref(); return; }
     if (st) { dwEndStroke(st); st = null; } DW.stroking = false;
   };
   stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
@@ -419,8 +451,9 @@ function dwBindStage(stage) {
 }
 function dwStartStroke(t, p, e) {
   const L = DW.layers[DW.cur];
-  const b = t === 'eraser' ? BRUSHES[DW_PREF.eraser] : BRUSHES[DW_PREF.brush];
-  const st = { t, L, b, size: t === 'eraser' ? DW_PREF.esize : DW_PREF.size, color: t === 'eraser' ? '#000000ff' : DW_PREF.color, last: null, dist: 0, n: 0, rnd: tipRand(Date.now() & 0xffff), pen: e.pointerType === 'pen', p0: p, p1: p };
+  const pk = PAINT[t], b = pk ? BRUSHES[DW_PREF[pk.key]] : BRUSHES[DW_PREF.brush];
+  if (isPaint(t)) t = 'brush';
+  const st = { t, L, b, size: pk ? DW_PREF[pk.size] : DW_PREF.size, color: t === 'eraser' ? '#000000ff' : DW_PREF.color, last: null, dist: 0, n: 0, rnd: tipRand(Date.now() & 0xffff), pen: e.pointerType === 'pen', p0: p, p1: p };
   dwSnap(L);
   const sx = DW.stroke.getContext('2d'); sx.setTransform(1, 0, 0, 1, 0, 0); sx.globalCompositeOperation = 'source-over'; sx.globalAlpha = 1; sx.clearRect(0, 0, DW.w, DW.h);
   if (t === 'move') { st.copy = newLayerCanvas(DW.w, DW.h); st.copy.getContext('2d').drawImage(L.cv, 0, 0); return st; }
@@ -451,15 +484,29 @@ function dwMoveStroke(st, x, y, pr, raw) {
   }
   sx.clearRect(0, 0, DW.w, DW.h); dwShape(sx, st.t, st.p0, raw);
 }
+const DW_SHAPES = [['rect', 'Box'], ['rrect', 'Rounded box'], ['ellipse', 'Circle'], ['tri', 'Triangle'], ['rtri', 'Right triangle'], ['diamond', 'Diamond'], ['poly', 'Polygon'], ['star', 'Star'], ['heart', 'Heart'], ['arrow', 'Arrow'], ['cross', 'Plus'], ['moon', 'Moon'], ['bubble', 'Speech bubble'], ['ring', 'Ring']];
 function dwShape(x, t, a, b) {
   x.save(); x.strokeStyle = x.fillStyle = css(DW_PREF.color); x.lineWidth = DW_PREF.lw || 6; x.lineCap = 'round'; x.lineJoin = 'round';
   x.beginPath();
   if (t === 'line') { x.moveTo(a.x, a.y); x.lineTo(b.x, b.y); x.stroke(); x.restore(); return; }
-  const l = Math.min(a.x, b.x), tp = Math.min(a.y, b.y), w = Math.abs(b.x - a.x), hh = Math.abs(b.y - a.y);
-  if (DW_PREF.shape === 'rect') x.rect(l, tp, w, hh);
-  else if (DW_PREF.shape === 'ellipse') x.ellipse(l + w / 2, tp + hh / 2, w / 2, hh / 2, 0, 0, Math.PI * 2);
-  else if (DW_PREF.shape === 'tri') { x.moveTo(l + w / 2, tp); x.lineTo(l + w, tp + hh); x.lineTo(l, tp + hh); x.closePath(); }
-  else { for (let i = 0; i < 10; i++) { const an = i * Math.PI / 5 - Math.PI / 2, rr = i % 2 ? .4 : 1; x.lineTo(l + w / 2 + Math.cos(an) * w / 2 * rr, tp + hh / 2 + Math.sin(an) * hh / 2 * rr); } x.closePath(); }
+  let bx = b.x, by = b.y;
+  if (DW_PREF.even) { const m = Math.max(Math.abs(bx - a.x), Math.abs(by - a.y)); bx = a.x + Math.sign(bx - a.x || 1) * m; by = a.y + Math.sign(by - a.y || 1) * m; }
+  const l = Math.min(a.x, bx), tp = Math.min(a.y, by), w = Math.abs(bx - a.x), hh = Math.abs(by - a.y), cx = l + w / 2, cy = tp + hh / 2, sh = DW_PREF.shape;
+  const poly = pts => { pts.forEach(([px, py], i) => i ? x.lineTo(l + px * w, tp + py * hh) : x.moveTo(l + px * w, tp + py * hh)); x.closePath(); };
+  if (sh === 'rect') x.rect(l, tp, w, hh);
+  else if (sh === 'rrect') x.roundRect(l, tp, w, hh, Math.min(w, hh) * (DW_PREF.corner == null ? 20 : DW_PREF.corner) / 100);
+  else if (sh === 'ellipse') x.ellipse(cx, cy, w / 2, hh / 2, 0, 0, Math.PI * 2);
+  else if (sh === 'ring') { x.ellipse(cx, cy, w / 2, hh / 2, 0, 0, Math.PI * 2); x.moveTo(cx + w * .3, cy); x.ellipse(cx, cy, w * .3, hh * .3, 0, 0, Math.PI * 2, true); }
+  else if (sh === 'tri') poly([[.5, 0], [1, 1], [0, 1]]);
+  else if (sh === 'rtri') poly([[0, 0], [1, 1], [0, 1]]);
+  else if (sh === 'diamond') poly([[.5, 0], [1, .5], [.5, 1], [0, .5]]);
+  else if (sh === 'poly') { const n = DW_PREF.sides; poly(Array.from({ length: n }, (_, i) => { const an = i * Math.PI * 2 / n - Math.PI / 2; return [.5 + Math.cos(an) / 2, .5 + Math.sin(an) / 2]; })); }
+  else if (sh === 'star') { const n = DW_PREF.sides; poly(Array.from({ length: n * 2 }, (_, i) => { const an = i * Math.PI / n - Math.PI / 2, rr = i % 2 ? .2 : .5; return [.5 + Math.cos(an) * rr, .5 + Math.sin(an) * rr]; })); }
+  else if (sh === 'heart') { x.moveTo(cx, tp + hh); x.bezierCurveTo(l - w * .1, tp + hh * .55, l + w * .05, tp - hh * .1, cx, tp + hh * .28); x.bezierCurveTo(l + w * .95, tp - hh * .1, l + w * 1.1, tp + hh * .55, cx, tp + hh); x.closePath(); }
+  else if (sh === 'arrow') { const ang = Math.atan2(by - a.y, bx - a.x), len = Math.hypot(bx - a.x, by - a.y), hw = Math.max(6, (DW_PREF.lw || 6) * 3); x.save(); x.translate(a.x, a.y); x.rotate(ang); x.moveTo(0, -hw * .35); x.lineTo(len - hw * 1.4, -hw * .35); x.lineTo(len - hw * 1.4, -hw); x.lineTo(len, 0); x.lineTo(len - hw * 1.4, hw); x.lineTo(len - hw * 1.4, hw * .35); x.lineTo(0, hw * .35); x.closePath(); x.restore(); }
+  else if (sh === 'cross') poly([[.35, 0], [.65, 0], [.65, .35], [1, .35], [1, .65], [.65, .65], [.65, 1], [.35, 1], [.35, .65], [0, .65], [0, .35], [.35, .35]]);
+  else if (sh === 'moon') { x.ellipse(cx, cy, w / 2, hh / 2, 0, Math.PI * .35, Math.PI * 1.65); x.ellipse(cx + w * .22, cy - hh * .05, w * .38, hh * .4, 0, Math.PI * 1.55, Math.PI * .45, true); x.closePath(); }
+  else if (sh === 'bubble') { x.roundRect(l, tp, w, hh * .75, Math.min(w, hh) * .18); x.moveTo(l + w * .22, tp + hh * .74); x.lineTo(l + w * .12, tp + hh); x.lineTo(l + w * .42, tp + hh * .74); }
   if (DW_PREF.filled) x.fill(); else x.stroke();
   x.restore();
 }
@@ -483,7 +530,7 @@ function dwPick(p) {
   if (d[3] === 0 && DW.ref && DW_PREF.ref) { const r = DW.ref.getContext('2d').getImageData(Math.floor(X * P.w / DW.w), Math.floor(Y * P.h / DW.h), 1, 1).data; DW_PREF.color = rgbaToHex(r[0], r[1], r[2], 1); }
   else if (d[3] === 0) { toast('Nothing there to pick'); return; }
   else DW_PREF.color = rgbaToHex(d[0], d[1], d[2], d[3] / 255);
-  savePref(); toast('Color picked'); DW_PREF.tool = 'brush'; dwToolUI();
+  savePref(); toast('Color picked'); DW_PREF.tool = DW.lastPaint || 'brush'; dwToolUI();
 }
 /* bucket: flood fill, or flood erase (makes the area see-through) */
 function dwFill(p) {
@@ -584,4 +631,58 @@ function photoUI(o) {
   o.append(h('div', { class: 'dwo' }, h('label', null, ''), h('button', { class: 'btn pri sm', onclick: () => { dwSnap(L); const r = photoApply(L.cv, op, val), x = L.cv.getContext('2d'); x.clearRect(0, 0, DW.w, DW.h); x.drawImage(r, 0, 0); DW.live = null; dwRender(); toast('Applied to ' + L.name); dwToolUI(); } }, 'Apply'), h('button', { class: 'btn sm', onclick: () => { DW.live = null; dwRender(); dwToolUI(); } }, 'Reset')));
   o.append(h('div', { class: 'hint' }, 'Changes the layer "' + L.name + '". The picture shows the result before you apply it.'));
   prev();
+}
+
+/* ---------- ruler: a straight edge or a circle that strokes follow ---------- */
+function dwRuler() {
+  const R_ = DW_PREF.rulerAt;
+  if (!R_ || R_.w !== DW.w || R_.h !== DW.h) dwRulerReset();
+  return DW_PREF.rulerAt;
+}
+function dwRulerReset() { const w = DW.w, hh = DW.h; DW_PREF.rulerAt = { w, h: hh, a: { x: w * .2, y: hh * .5 }, b: { x: w * .8, y: hh * .5 }, c: { x: w * .5, y: hh * .5 }, r: Math.min(w, hh) * .3, ang: -0.6 }; savePref(); }
+function dwRulerSnap(p) {
+  const R_ = dwRuler();
+  if (DW_PREF.ruler === 'circle') { const dx = p.x - R_.c.x, dy = p.y - R_.c.y, l = Math.hypot(dx, dy) || 1; return { x: R_.c.x + dx / l * R_.r, y: R_.c.y + dy / l * R_.r }; }
+  const ux = R_.b.x - R_.a.x, uy = R_.b.y - R_.a.y, ll = ux * ux + uy * uy || 1, t = ((p.x - R_.a.x) * ux + (p.y - R_.a.y) * uy) / ll;
+  return { x: R_.a.x + ux * t, y: R_.a.y + uy * t };
+}
+function dwRulerDist(p) { const q = dwRulerSnap(p); return Math.hypot(p.x - q.x, p.y - q.y); }
+function dwRulerHandles() {
+  const R_ = dwRuler();
+  if (DW_PREF.ruler === 'circle') return [['c', R_.c], ['r', { x: R_.c.x + Math.cos(R_.ang) * R_.r, y: R_.c.y + Math.sin(R_.ang) * R_.r }]];
+  return [['a', R_.a], ['b', R_.b]];
+}
+function dwRulerGrab(p) {
+  if (DW_PREF.ruler === 'off') { DW_PREF.ruler = 'line'; savePref(); dwToolUI(); }
+  const R_ = dwRuler(), z = DW.view.z;
+  for (const [k, q] of dwRulerHandles()) if (Math.hypot(p.x - q.x, p.y - q.y) * z < 30) return { k, p0: p, R0: JSON.parse(JSON.stringify(R_)) };
+  if (dwRulerDist(p) * z < 40 || (DW_PREF.ruler === 'circle' && Math.hypot(p.x - R_.c.x, p.y - R_.c.y) < R_.r)) return { k: 'all', p0: p, R0: JSON.parse(JSON.stringify(R_)) };
+  return null;
+}
+function dwRulerMove(rd, p) {
+  const R_ = DW_PREF.rulerAt, o = rd.R0, dx = p.x - rd.p0.x, dy = p.y - rd.p0.y;
+  if (rd.k === 'all') { for (const k of ['a', 'b', 'c']) { R_[k] = { x: o[k].x + dx, y: o[k].y + dy }; } }
+  else if (rd.k === 'a' || rd.k === 'b') R_[rd.k] = { x: p.x, y: p.y };
+  else if (rd.k === 'c') R_.c = { x: p.x, y: p.y };
+  else if (rd.k === 'r') { R_.r = Math.max(4, Math.hypot(p.x - R_.c.x, p.y - R_.c.y)); R_.ang = Math.atan2(p.y - R_.c.y, p.x - R_.c.x); }
+}
+function dwDrawRuler(x, d, v) {
+  const R_ = dwRuler(), S_ = q => [d * (v.x + q.x * v.z), d * (v.y + q.y * v.z)], active = DW_PREF.tool === 'ruler';
+  x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
+  if (DW_PREF.ruler === 'circle') {
+    const [cx, cy] = S_(R_.c), rr = R_.r * v.z * d;
+    x.lineWidth = 14 * d; x.strokeStyle = 'rgba(63,214,192,.18)'; x.beginPath(); x.arc(cx, cy, rr, 0, 7); x.stroke();
+    x.lineWidth = 1.5 * d; x.strokeStyle = 'rgba(63,214,192,.95)'; x.beginPath(); x.arc(cx, cy, rr, 0, 7); x.stroke();
+    x.strokeStyle = 'rgba(63,214,192,.7)'; for (let i = 0; i < 72; i++) { const an = i / 72 * Math.PI * 2, t0 = i % 6 ? 4 : 9; x.beginPath(); x.moveTo(cx + Math.cos(an) * (rr - t0 * d), cy + Math.sin(an) * (rr - t0 * d)); x.lineTo(cx + Math.cos(an) * rr, cy + Math.sin(an) * rr); x.stroke(); }
+    x.beginPath(); x.moveTo(cx - 8 * d, cy); x.lineTo(cx + 8 * d, cy); x.moveTo(cx, cy - 8 * d); x.lineTo(cx, cy + 8 * d); x.stroke();
+  } else {
+    const [ax, ay] = S_(R_.a), [bx, by] = S_(R_.b), ang = Math.atan2(by - ay, bx - ax), len = Math.hypot(bx - ax, by - ay);
+    x.translate(ax, ay); x.rotate(ang);
+    x.strokeStyle = 'rgba(63,214,192,.55)'; x.lineWidth = 1 * d; x.setLineDash([6 * d, 6 * d]); x.beginPath(); x.moveTo(-4000 * d, 0); x.lineTo(4000 * d + len, 0); x.stroke(); x.setLineDash([]);
+    x.fillStyle = 'rgba(63,214,192,.16)'; x.fillRect(0, -16 * d, len, 16 * d);
+    x.strokeStyle = 'rgba(63,214,192,.95)'; x.lineWidth = 1.5 * d; x.beginPath(); x.moveTo(0, 0); x.lineTo(len, 0); x.stroke();
+    const step = Math.max(6 * d, 10 * v.z * d); x.lineWidth = 1 * d; for (let i = 0, s = 0; s <= len; i++, s += step) { const t0 = i % 10 ? (i % 5 ? 4 : 7) : 11; x.beginPath(); x.moveTo(s, -t0 * d); x.lineTo(s, 0); x.stroke(); }
+  }
+  x.restore();
+  if (active) for (const [, q] of dwRulerHandles()) { const [hx, hy] = S_(q); x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = '#fff'; x.strokeStyle = '#0e0f11'; x.lineWidth = 2 * d; x.beginPath(); x.arc(hx, hy, 10 * d, 0, 7); x.fill(); x.stroke(); x.restore(); }
 }

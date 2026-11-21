@@ -1,4 +1,4 @@
-const APP_VER = 13;
+const APP_VER = 14;
 /* ================= wiring ================= */
 let zoomSlider = null, EXPORTING = false;
 function refreshAll() {
@@ -60,6 +60,7 @@ function bindUI() {
   $('#bFull').onclick = () => { const s = $('#center'); if (document.fullscreenElement) document.exitFullscreen(); else (s.requestFullscreen || s.webkitRequestFullscreen).call(s); };
   document.addEventListener('fullscreenchange', () => setTimeout(layoutView, 60));
   $('#tSplit').onclick = opSplit; $('#tDel').onclick = opDelete; $('#tDup').onclick = opDuplicate; $('#tFreeze').onclick = opFreeze; $('#tDetach').onclick = opDetach;
+  $('#tMulti').onclick = () => { TL.multi = !TL.multi; if (TL.multi && SEL) MSEL.add(SEL); if (!TL.multi && MSEL.size < 2) MSEL.clear(); refreshAll(); toast(TL.multi ? 'Tap clips to pick them. Tap again to drop one.' : (MSEL.size > 1 ? MSEL.size + ' clips stay picked' : 'Picking off')); };
   $('#tFront').onclick = () => moveLayer('front'); $('#tFwd').onclick = () => moveLayer(1); $('#tBack').onclick = () => moveLayer(-1); $('#tBottom').onclick = () => moveLayer('bottom');
   $('#tKey').onclick = opKey; $('#tMagnet').onclick = () => { TL.snap = !TL.snap; updToolState(); toast(TL.snap ? 'Snapping on' : 'Snapping off'); };
   $('#tRec').onclick = opRecord;

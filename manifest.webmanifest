@@ -9,8 +9,8 @@
   "background_color": "#0e0f11",
   "theme_color": "#16171a",
   "icons": [
-    { "src": "icons/nautic-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/nautic-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/nautic-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icons/nautic2-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/nautic2-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/nautic2-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

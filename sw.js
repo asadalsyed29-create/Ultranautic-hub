@@ -1,6 +1,6 @@
 // Nautic Editor offline support: always try the network first so updates show up, fall back to the saved copy offline
-const CACHE = 'nautic-v13';
-const FILES = ['./', './index.html', './manifest.webmanifest', './icons/nautic-192.png', './icons/nautic-512.png', './icons/nautic-touch.png', './icons/nautic-64.png'];
+const CACHE = 'nautic-v14';
+const FILES = ['./', './index.html', './manifest.webmanifest', './icons/nautic2-192.png', './icons/nautic2-512.png', './icons/nautic2-touch.png', './icons/nautic2-64.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {

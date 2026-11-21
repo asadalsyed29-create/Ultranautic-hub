@@ -6,6 +6,7 @@ const MAX_ROT = 35999640;
 
 let P;            // the project
 let SEL = null;   // selected clip id
+const MSEL = new Set(); // clips picked together (Select several)
 let SELKF = null; // {prop, idx} selected keyframe on selected clip
 let T = 0;        // playhead seconds
 const MEDIA = {}; // media library by id

@@ -70,6 +70,7 @@ function tabsFor(c) {
 function showRight(tab) { RTAB = tab; renderInspector(); if (innerWidth < 1000 || innerHeight < 560) openSheet('right'); }
 let lastInsKind = null;
 function renderInspector() {
+  if (MSEL.size > 1) return insGroup();
   const c = selClip(), tabs = tabsFor(c);
   const kind = c ? c.type : null;
   if (kind !== lastInsKind && !KEYJUMP) RTAB = tabs[0][0];
@@ -84,6 +85,39 @@ function renderInspector() {
   if (KEYJUMP) { KEYJUMP = false; const k = $('#keysec'); if (k) requestAnimationFrame(() => k.scrollIntoView({ block: 'start' })); }
 }
 let KEYJUMP = false;
+/* several clips picked: change them all at once */
+function insGroup() {
+  const list = groupClips(), nav = $('#rtabs'); nav.innerHTML = ''; nav.append(h('button', { class: 'on' }, list.length + ' clips'));
+  const b = $('#rbody'); b.innerHTML = ''; INS.live = [];
+  const done = () => { for (const tr of P.tracks) { sortTrack(tr); } packMain(); commit(); refreshAll(); };
+  const fitLen = (x, d) => { let nd = Math.max(1 / P.fps, d); if (x.type === 'video' || x.type === 'audio') nd = Math.min(nd, (mediaDur(x) - x.in) / (x.speed || 1)); x.dur = nd; };
+  const types = [...new Set(list.map(x => x.type))].map(t => ({ video: 'videos', image: 'pictures', text: 'texts', sticker: 'stickers', audio: 'sounds', effect: 'effects', filter: 'filters', adjust: 'adjustments' })[t] || t);
+  b.append(h('div', { class: 'note', style: { marginBottom: '10px' } }, 'Picked: ' + types.join(', ') + '. Drag any picked clip to move them all, or drag a picked clip\'s edge to stretch them all together.'));
+  let len = Math.round(Math.max(...list.map(x => x.dur)) * 100) / 100, add = 1;
+  const g1 = h('div', { class: 'grp gbtn' }, h('h4', null, 'Length'));
+  g1.append(nrow('Make all', { value: len, min: 1 / P.fps, max: 36000, dec: 2, suf: 's', step: .1, onInput: v => { len = v; } }),
+    row('', h('button', { class: 'btn sm pri', onclick: () => { for (const x of list) fitLen(x, len); done(); } }, 'Set length')));
+  g1.append(nrow('Change by', { value: add, min: -3600, max: 3600, dec: 2, suf: 's', step: .1, onInput: v => { add = v; } }),
+    row('', h('button', { class: 'btn sm', onclick: () => { for (const x of list) fitLen(x, x.dur + add); done(); } }, 'Make longer'), h('button', { class: 'btn sm', onclick: () => { for (const x of list) fitLen(x, x.dur - add); done(); } }, 'Make shorter')));
+  g1.append(row('', h('button', { class: 'btn sm', onclick: () => { const end = Math.max(...list.map(x => x.start + x.dur)); for (const x of list) fitLen(x, end - x.start); done(); } }, 'Stretch all to the last end'), h('button', { class: 'btn sm', onclick: () => { for (const x of list) fitLen(x, T - x.start); done(); } }, 'End all at playhead')));
+  b.append(g1);
+  const g2 = h('div', { class: 'grp gbtn' }, h('h4', null, 'Place'));
+  g2.append(row('', h('button', { class: 'btn sm', onclick: () => { for (const x of list) if (!(trackOf(x).main && TL.magnet)) x.start = T; done(); } }, 'Start all at playhead'),
+    h('button', { class: 'btn sm', onclick: () => { const s = list.slice().sort((a, b) => a.start - b.start); let t = s[0].start; for (const x of s) { if (!(trackOf(x).main && TL.magnet)) x.start = t; t = x.start + x.dur; } done(); } }, 'One after another')));
+  b.append(g2);
+  const vis = list.filter(x => VISUAL[x.type] && x.tf);
+  if (vis.length) {
+    const g3 = h('div', { class: 'grp gbtn' }, h('h4', null, 'Look'));
+    g3.append(rangeRow('Opacity', { min: 0, max: 100, step: 1, value: 100, suf: '%', onInput: (v, f) => { for (const x of vis) setProp(x, 'opacity', v); chg(f); } }));
+    g3.append(rangeRow('Scale', { min: 1, max: 500, step: 1, value: 100, suf: '%', onInput: (v, f) => { for (const x of vis) setProp(x, 'scale', v / 100); chg(f); } }));
+    b.append(g3);
+  }
+  const snd = list.filter(x => x.type === 'video' || x.type === 'audio');
+  if (snd.length) b.append(h('div', { class: 'grp gbtn' }, h('h4', null, 'Sound'), rangeRow('Volume', { min: 0, max: 200, step: 1, value: 100, suf: '%', onInput: (v, f) => { for (const x of snd) setPathBase(x, 'o:vol', v); chg(f); } })));
+  const eff = list.filter(x => x.effects);
+  if (eff.length) b.append(h('div', { class: 'grp gbtn' }, h('h4', null, 'Effects'), row('Add to all', selectBox({ options: Object.keys(EFFECTS).map(k => ({ v: k, l: EFFECTS[k].n })), value: null, placeholder: 'Choose…', onChange: v => { for (const x of eff) x.effects.push({ id: v, amt: 60, speed: 1, uid: uid() }); done(); toast('Added to ' + eff.length + ' clips'); } }))));
+  b.append(h('div', { class: 'grp gbtn' }, row('', h('button', { class: 'btn sm', onclick: () => { MSEL.clear(); TL.multi = false; refreshAll(); } }, 'Drop the picks'), h('button', { class: 'btn sm', html: icon('trash') + ' Delete all', onclick: () => opDelete() }))));
+}
 function refreshInspectorValues() { for (const f of INS.live) try { f(); } catch (e) { } }
 
 /* ---------- project ---------- */

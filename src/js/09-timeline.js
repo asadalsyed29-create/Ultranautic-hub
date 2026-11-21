@@ -46,7 +46,7 @@ function clipLabel(c) {
 const TYPE_ICON = { video: 'video', image: 'image', text: 'text', sticker: 'sticker', audio: 'audio', effect: 'effect', filter: 'filter', adjust: 'adjust' };
 function clipEl(c, tr) {
   const pps = TL.pps, w = Math.max(2, c.dur * pps);
-  const el = h('div', { class: `clip c-${c.type}` + (c.id === SEL ? ' sel' : ''), style: { left: c.start * pps + 'px', width: w + 'px' } });
+  const el = h('div', { class: `clip c-${c.type}` + (c.id === SEL ? ' sel' : '') + (MSEL.has(c.id) ? ' msel' : ''), style: { left: c.start * pps + 'px', width: w + 'px' } });
   el.dataset.cid = c.id;
   const m = MEDIA[c.media];
   const H = trackH(tr) - 6;
@@ -94,7 +94,7 @@ function clipEl(c, tr) {
       el.append(d);
     }
   }
-  el.append(h('div', { class: 'hl' }), h('div', { class: 'hr' }));
+  el.append(h('div', { class: 'hl' }, h('i')), h('div', { class: 'hr' }, h('i')));
   el.addEventListener('pointerdown', e => clipPointer(e, c, el));
   return el;
 }
@@ -157,8 +157,19 @@ function clipPointer(e, c, el) {
   if (e.button > 0) return;
   const wasSel = SEL === c.id;
   const isTouch = e.pointerType === 'touch';
-  const part = e.target.classList.contains('hl') ? 'l' : e.target.classList.contains('hr') ? 'r' : 'body';
-  if (!wasSel) { selectClip(c.id, true); if (isTouch) return; }
+  const hit = e.target.closest('.hl,.hr'), part = hit ? (hit.classList.contains('hl') ? 'l' : 'r') : 'body';
+  // picking several clips: the Select button, or Ctrl / Shift + click
+  if (part === 'body' && (TL.multi || e.ctrlKey || e.metaKey || e.shiftKey)) {
+    e.preventDefault(); e.stopPropagation();
+    if (SEL && !MSEL.size) MSEL.add(SEL);
+    let moved = false; const x0 = e.clientX, y0 = e.clientY;
+    if (MSEL.has(c.id) && MSEL.size > 1) { el.setPointerCapture(e.pointerId); groupDrag(e, c, el, 'body'); return; }
+    const upT = ev => { el.removeEventListener('pointerup', upT); if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 6) return; if (MSEL.has(c.id)) { MSEL.delete(c.id); if (SEL === c.id) SEL = [...MSEL].pop() || null; } else { MSEL.add(c.id); SEL = c.id; } SELKF = null; refreshAll(); };
+    el.addEventListener('pointerup', upT); return;
+  }
+  if (MSEL.size > 1 && MSEL.has(c.id) && (part !== 'body' || wasSel || !isTouch)) { e.preventDefault(); e.stopPropagation(); el.setPointerCapture(e.pointerId); groupDrag(e, c, el, part); return; }
+  if (MSEL.size && !MSEL.has(c.id)) MSEL.clear();
+  if (!wasSel) { selectClip(c.id, true); if (isTouch && part === 'body') return; }
   if (isTouch && part === 'body' && !wasSel) return;
   e.preventDefault(); e.stopPropagation();
   el.setPointerCapture(e.pointerId);
@@ -199,6 +210,33 @@ function clipPointer(e, c, el) {
     if (!moved) { if (wasSel && part === 'body' && !isTouch) { /* click on selected: seek */ } refreshAll(); return; }
     if (part === 'body') placeClip(c, tr, target);
     else if (tr.main && TL.magnet) packMain();
+    commit(); refreshAll();
+  };
+  el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+}
+// several clips at once: move them together, or stretch / trim every one by the same amount
+function groupClips() { return [...MSEL].map(id => findClip(id)).filter(Boolean); }
+function groupDrag(e, c, el, part) {
+  const list = groupClips().filter(x => !trackOf(x).locked);
+  const o = new Map(list.map(x => [x, { s: x.start, d: x.dur, in: x.in, kf: deep(x.kf) }]));
+  const x0 = e.clientX; let moved = false;
+  const minS = Math.min(...list.map(x => x.start));
+  const mv = ev => {
+    const dx = ev.clientX - x0; if (!moved && Math.abs(dx) < 4) return; moved = true;
+    let dt = dx / TL.pps;
+    for (const x of list) {
+      const v = o.get(x), mdur = mediaDur(x), sp = x.speed || 1;
+      if (part === 'body') { if (trackOf(x).main && TL.magnet) continue; x.start = Math.max(0, v.s + Math.max(dt, -minS)); }
+      else if (part === 'r') { let nd = Math.max(1 / P.fps, v.d + dt); if (x.type === 'video' || x.type === 'audio') nd = Math.min(nd, (mdur - x.in) / sp); x.dur = nd; }
+      else { let shift = clamp(dt, -v.s, v.d - 1 / P.fps); if (x.type === 'video' || x.type === 'audio') shift = Math.max(shift, -v.in / sp); x.start = v.s + shift; x.dur = v.d - shift; x.in = v.in + shift * sp; for (const p of Object.keys(v.kf)) x.kf[p] = v.kf[p].map(k => ({ ...k, t: k.t - shift })); }
+    }
+    for (const cel of $$('#tracks .clip')) { const x = findClip(cel.dataset.cid); if (x && o.has(x)) { cel.style.left = x.start * TL.pps + 'px'; cel.style.width = x.dur * TL.pps + 'px'; } }
+    requestRender();
+  };
+  const up = () => {
+    el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+    if (!moved) { selectClip(c.id, true); return; }
+    for (const tr of P.tracks) { sortTrack(tr); if (tr.main && TL.magnet) packMain(); }
     commit(); refreshAll();
   };
   el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
@@ -287,7 +325,7 @@ function initTimelineEvents() {
         ph.style.visibility = 'hidden'; const under = document.elementFromPoint(x0, y0); ph.style.visibility = '';
         const kb = under && under.closest('.kfd,.kfg');
         if (kb) { if (kb.classList.contains('kfd')) { const c = findClip(kb.closest('.clip').dataset.cid), t = +kb.dataset.kt; SELKF = { t }; seek(c.start + t); selectClip(c.id, true); openKeyPanel(true); } else kb.click(); return; }
-        const ce = under && under.closest('.clip'); if (ce) { const c = findClip(ce.dataset.cid); if (c) selectClip(c.id); }
+        const ce = under && under.closest('.clip'); if (ce) { const c = findClip(ce.dataset.cid); if (c && TL.multi) { if (SEL && !MSEL.size) MSEL.add(SEL); if (MSEL.has(c.id)) MSEL.delete(c.id); else { MSEL.add(c.id); SEL = c.id; } refreshAll(); } else if (c) selectClip(c.id); }
       }
     };
     part.addEventListener('pointermove', mv); part.addEventListener('pointerup', up); part.addEventListener('pointercancel', up);
@@ -298,7 +336,7 @@ function initTimelineEvents() {
   tl.addEventListener('pointerup', e => {
     if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6 || Math.abs(tl.scrollLeft - downAt.sl) > 4) return;
     if (PLAY.on) pause();
-    scrub(e); if (SEL) { SEL = null; SELKF = null; renderTimeline(); renderInspector(); drawOverlay(); updToolState(); }
+    scrub(e); if (SEL || MSEL.size) { if (TL.multi && MSEL.size) return; SEL = null; SELKF = null; MSEL.clear(); renderTimeline(); renderInspector(); drawOverlay(); updToolState(); }
   });
   // zoom: ctrl + wheel, pinch on touch
   tl.addEventListener('wheel', e => {
@@ -354,6 +392,7 @@ function opSplit() {
   commit(); refreshAll();
 }
 function opDelete() {
+  if (MSEL.size > 1) { for (const x of groupClips()) { const tr = trackOf(x); if (tr.locked) continue; tr.clips.splice(tr.clips.indexOf(x), 1); VP.drop(x.id); } MSEL.clear(); SEL = null; SELKF = null; packMain(); cleanTracks(); commit(); refreshAll(); return; }
   const c = selClip(); if (!c) return;
   const tr = trackOf(c); tr.clips.splice(tr.clips.indexOf(c), 1); VP.drop(c.id);
   SEL = null; SELKF = null;
@@ -435,6 +474,8 @@ function updToolState() {
   $('#tDetach').disabled = !c || c.type !== 'video';
   $('#tFreeze').disabled = !(c ? c.type === 'video' : true);
   $('#tMagnet').classList.toggle('on', TL.snap);
+  if (MSEL.size > 1) $('#tDel').disabled = false;
+  const ms = $('#tMulti'); if (ms) { ms.classList.toggle('on', !!TL.multi); const n = ms.querySelector('span'); if (n) n.textContent = MSEL.size > 1 ? MSEL.size + ' picked' : 'Select'; }
 }
 
 /* voiceover (microphone, recorded locally) */
