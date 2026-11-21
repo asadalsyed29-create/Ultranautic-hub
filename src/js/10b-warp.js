@@ -100,7 +100,21 @@ function warpHit(c, pt, k, d) {
   if (!ks && w.mode === 'persp') { const M = warpMapOf(cr, b); for (const [u, v, a, bb] of [[.5, 0, 0, 1], [1, .5, 1, 3], [.5, 1, 2, 3], [0, .5, 0, 2]]) { const q = M(u, v), p0 = m.transformPoint({ x: q[0], y: q[1] }), p = { x: pin(p0.x, p0.y)[0], y: pin(p0.x, p0.y)[1] }; if (Math.hypot(p.x - pt.px, p.y - pt.py) < tol) { ks = [a, bb]; break; } } }
   if (!ks) return null;
   const l0 = inv.transformPoint({ x: pt.px, y: pt.py });
+  warpAutoKey(c, lt);
   return { mode: 'warp', c, ks, inv, b, l0, o0: ks.map(i => [w.p[2 * i] || 0, w.p[2 * i + 1] || 0]), moved: true };
+}
+// when the clip is animated, a bend belongs to the keyframe it was made on: the whole shape gets keys,
+// and the first time it also gets keys at the clip's other keyframes with the shape it had before, so they stay as they were
+function warpAutoKey(c, lt) {
+  const times = clipKeyTimes(c); if (!times.length) return;
+  const keyed = warpKeyed(c), want = keyed ? [lt] : [...new Set([...times, round(lt, 4)])];
+  const segAt = t => { for (const q of kfProps(c)) { if (q.startsWith('o:warp.')) continue; const i = keyAt(c, q, t); if (i >= 0) return c.kf[q][i]; } return null; };
+  for (const p of warpPaths(c)) {
+    const vals = want.map(t => evalProp(c, p, t));
+    c.kf[p] = c.kf[p] || [];
+    want.forEach((t, n) => { if (keyAt(c, p, t) >= 0) return; const nk = newKey(t, vals[n]), src = segAt(t); if (src) copySeg(nk, src); c.kf[p].push(nk); });
+    c.kf[p].sort((a, b) => a.t - b.t);
+  }
 }
 function warpDrag(dr, pt) {
   const l = dr.inv.transformPoint({ x: pt.px, y: pt.py }), dx = (l.x - dr.l0.x) / dr.b.w, dy = (l.y - dr.l0.y) / dr.b.h;

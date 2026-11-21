@@ -1,6 +1,6 @@
 // Nautic Editor offline support: the app opens from the saved copy right away (works with no internet or a slow hotspot).
 // Each new version has a new CACHE name, so the browser downloads it in the background and the app reloads once it is ready.
-const CACHE = 'nautic-v35';
+const CACHE = 'nautic-v36';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icons/nautic10-192.png', './icons/nautic10-512.png', './icons/nautic10-touch.png', './icons/nautic10-64.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => Promise.all(FILES.map(u => fetch(new Request(u, { cache: 'reload' })).then(r => { if (!r.ok) throw new Error(u); return c.put(u, r); })))).then(() => self.skipWaiting()));
