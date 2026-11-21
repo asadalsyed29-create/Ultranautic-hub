@@ -184,7 +184,7 @@ function rotationRows(c) {
 function insClip(b, c) {
   // keyframes and the motion between them live in this same tab, at the top
   const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks);
-  if (c.type === 'image') b.append(row('Draw', h('button', { class: 'btn sm', html: icon('dbrush') + (c.draw ? ' Edit drawing' : ' Draw on this picture'), onclick: () => openDraw(c) })));
+  if (c.type === 'image') b.append(row('Edit', h('div', { class: 'brow' }, h('button', { class: 'btn sm', html: icon('dbrush') + ' Draw', onclick: () => openDraw(c, { mode: 'draw' }) }), h('button', { class: 'btn sm', html: icon('image') + ' Photo', onclick: () => openDraw(c, { mode: 'photo' }) }))));
   b.append(h('div', { class: 'grp' }, h('h4', null, 'Transform')), propRow(c, 'x'), propRow(c, 'y'), propRow(c, 'scale'), ...rotationRows(c), propRow(c, 'opacity'));
   b.append(row('', h('button', { class: 'btn sm', onclick: () => { setProp(c, 'x', P.w / 2); setProp(c, 'y', P.h / 2); chg(true); refreshInspectorValues(); } }, 'Center'), h('button', { class: 'btn sm', onclick: () => { setProp(c, 'scale', 1); setProp(c, 'rot', 0); chg(true); refreshInspectorValues(); } }, 'Reset size and turn')));
   b.append(row('Flip', h('button', { class: 'btn sm' + (c.flipH ? ' pri' : ''), html: icon('flipH') + ' Mirror', onclick: () => { c.flipH = !c.flipH; chg(true); renderInspector(); } }), h('button', { class: 'btn sm' + (c.flipV ? ' pri' : ''), html: icon('flipV') + ' Upside down', onclick: () => { c.flipV = !c.flipV; chg(true); renderInspector(); } })));

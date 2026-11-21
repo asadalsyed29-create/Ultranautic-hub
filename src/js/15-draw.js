@@ -145,13 +145,27 @@ function newLayerCanvas(w, hh) { const c = document.createElement('canvas'); c.w
 function dwLayer(name) { return { id: uid(), name, vis: true, op: 100, blend: 'source-over', lock: false, cv: newLayerCanvas(DW.w, DW.h) }; }
 
 /* open the editor for a clip (existing drawing or a picture to draw on), or for a new drawing when c is null */
-async function openDraw(c) {
+async function openDraw(c, opts = {}) {
   if (PLAY.on) pause();
   let w = P.w, hh = P.h, layers = [];
   DW.clip = c; DW.isNew = !c;
-  if (c && c.draw) {
+  DW.mode = opts.mode || (c && c.draw && c.draw.mode) || 'draw';
+  DW.sel = null; DW.tf = null; DW.crop = null; DW.panel = null; DW.editMask = false; DW.adjCache = {}; DW.ants = null; DW.name = opts.name || '';
+  if (opts.src) {
+    w = opts.w || opts.src.width; hh = opts.h || opts.src.height; DW.w = w; DW.h = hh;
+    if (opts.layers) layers = opts.layers;
+    else { const bg = dwLayer('Background'); bg.cv.getContext('2d').drawImage(opts.src, 0, 0, w, hh); layers.push(bg); }
+  } else if (opts.blank) {
+    w = opts.w; hh = opts.h; DW.w = w; DW.h = hh; const bg = dwLayer('Background');
+    if (opts.fill) { const x = bg.cv.getContext('2d'); x.fillStyle = css(opts.fill); x.fillRect(0, 0, w, hh); }
+    layers.push(bg);
+  } else if (c && c.draw) {
     w = c.draw.w; hh = c.draw.h; DW.w = w; DW.h = hh;
-    for (const L of c.draw.layers) { const l = { ...L, cv: newLayerCanvas(w, hh) }; const m = MEDIA[L.media]; if (m && m.el) l.cv.getContext('2d').drawImage(m.el, 0, 0, w, hh); layers.push(l); }
+    for (const L of c.draw.layers) {
+      const l = { ...L, cv: newLayerCanvas(w, hh) }; delete l.maskMedia; const m = MEDIA[L.media]; if (m && m.el) l.cv.getContext('2d').drawImage(m.el, 0, 0, w, hh);
+      if (L.maskMedia) { l.mask = newLayerCanvas(w, hh); const mm = MEDIA[L.maskMedia]; if (mm && mm.el) l.mask.getContext('2d').drawImage(mm.el, 0, 0, w, hh); }
+      layers.push(l);
+    }
   } else if (c) {
     const m = MEDIA[c.media]; if (!m || !m.el) { toast('This picture is still loading'); return; }
     w = m.w; hh = m.h; DW.w = w; DW.h = hh;
@@ -160,11 +174,13 @@ async function openDraw(c) {
   DW.layers = layers; DW.cur = layers.length - 1; DW.undo = []; DW.redo = [];
   DW.stroke = newLayerCanvas(w, hh); DW.view = { z: 1, x: 0, y: 0, fit: true };
   DW.ref = null;
-  if (!c || (c && c.draw && c.draw.w === P.w && c.draw.h === P.h)) { // the video frame behind, as a guide
+  if (!opts.src && !opts.blank && (!c || (c && c.draw && c.draw.w === P.w && c.draw.h === P.h))) { // the video frame behind, as a guide
     DW.ref = newLayerCanvas(P.w, P.h); if (c) c._hide = true; try { renderFrame(DW.ref.getContext('2d'), T, P.w, P.h); } catch (e) { } if (c) delete c._hide;
   }
   if (DW_PREF.size == null) DW_PREF.size = BRUSHES[DW_PREF.brush].sz;
-  buildDrawUI(); DW.on = true; dwFit(); dwRender();
+  for (const L of DW.layers) if (L.kind === 'text') phRenderText(L);
+  phToolFor(DW.mode);
+  buildDrawUI(); DW.on = true; dwFit(); dwRender(); phAntsTimer();
 }
 
 /* ---------- UI ---------- */
@@ -173,30 +189,34 @@ function buildDrawUI() {
   const root = h('div', { id: 'dw' });
   const top = h('div', { class: 'dwtop' },
     h('button', { class: 'tb', onclick: () => closeDraw(false), html: icon('close') }, 'Cancel'),
-    h('div', { class: 'dwtitle' }, DW.clip && DW.clip.draw ? 'Edit drawing' : DW.clip ? 'Draw on picture' : 'New drawing'),
+    h('div', { class: 'dwtitle' }, DW.mode === 'photo' ? (DW.name || 'Photo') : DW.clip && DW.clip.draw ? 'Edit drawing' : DW.clip ? 'Draw on picture' : 'New drawing'),
     h('button', { class: 'tb', id: 'dwUndo', title: 'Undo', html: icon('undo'), onclick: dwUndo }),
     h('button', { class: 'tb', id: 'dwRedo', title: 'Redo', html: icon('redo'), onclick: dwRedo }),
     DW.ref ? h('button', { class: 'tb' + (DW_PREF.ref ? ' on' : ''), id: 'dwRef', title: 'Show the video behind', html: icon('video'), onclick: e => { DW_PREF.ref = !DW_PREF.ref; e.currentTarget.classList.toggle('on', DW_PREF.ref); savePref(); dwRender(); } }) : '',
-    h('button', { class: 'tb lyb', title: 'Layers', html: icon('layers'), onclick: dwLayersSheet }, h('span', { class: 'hide-m' }, 'Layers')),
+    h('button', { class: 'tb lyb', title: 'Layers', html: icon('layers'), onclick: phLayersSheet }, h('span', { class: 'hide-m' }, 'Layers')),
     h('button', { class: 'tb', title: 'Fit to screen', html: icon('fit'), onclick: () => { DW.view.fit = true; dwFit(); dwRender(); } }),
     h('div', { class: 'sp' }),
     h('button', { class: 'btn pri', onclick: () => closeDraw(true) }, 'Done'));
   const stage = h('div', { class: 'dwstage' }); const cv = h('canvas', { class: 'dwview' }); stage.append(cv);
   const tools = h('div', { class: 'dwtools' });
-  for (const [id, n, ic] of DW_TOOLS) tools.append(h('button', { 'data-t': id, title: n, html: icon(ic), onclick: () => { DW_PREF.tool = id; savePref(); dwToolUI(); } }, n));
+  for (const [id, n, ic] of (DW.mode === 'photo' ? PH_TOOLS : DW_TOOLS)) tools.append(h('button', { 'data-t': id, title: n, html: icon(ic), onclick: () => { DW_PREF.tool = id; savePref(); dwToolUI(); } }, h('span', null, n)));
   const opts = h('div', { class: 'dwopts' });
-  root.append(top, stage, h('div', { class: 'dwbar' }, tools, opts));
+  root.append(top, phModeRow(), stage, h('div', { class: 'dwbar' + (DW.mode === 'photo' ? ' ph' : '') }, tools, opts));
   document.body.append(root);
   DW.root = root; DW.cv = cv; DW.x = cv.getContext('2d'); DW.stageEl = stage; DW.opts = opts;
   new ResizeObserver(() => { if (DW.on) { if (DW.view.fit) dwFit(); dwRender(); } }).observe(stage);
   dwBindStage(stage); dwToolUI(); dwUndoUI();
 }
 function dwToolUI() {
-  for (const b of $$('.dwtools [data-t]', DW.root)) b.classList.toggle('on', b.dataset.t === DW_PREF.tool);
+  if (DW.tf && DW_PREF.tool !== 'tf') phTfApply();
+  if (DW.crop && DW_PREF.tool !== 'crop') { DW.crop = null; dwRender(); }
+  if (DW.panel) { for (const b of $$('.dwtools [data-t]', DW.root)) b.classList.remove('on'); DW.opts.innerHTML = ''; DW.opts.append(h('div', { class: 'phtitle' }, DW.panel.title)); DW.panel.build(DW.opts); return; }
+  for (const b of $$('.dwtools [data-t]', DW.root)) { b.classList.toggle('on', b.dataset.t === DW_PREF.tool); if (b.dataset.t === DW_PREF.tool) { const r = b.parentNode; if (r.scrollWidth > r.clientWidth) r.scrollLeft = b.offsetLeft - r.clientWidth / 2 + b.offsetWidth / 2; } }
   if (isPaint(DW_PREF.tool)) DW.lastPaint = DW_PREF.tool;
-  if (DW_PREF.tool !== 'photo' && DW.live && !DW.stroking) { DW.live = null; dwRender(); }
+  if (DW_PREF.tool !== 'photo' && DW.live && !DW.stroking && !DW.tf) { DW.live = null; dwRender(); }
   const o = DW.opts; o.innerHTML = '';
   const t = DW_PREF.tool;
+  if (DW.mode === 'photo') { const d_ = PH_TOOLS.find(z => z[0] === t); if (d_) o.append(h('div', { class: 'phtitle' }, d_[1])); }
   const colorRow = () => { const cb = colorBtn({ value: DW_PREF.color, onInput: v => { DW_PREF.color = v; savePref(); } }); DW.colorBtn = cb; return h('div', { class: 'dwo' }, h('label', null, 'Color'), cb); };
   const sizeRow = (key, max) => { const r = rangeRow('Size', { min: 1, max: max || 500, step: 1, value: DW_PREF[key], suf: 'px', onInput: v => { DW_PREF[key] = v; savePref(); } }); return r; };
   if (isPaint(t) || t === 'eraser') {
@@ -234,6 +254,8 @@ function dwToolUI() {
     o.append(h('div', { class: 'hint' }, 'Drag the ruler to move it. Drag its round handles to turn it, stretch it or change the circle size. Then pick a brush: strokes that start near the ruler follow it exactly.'));
   } else if (t === 'photo') photoUI(o);
   else if (t === 'move') o.append(h('div', { class: 'hint' }, 'Drag to move everything on the current layer.'));
+  else if (PH_H[t] && PH_H[t].ui) PH_H[t].ui(o);
+  if (DW.editMask && DW.layers[DW.cur].mask) o.prepend(h('div', { class: 'hint phmaskon' }, 'Painting on the layer mask: black hides, white shows. ', h('button', { class: 'btn sm', onclick: () => { DW.editMask = false; dwToolUI(); dwRender(); } }, 'Back to the layer')));
 }
 function brushPreview(cv, b, color) {
   const x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height);
@@ -325,21 +347,24 @@ function dwDraw() {
   x.imageSmoothingEnabled = v.z < 2;
   x.fillStyle = dwChecker(); x.save(); x.scale(1 / v.z, 1 / v.z); x.fillRect(0, 0, DW.w * v.z, DW.h * v.z); x.restore();
   if (DW.ref && DW_PREF.ref) { x.globalAlpha = .55; x.drawImage(DW.ref, 0, 0, DW.w, DW.h); x.globalAlpha = 1; }
-  DW.layers.forEach((L, i) => {
-    if (!L.vis) return;
-    let src = L.cv;
-    if (i === DW.cur && DW.live) src = DW.live(L);
-    x.globalAlpha = L.op / 100; x.globalCompositeOperation = L.blend; x.drawImage(src, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
-  });
+  x.drawImage(docRender(true), 0, 0);
   x.setTransform(1, 0, 0, 1, 0, 0); x.strokeStyle = '#383a41'; x.lineWidth = 1; x.strokeRect(d * v.x - .5, d * v.y - .5, DW.w * v.z * d + 1, DW.h * v.z * d + 1);
-  if (DW_PREF.ruler !== 'off') dwDrawRuler(x, d, v);
+  if (DW_PREF.ruler !== 'off' && DW.mode !== 'photo') dwDrawRuler(x, d, v);
+  phOverlay(x, d, v);
   if (DW.cursor) { const c = DW.cursor; x.strokeStyle = 'rgba(255,255,255,.8)'; x.beginPath(); x.arc(d * (v.x + c.x * v.z), d * (v.y + c.y * v.z), Math.max(2, c.r * v.z * d), 0, 7); x.stroke(); x.strokeStyle = 'rgba(0,0,0,.6)'; x.beginPath(); x.arc(d * (v.x + c.x * v.z), d * (v.y + c.y * v.z), Math.max(2, c.r * v.z * d) + 1, 0, 7); x.stroke(); }
 }
 function dwPt(e) { const r = DW.stageEl.getBoundingClientRect(); return { x: (e.clientX - r.left - DW.view.x) / DW.view.z, y: (e.clientY - r.top - DW.view.y) / DW.view.z }; }
 
 /* ---------- undo (per layer snapshots) ---------- */
-function dwSnap(L) { const c = newLayerCanvas(DW.w, DW.h); c.getContext('2d').drawImage(L.cv, 0, 0); DW.undo.push({ L, c }); if (DW.undo.length > 30) DW.undo.shift(); DW.redo = []; dwUndoUI(); }
-function dwSwap(from, to) { const s = from.pop(); if (!s) return; if (!DW.layers.includes(s.L)) { dwUndoUI(); return; } const c = newLayerCanvas(DW.w, DW.h); c.getContext('2d').drawImage(s.L.cv, 0, 0); to.push({ L: s.L, c }); const x = s.L.cv.getContext('2d'); x.clearRect(0, 0, DW.w, DW.h); x.drawImage(s.c, 0, 0); dwUndoUI(); dwRender(); }
+function dwSnap(L) { const c = newLayerCanvas(DW.w, DW.h); c.getContext('2d').drawImage(L.cv, 0, 0); DW.undo.push({ L, c }); phUndoTrim(); DW.redo = []; dirty(L); dwUndoUI(); }
+function dwSwap(from, to) {
+  const s = from.pop(); if (!s) return;
+  if (s.doc) { to.push({ doc: phDocState() }); phDocRestore(s.doc); dwUndoUI(); dwRender(); return; }
+  const own = s.L.owner || s.L;
+  if (!DW.layers.includes(own) || s.L.cv.width !== s.c.width || s.L.cv.height !== s.c.height || (s.L.owner && s.L.cv !== own.mask)) { dwUndoUI(); return; }
+  const c = newLayerCanvas(DW.w, DW.h); c.getContext('2d').drawImage(s.L.cv, 0, 0); to.push({ L: s.L, c }); const x = s.L.cv.getContext('2d'); x.clearRect(0, 0, DW.w, DW.h); x.drawImage(s.c, 0, 0); dirty(s.L);
+  dwUndoUI(); dwRender();
+}
 function dwUndo() { dwSwap(DW.undo, DW.redo); }
 function dwRedo() { dwSwap(DW.redo, DW.undo); }
 function dwUndoUI() { const u = $('#dwUndo'), r = $('#dwRedo'); if (u) u.disabled = !DW.undo.length; if (r) r.disabled = !DW.redo.length; }
@@ -399,16 +424,20 @@ function smudgeAt(x, st, px, py, size) {
   }
 }
 function dwBindStage(stage) {
-  const pts = new Map(); let st = null, pinch = null, sm = null, rd = null;
+  const pts = new Map(); let st = null, pinch = null, sm = null, rd = null, phSt = null;
   stage.addEventListener('pointerdown', e => {
     e.preventDefault(); stage.setPointerCapture(e.pointerId);
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pts.size === 2) { // second finger: cancel the stroke and pan / zoom instead
       if (st) { dwCancelStroke(st); st = null; }
+      if (phSt) { phSt.cancel ? phSt.cancel() : phSt.up && phSt.up(); phSt = null; }
       const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, z: DW.view.z, vx: DW.view.x, vy: DW.view.y }; return;
     }
     if (pts.size > 2) return;
     const p = dwPt(e), L = DW.layers[DW.cur], t = DW_PREF.tool;
+    if (DW.panel && DW.panel.tap) { DW.panel.tap(p); return; }
+    if (PH_H[t]) { phSt = PH_H[t].down(p, e) || null; dwRender(); return; }
+    if (!DW.editMask && (L.kind === 'adj' || L.kind === 'text') && t !== 'pick' && t !== 'ruler') { toast(L.kind === 'text' ? 'This is a text layer. Use the Text tool, or Layer > Text to pixels to paint on it.' : 'This is an adjustment layer. Paint on its mask from the Layers panel.'); return; }
     if (!L.vis && t !== 'pick') { toast('This layer is hidden'); return; }
     if (t === 'pick') { dwPick(p); return; }
     if (t === 'fill') { dwFill(p); return; }
@@ -419,7 +448,7 @@ function dwBindStage(stage) {
     st = dwStartStroke(t, p, e); st.snap = snap; sm = { x: p.x, y: p.y }; DW.stroking = true;
   });
   stage.addEventListener('pointermove', e => {
-    if (!pts.has(e.pointerId)) { if (e.pointerType === 'mouse' && PAINT[DW_PREF.tool]) { const p = dwPt(e); DW.cursor = { x: p.x, y: p.y, r: DW_PREF[PAINT[DW_PREF.tool].size] / 2 }; dwRender(); } return; }
+    if (!pts.has(e.pointerId)) { if (e.pointerType === 'mouse' && (PAINT[DW_PREF.tool] || (PH_H[DW_PREF.tool] && PH_H[DW_PREF.tool].brush))) { const p = dwPt(e); DW.cursor = { x: p.x, y: p.y, r: (PAINT[DW_PREF.tool] ? DW_PREF[PAINT[DW_PREF.tool].size] : DW_PREF.psize) / 2 }; dwRender(); } return; }
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch && pts.size === 2) {
       const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, r = stage.getBoundingClientRect();
@@ -428,6 +457,7 @@ function dwBindStage(stage) {
       DW.view = { z, x: mx - r.left - cx * z, y: my - r.top - cy * z, fit: false }; dwRender(); return;
     }
     if (rd) { dwRulerMove(rd, dwPt(e)); dwRender(); return; }
+    if (phSt) { const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : []; for (const ev of evs.length ? evs : [e]) phSt.move && phSt.move(dwPt(ev), ev); dwRender(); return; }
     if (!st) return;
     const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
     for (const ev of evs.length ? evs : [e]) {
@@ -443,6 +473,7 @@ function dwBindStage(stage) {
     pts.delete(e.pointerId);
     if (pinch) { if (pts.size < 2) pinch = null; return; }
     if (rd) { rd = null; DW.rulerDrag = 0; savePref(); return; }
+    if (phSt) { const s_ = phSt; phSt = null; s_.up && s_.up(); dwRender(); return; }
     if (st) { dwEndStroke(st); st = null; } DW.stroking = false;
   };
   stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
@@ -450,10 +481,11 @@ function dwBindStage(stage) {
   stage.addEventListener('wheel', e => { e.preventDefault(); const r = stage.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, z0 = DW.view.z, z = clamp(z0 * Math.exp(-e.deltaY * .0015), .05, 40); DW.view = { z, x: mx - (mx - DW.view.x) * z / z0, y: my - (my - DW.view.y) * z / z0, fit: false }; dwRender(); }, { passive: false });
 }
 function dwStartStroke(t, p, e) {
-  const L = DW.layers[DW.cur];
+  const L = dwTarget();
   const pk = PAINT[t], b = pk ? BRUSHES[DW_PREF[pk.key]] : BRUSHES[DW_PREF.brush];
   if (isPaint(t)) t = 'brush';
   const st = { t, L, b, size: pk ? DW_PREF[pk.size] : DW_PREF.size, color: t === 'eraser' ? '#000000ff' : DW_PREF.color, last: null, dist: 0, n: 0, rnd: tipRand(Date.now() & 0xffff), pen: e.pointerType === 'pen', p0: p, p1: p };
+  if (L.isMask && t !== 'move') { const [r_, g_, b_] = hexToRgba(DW_PREF.color); if (t === 'eraser' || (r_ + g_ + b_) / 3 < 128) st.t = 'eraser'; st.color = '#ffffffff'; }
   dwSnap(L);
   const sx = DW.stroke.getContext('2d'); sx.setTransform(1, 0, 0, 1, 0, 0); sx.globalCompositeOperation = 'source-over'; sx.globalAlpha = 1; sx.clearRect(0, 0, DW.w, DW.h);
   if (t === 'move') { st.copy = newLayerCanvas(DW.w, DW.h); st.copy.getContext('2d').drawImage(L.cv, 0, 0); return st; }
@@ -470,7 +502,7 @@ function dwLiveFor(st) {
     const x = tmp.getContext('2d'); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1; x.drawImage(L.cv, 0, 0);
     x.globalAlpha = DW_PREF.op / 100;
     x.globalCompositeOperation = st.t === 'eraser' ? 'destination-out' : L.lock ? 'source-atop' : 'source-over';
-    x.drawImage(gtmp ? grainStroke(DW.stroke, st.b.grain, gtmp) : DW.stroke, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+    x.drawImage(phClipSel(gtmp ? grainStroke(DW.stroke, st.b.grain, gtmp) : DW.stroke), 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
     return tmp;
   };
 }
@@ -516,14 +548,15 @@ function dwEndStroke(st) {
   else if (!st.direct) {
     x.save(); x.globalAlpha = DW_PREF.op / 100;
     x.globalCompositeOperation = st.t === 'eraser' ? 'destination-out' : L.lock ? 'source-atop' : 'source-over';
-    x.drawImage(st.b && st.b.grain && st.t !== 'line' && st.t !== 'shape' ? grainStroke(DW.stroke, st.b.grain, newLayerCanvas(DW.w, DW.h)) : DW.stroke, 0, 0); x.restore();
+    x.drawImage(phClipSel(st.b && st.b.grain && st.t !== 'line' && st.t !== 'shape' && st.t !== 'gradient' ? grainStroke(DW.stroke, st.b.grain, newLayerCanvas(DW.w, DW.h)) : DW.stroke), 0, 0); x.restore();
   }
+  dirty(L);
   DW.stroke.getContext('2d').clearRect(0, 0, DW.w, DW.h); DW.live = null; dwRender();
 }
 function dwCancelStroke(st) { DW.stroke.getContext('2d').clearRect(0, 0, DW.w, DW.h); DW.live = null; const s = DW.undo.pop(); if (s) { const x = s.L.cv.getContext('2d'); x.clearRect(0, 0, DW.w, DW.h); x.drawImage(s.c, 0, 0); } dwUndoUI(); dwRender(); }
 
 /* eyedropper: the color of all visible layers together */
-function dwComposite() { const c = newLayerCanvas(DW.w, DW.h), x = c.getContext('2d'); for (const L of DW.layers) { if (!L.vis) continue; x.globalAlpha = L.op / 100; x.globalCompositeOperation = L.blend; x.drawImage(L.cv, 0, 0); } return c; }
+function dwComposite() { return docFlat(); }
 function dwPick(p) {
   const X = Math.floor(p.x), Y = Math.floor(p.y); if (X < 0 || Y < 0 || X >= DW.w || Y >= DW.h) return;
   const c = dwComposite(); const d = c.getContext('2d').getImageData(X, Y, 1, 1).data;
@@ -535,7 +568,7 @@ function dwPick(p) {
 /* bucket: flood fill, or flood erase (makes the area see-through) */
 function dwFill(p) {
   const X = Math.floor(p.x), Y = Math.floor(p.y), W = DW.w, H = DW.h; if (X < 0 || Y < 0 || X >= W || Y >= H) return;
-  const L = DW.layers[DW.cur]; dwSnap(L);
+  const L = dwTarget(); dwSnap(L);
   const src = DW_PREF.sample === 'all' ? dwComposite() : L.cv;
   const sd = src.getContext('2d').getImageData(0, 0, W, H).data;
   const i0 = (Y * W + X) * 4, r0 = sd[i0], g0 = sd[i0 + 1], b0 = sd[i0 + 2], a0 = sd[i0 + 3], tol = DW_PREF.tol;
@@ -553,10 +586,13 @@ function dwFill(p) {
     }
   }
   for (let g = 0; g < DW_PREF.grow; g++) { const m2 = mask.slice(); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (mask[i]) continue; if ((x > 0 && mask[i - 1]) || (x < W - 1 && mask[i + 1]) || (y > 0 && mask[i - W]) || (y < H - 1 && mask[i + W])) m2[i] = 1; } mask.set(m2); }
+  if (DW.sel) { const sa = DW.sel.getContext('2d').getImageData(0, 0, W, H).data; for (let i = 0; i < W * H; i++) if (sa[i * 4 + 3] < 128) mask[i] = 0; }
+  let fillCol = DW_PREF.color, fmode = DW_PREF.fillMode;
+  if (L.isMask) { const [r_, g_, b_] = hexToRgba(fillCol); if ((r_ + g_ + b_) / 3 < 128) fmode = 'erase'; fillCol = '#ffffffff'; }
   const lx = L.cv.getContext('2d'), img = lx.getImageData(0, 0, W, H), d = img.data;
-  if (DW_PREF.fillMode === 'erase') { for (let i = 0; i < W * H; i++) if (mask[i]) d[i * 4 + 3] = 0; }
+  if (fmode === 'erase') { for (let i = 0; i < W * H; i++) if (mask[i]) d[i * 4 + 3] = 0; }
   else {
-    const [r, g, b, a] = hexToRgba(DW_PREF.color), al = a * DW_PREF.op / 100;
+    const [r, g, b, a] = hexToRgba(fillCol), al = a * DW_PREF.op / 100;
     for (let i = 0; i < W * H; i++) if (mask[i]) {
       const j = i * 4; if (L.lock && d[j + 3] === 0) continue;
       const da = d[j + 3] / 255, oa = al + da * (1 - al);
@@ -564,22 +600,27 @@ function dwFill(p) {
       d[j] = (r * al + d[j] * da * (1 - al)) / oa; d[j + 1] = (g * al + d[j + 1] * da * (1 - al)) / oa; d[j + 2] = (b * al + d[j + 2] * da * (1 - al)) / oa; d[j + 3] = (L.lock ? da : oa) * 255;
     }
   }
-  lx.putImageData(img, 0, 0); dwRender();
+  lx.putImageData(img, 0, 0); dirty(L); dwRender();
 }
 
 /* ---------- finish: save layers + flattened picture, put the drawing on the timeline ---------- */
 function canvasBlob(c) { return new Promise(res => c.toBlob(b => res(b), 'image/png')); }
 async function closeDraw(save) {
-  if (!save) { if (DW.undo.length && !(await confirmBox('Leave without saving this drawing?', 'Leave', 'Keep drawing'))) return; DW.on = false; DW.root.remove(); return; }
-  toast('Saving drawing…', 8000);
+  if (!save) { if (DW.undo.length && !(await confirmBox(DW.mode === 'photo' ? 'Leave without saving this photo?' : 'Leave without saving this drawing?', 'Leave', 'Keep editing'))) return; DW.on = false; DW.root.remove(); return; }
+  if (DW.tf) phTfApply();
+  toast('Saving…', 8000);
   const metas = [];
-  for (const L of DW.layers) { const m = await addMedia(await canvasBlob(L.cv), '~draw-layer.png'); metas.push({ id: L.id, name: L.name, vis: L.vis, op: L.op, blend: L.blend, lock: L.lock, media: m.id }); }
+  for (const L of DW.layers) {
+    const m = L.kind === 'adj' ? null : await addMedia(await canvasBlob(L.cv), '~draw-layer.png');
+    const mm = L.mask ? await addMedia(await canvasBlob(L.mask), '~draw-mask.png') : null;
+    metas.push({ id: L.id, name: L.name, vis: L.vis, op: L.op, blend: L.blend, lock: L.lock, media: m ? m.id : null, kind: L.kind, adj: L.adj, text: L.text, fx: L.fx, clip: L.clip, maskOff: L.maskOff, maskMedia: mm ? mm.id : null });
+  }
   const comp = await addMedia(await canvasBlob(dwComposite()), '~drawing.png');
   let c = DW.clip;
-  if (!c) { addMediaClip(comp, true, 1); c = allClips().find(x => x.media === comp.id); if (c) c.name = 'Drawing'; }
-  if (c) { c.media = comp.id; c.draw = { w: DW.w, h: DW.h, layers: metas }; }
+  if (!c) { addMediaClip(comp, true, 1); c = allClips().find(x => x.media === comp.id); if (c) c.name = DW.mode === 'photo' ? (DW.name || 'Photo') : 'Drawing'; }
+  if (c) { c.media = comp.id; c.draw = { w: DW.w, h: DW.h, layers: metas, mode: DW.mode }; }
   DW.on = false; DW.root.remove();
-  commit(); refreshAll(); toast('Drawing saved');
+  commit(); refreshAll(); toast(DW.mode === 'photo' ? 'Photo sent to Animate' : 'Drawing sent to Animate');
 }
 
 /* ---------- photo tools: one-tap fixes and looks for the current layer, with a strength slider and live preview ---------- */

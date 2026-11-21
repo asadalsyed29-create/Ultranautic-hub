@@ -276,7 +276,7 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
 }
 
 /* ---- draw workspace ---- */
-#dw{position:fixed;inset:0;z-index:600;background:var(--bg);display:grid;grid-template-rows:44px minmax(0,1fr) auto;grid-template-columns:minmax(0,1fr)}
+#dw{position:fixed;inset:0;z-index:600;background:var(--bg);display:grid;grid-template-rows:44px auto minmax(0,1fr) auto;grid-template-columns:minmax(0,1fr)}
 .dwtop{display:flex;align-items:center;gap:2px;padding:0 6px;background:var(--p1);border-bottom:1px solid var(--line);min-width:0;overflow:hidden}
 .lyb{color:var(--acc)}
 @media (max-width:520px){.dwtitle{display:none}.dwtools button{min-width:50px;font-size:10.5px}}
@@ -316,9 +316,11 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
 .lctl{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
 .lbtns{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
 @media (min-width:700px) and (orientation:landscape){
-  #dw{grid-template-columns:minmax(0,1fr) 290px;grid-template-rows:44px minmax(0,1fr)}
-  .dwtop{grid-column:1/3}
-  .dwbar{grid-row:2;grid-column:2;max-height:none;border-top:0;border-left:1px solid var(--line)}
+  #dw{grid-template-columns:minmax(0,1fr) 300px;grid-template-rows:44px auto minmax(0,1fr)}
+  .dwbar.ph .dwtools button{width:calc(100% / 7 - 1px);padding:7px 0}
+  .dwbar.ph .dwtools button span{display:none}
+  .dwtop,.dwmodes{grid-column:1/3}
+  .dwbar{grid-row:3;grid-column:2;max-height:none;border-top:0;border-left:1px solid var(--line)}
   .dwtools{flex-wrap:wrap}
   .dwtools button{min-width:0;width:calc(25% - 1px)}
   .dwtools .sp{display:none}
@@ -326,6 +328,42 @@ textarea.txt{height:76px;padding:6px 7px;resize:vertical;line-height:1.35}
 
 .gbtn .ctl{flex-wrap:wrap;gap:6px}
 .exppv{display:block;width:100%;height:auto;background:#000;margin-bottom:10px;border:1px solid var(--line)}
+
+/* photo editor */
+.dwmodes{display:flex;align-items:center;gap:8px;padding:4px 6px;background:var(--p1);border-bottom:1px solid var(--line);min-width:0;overflow-x:auto}
+.dwmodes>.seg{flex:none;width:auto}
+.dwmodes>.seg button{padding:0 10px;height:30px}
+.dwmodes>.seg button svg.i{width:16px;height:16px}
+.phmenus{display:flex;gap:1px;flex:none}
+.phm{height:30px;padding:0 10px;color:var(--tx);white-space:nowrap}
+.phm:hover{background:var(--p3)}
+.pop .phmenu,.phmenu{max-height:none}
+.pop:has(.phmenu){max-height:min(70vh,520px)}
+.phmenu .opt.dis{color:var(--dim);opacity:.5;cursor:default}
+.phmenu .msep{height:1px;background:var(--line);margin:3px 0}
+.phtitle{font-weight:600;margin:0 0 8px;font-size:13px}
+.lthumb.lmask{cursor:pointer;outline:1px solid var(--line2);background:#000}
+.lthumb.lmask.on{outline:2px solid var(--acc)}
+.lrow.lclip{margin-left:18px}
+.hist,.curves{display:block;width:100%;max-width:300px;background:#1b1d22;border:1px solid var(--line);margin:0 0 8px}
+.curves{aspect-ratio:1;height:auto;touch-action:none;margin-top:6px}
+.curvesw{margin-bottom:8px}
+.curvesw .seg{max-width:300px}
+.anchor{display:grid;grid-template-columns:repeat(3,28px);gap:3px}
+.anchor button{width:28px;height:28px;border:1px solid var(--line2);background:var(--p3)}
+.anchor button.on{background:var(--acc);border-color:var(--acc)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.ebigs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-bottom:10px}
+.ebig{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:10px;background:var(--p2);border:1px solid var(--line);text-align:left}
+.ebig:hover{border-color:var(--line2)}
+.ebig svg.i{width:22px;height:22px;color:var(--acc)}
+.ebig small{color:var(--dim);font-size:11px}
+.edsw{flex:none;width:auto;margin-right:6px}
+.edsw button{padding:0 10px;height:28px}
+.phta{width:100%;min-height:64px;resize:vertical;margin-bottom:8px;font-size:14px}
+.phmaskon{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--acc)}
+@media (max-width:520px){.edsw button{padding:0 7px;font-size:11.5px}}
+.brow{display:flex;gap:6px;flex-wrap:wrap}
 </style></head><body>
 <div id="app">
   <header id="top">
@@ -3419,7 +3457,7 @@ function rotationRows(c) {
 function insClip(b, c) {
   // keyframes and the motion between them live in this same tab, at the top
   const ks = h('div', { id: 'keysec', class: 'grp' }, h('h4', null, 'Keyframes')); insKeys(ks, c); b.append(ks);
-  if (c.type === 'image') b.append(row('Draw', h('button', { class: 'btn sm', html: icon('dbrush') + (c.draw ? ' Edit drawing' : ' Draw on this picture'), onclick: () => openDraw(c) })));
+  if (c.type === 'image') b.append(row('Edit', h('div', { class: 'brow' }, h('button', { class: 'btn sm', html: icon('dbrush') + ' Draw', onclick: () => openDraw(c, { mode: 'draw' }) }), h('button', { class: 'btn sm', html: icon('image') + ' Photo', onclick: () => openDraw(c, { mode: 'photo' }) }))));
   b.append(h('div', { class: 'grp' }, h('h4', null, 'Transform')), propRow(c, 'x'), propRow(c, 'y'), propRow(c, 'scale'), ...rotationRows(c), propRow(c, 'opacity'));
   b.append(row('', h('button', { class: 'btn sm', onclick: () => { setProp(c, 'x', P.w / 2); setProp(c, 'y', P.h / 2); chg(true); refreshInspectorValues(); } }, 'Center'), h('button', { class: 'btn sm', onclick: () => { setProp(c, 'scale', 1); setProp(c, 'rot', 0); chg(true); refreshInspectorValues(); } }, 'Reset size and turn')));
   b.append(row('Flip', h('button', { class: 'btn sm' + (c.flipH ? ' pri' : ''), html: icon('flipH') + ' Mirror', onclick: () => { c.flipH = !c.flipH; chg(true); renderInspector(); } }), h('button', { class: 'btn sm' + (c.flipV ? ' pri' : ''), html: icon('flipV') + ' Upside down', onclick: () => { c.flipV = !c.flipV; chg(true); renderInspector(); } })));
@@ -4194,7 +4232,7 @@ async function prepFrameFast(t, decs) {
   if (slow.length) await prepFrame(t);
 }
 
-const APP_VER = 27;
+const APP_VER = 28;
 /* ================= wiring ================= */
 let zoomSlider = null, EXPORTING = false;
 function refreshAll() {
@@ -4486,13 +4524,27 @@ function newLayerCanvas(w, hh) { const c = document.createElement('canvas'); c.w
 function dwLayer(name) { return { id: uid(), name, vis: true, op: 100, blend: 'source-over', lock: false, cv: newLayerCanvas(DW.w, DW.h) }; }
 
 /* open the editor for a clip (existing drawing or a picture to draw on), or for a new drawing when c is null */
-async function openDraw(c) {
+async function openDraw(c, opts = {}) {
   if (PLAY.on) pause();
   let w = P.w, hh = P.h, layers = [];
   DW.clip = c; DW.isNew = !c;
-  if (c && c.draw) {
+  DW.mode = opts.mode || (c && c.draw && c.draw.mode) || 'draw';
+  DW.sel = null; DW.tf = null; DW.crop = null; DW.panel = null; DW.editMask = false; DW.adjCache = {}; DW.ants = null; DW.name = opts.name || '';
+  if (opts.src) {
+    w = opts.w || opts.src.width; hh = opts.h || opts.src.height; DW.w = w; DW.h = hh;
+    if (opts.layers) layers = opts.layers;
+    else { const bg = dwLayer('Background'); bg.cv.getContext('2d').drawImage(opts.src, 0, 0, w, hh); layers.push(bg); }
+  } else if (opts.blank) {
+    w = opts.w; hh = opts.h; DW.w = w; DW.h = hh; const bg = dwLayer('Background');
+    if (opts.fill) { const x = bg.cv.getContext('2d'); x.fillStyle = css(opts.fill); x.fillRect(0, 0, w, hh); }
+    layers.push(bg);
+  } else if (c && c.draw) {
     w = c.draw.w; hh = c.draw.h; DW.w = w; DW.h = hh;
-    for (const L of c.draw.layers) { const l = { ...L, cv: newLayerCanvas(w, hh) }; const m = MEDIA[L.media]; if (m && m.el) l.cv.getContext('2d').drawImage(m.el, 0, 0, w, hh); layers.push(l); }
+    for (const L of c.draw.layers) {
+      const l = { ...L, cv: newLayerCanvas(w, hh) }; delete l.maskMedia; const m = MEDIA[L.media]; if (m && m.el) l.cv.getContext('2d').drawImage(m.el, 0, 0, w, hh);
+      if (L.maskMedia) { l.mask = newLayerCanvas(w, hh); const mm = MEDIA[L.maskMedia]; if (mm && mm.el) l.mask.getContext('2d').drawImage(mm.el, 0, 0, w, hh); }
+      layers.push(l);
+    }
   } else if (c) {
     const m = MEDIA[c.media]; if (!m || !m.el) { toast('This picture is still loading'); return; }
     w = m.w; hh = m.h; DW.w = w; DW.h = hh;
@@ -4501,11 +4553,13 @@ async function openDraw(c) {
   DW.layers = layers; DW.cur = layers.length - 1; DW.undo = []; DW.redo = [];
   DW.stroke = newLayerCanvas(w, hh); DW.view = { z: 1, x: 0, y: 0, fit: true };
   DW.ref = null;
-  if (!c || (c && c.draw && c.draw.w === P.w && c.draw.h === P.h)) { // the video frame behind, as a guide
+  if (!opts.src && !opts.blank && (!c || (c && c.draw && c.draw.w === P.w && c.draw.h === P.h))) { // the video frame behind, as a guide
     DW.ref = newLayerCanvas(P.w, P.h); if (c) c._hide = true; try { renderFrame(DW.ref.getContext('2d'), T, P.w, P.h); } catch (e) { } if (c) delete c._hide;
   }
   if (DW_PREF.size == null) DW_PREF.size = BRUSHES[DW_PREF.brush].sz;
-  buildDrawUI(); DW.on = true; dwFit(); dwRender();
+  for (const L of DW.layers) if (L.kind === 'text') phRenderText(L);
+  phToolFor(DW.mode);
+  buildDrawUI(); DW.on = true; dwFit(); dwRender(); phAntsTimer();
 }
 
 /* ---------- UI ---------- */
@@ -4514,30 +4568,34 @@ function buildDrawUI() {
   const root = h('div', { id: 'dw' });
   const top = h('div', { class: 'dwtop' },
     h('button', { class: 'tb', onclick: () => closeDraw(false), html: icon('close') }, 'Cancel'),
-    h('div', { class: 'dwtitle' }, DW.clip && DW.clip.draw ? 'Edit drawing' : DW.clip ? 'Draw on picture' : 'New drawing'),
+    h('div', { class: 'dwtitle' }, DW.mode === 'photo' ? (DW.name || 'Photo') : DW.clip && DW.clip.draw ? 'Edit drawing' : DW.clip ? 'Draw on picture' : 'New drawing'),
     h('button', { class: 'tb', id: 'dwUndo', title: 'Undo', html: icon('undo'), onclick: dwUndo }),
     h('button', { class: 'tb', id: 'dwRedo', title: 'Redo', html: icon('redo'), onclick: dwRedo }),
     DW.ref ? h('button', { class: 'tb' + (DW_PREF.ref ? ' on' : ''), id: 'dwRef', title: 'Show the video behind', html: icon('video'), onclick: e => { DW_PREF.ref = !DW_PREF.ref; e.currentTarget.classList.toggle('on', DW_PREF.ref); savePref(); dwRender(); } }) : '',
-    h('button', { class: 'tb lyb', title: 'Layers', html: icon('layers'), onclick: dwLayersSheet }, h('span', { class: 'hide-m' }, 'Layers')),
+    h('button', { class: 'tb lyb', title: 'Layers', html: icon('layers'), onclick: phLayersSheet }, h('span', { class: 'hide-m' }, 'Layers')),
     h('button', { class: 'tb', title: 'Fit to screen', html: icon('fit'), onclick: () => { DW.view.fit = true; dwFit(); dwRender(); } }),
     h('div', { class: 'sp' }),
     h('button', { class: 'btn pri', onclick: () => closeDraw(true) }, 'Done'));
   const stage = h('div', { class: 'dwstage' }); const cv = h('canvas', { class: 'dwview' }); stage.append(cv);
   const tools = h('div', { class: 'dwtools' });
-  for (const [id, n, ic] of DW_TOOLS) tools.append(h('button', { 'data-t': id, title: n, html: icon(ic), onclick: () => { DW_PREF.tool = id; savePref(); dwToolUI(); } }, n));
+  for (const [id, n, ic] of (DW.mode === 'photo' ? PH_TOOLS : DW_TOOLS)) tools.append(h('button', { 'data-t': id, title: n, html: icon(ic), onclick: () => { DW_PREF.tool = id; savePref(); dwToolUI(); } }, h('span', null, n)));
   const opts = h('div', { class: 'dwopts' });
-  root.append(top, stage, h('div', { class: 'dwbar' }, tools, opts));
+  root.append(top, phModeRow(), stage, h('div', { class: 'dwbar' + (DW.mode === 'photo' ? ' ph' : '') }, tools, opts));
   document.body.append(root);
   DW.root = root; DW.cv = cv; DW.x = cv.getContext('2d'); DW.stageEl = stage; DW.opts = opts;
   new ResizeObserver(() => { if (DW.on) { if (DW.view.fit) dwFit(); dwRender(); } }).observe(stage);
   dwBindStage(stage); dwToolUI(); dwUndoUI();
 }
 function dwToolUI() {
-  for (const b of $$('.dwtools [data-t]', DW.root)) b.classList.toggle('on', b.dataset.t === DW_PREF.tool);
+  if (DW.tf && DW_PREF.tool !== 'tf') phTfApply();
+  if (DW.crop && DW_PREF.tool !== 'crop') { DW.crop = null; dwRender(); }
+  if (DW.panel) { for (const b of $$('.dwtools [data-t]', DW.root)) b.classList.remove('on'); DW.opts.innerHTML = ''; DW.opts.append(h('div', { class: 'phtitle' }, DW.panel.title)); DW.panel.build(DW.opts); return; }
+  for (const b of $$('.dwtools [data-t]', DW.root)) { b.classList.toggle('on', b.dataset.t === DW_PREF.tool); if (b.dataset.t === DW_PREF.tool) { const r = b.parentNode; if (r.scrollWidth > r.clientWidth) r.scrollLeft = b.offsetLeft - r.clientWidth / 2 + b.offsetWidth / 2; } }
   if (isPaint(DW_PREF.tool)) DW.lastPaint = DW_PREF.tool;
-  if (DW_PREF.tool !== 'photo' && DW.live && !DW.stroking) { DW.live = null; dwRender(); }
+  if (DW_PREF.tool !== 'photo' && DW.live && !DW.stroking && !DW.tf) { DW.live = null; dwRender(); }
   const o = DW.opts; o.innerHTML = '';
   const t = DW_PREF.tool;
+  if (DW.mode === 'photo') { const d_ = PH_TOOLS.find(z => z[0] === t); if (d_) o.append(h('div', { class: 'phtitle' }, d_[1])); }
   const colorRow = () => { const cb = colorBtn({ value: DW_PREF.color, onInput: v => { DW_PREF.color = v; savePref(); } }); DW.colorBtn = cb; return h('div', { class: 'dwo' }, h('label', null, 'Color'), cb); };
   const sizeRow = (key, max) => { const r = rangeRow('Size', { min: 1, max: max || 500, step: 1, value: DW_PREF[key], suf: 'px', onInput: v => { DW_PREF[key] = v; savePref(); } }); return r; };
   if (isPaint(t) || t === 'eraser') {
@@ -4575,6 +4633,8 @@ function dwToolUI() {
     o.append(h('div', { class: 'hint' }, 'Drag the ruler to move it. Drag its round handles to turn it, stretch it or change the circle size. Then pick a brush: strokes that start near the ruler follow it exactly.'));
   } else if (t === 'photo') photoUI(o);
   else if (t === 'move') o.append(h('div', { class: 'hint' }, 'Drag to move everything on the current layer.'));
+  else if (PH_H[t] && PH_H[t].ui) PH_H[t].ui(o);
+  if (DW.editMask && DW.layers[DW.cur].mask) o.prepend(h('div', { class: 'hint phmaskon' }, 'Painting on the layer mask: black hides, white shows. ', h('button', { class: 'btn sm', onclick: () => { DW.editMask = false; dwToolUI(); dwRender(); } }, 'Back to the layer')));
 }
 function brushPreview(cv, b, color) {
   const x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height);
@@ -4666,21 +4726,24 @@ function dwDraw() {
   x.imageSmoothingEnabled = v.z < 2;
   x.fillStyle = dwChecker(); x.save(); x.scale(1 / v.z, 1 / v.z); x.fillRect(0, 0, DW.w * v.z, DW.h * v.z); x.restore();
   if (DW.ref && DW_PREF.ref) { x.globalAlpha = .55; x.drawImage(DW.ref, 0, 0, DW.w, DW.h); x.globalAlpha = 1; }
-  DW.layers.forEach((L, i) => {
-    if (!L.vis) return;
-    let src = L.cv;
-    if (i === DW.cur && DW.live) src = DW.live(L);
-    x.globalAlpha = L.op / 100; x.globalCompositeOperation = L.blend; x.drawImage(src, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
-  });
+  x.drawImage(docRender(true), 0, 0);
   x.setTransform(1, 0, 0, 1, 0, 0); x.strokeStyle = '#383a41'; x.lineWidth = 1; x.strokeRect(d * v.x - .5, d * v.y - .5, DW.w * v.z * d + 1, DW.h * v.z * d + 1);
-  if (DW_PREF.ruler !== 'off') dwDrawRuler(x, d, v);
+  if (DW_PREF.ruler !== 'off' && DW.mode !== 'photo') dwDrawRuler(x, d, v);
+  phOverlay(x, d, v);
   if (DW.cursor) { const c = DW.cursor; x.strokeStyle = 'rgba(255,255,255,.8)'; x.beginPath(); x.arc(d * (v.x + c.x * v.z), d * (v.y + c.y * v.z), Math.max(2, c.r * v.z * d), 0, 7); x.stroke(); x.strokeStyle = 'rgba(0,0,0,.6)'; x.beginPath(); x.arc(d * (v.x + c.x * v.z), d * (v.y + c.y * v.z), Math.max(2, c.r * v.z * d) + 1, 0, 7); x.stroke(); }
 }
 function dwPt(e) { const r = DW.stageEl.getBoundingClientRect(); return { x: (e.clientX - r.left - DW.view.x) / DW.view.z, y: (e.clientY - r.top - DW.view.y) / DW.view.z }; }
 
 /* ---------- undo (per layer snapshots) ---------- */
-function dwSnap(L) { const c = newLayerCanvas(DW.w, DW.h); c.getContext('2d').drawImage(L.cv, 0, 0); DW.undo.push({ L, c }); if (DW.undo.length > 30) DW.undo.shift(); DW.redo = []; dwUndoUI(); }
-function dwSwap(from, to) { const s = from.pop(); if (!s) return; if (!DW.layers.includes(s.L)) { dwUndoUI(); return; } const c = newLayerCanvas(DW.w, DW.h); c.getContext('2d').drawImage(s.L.cv, 0, 0); to.push({ L: s.L, c }); const x = s.L.cv.getContext('2d'); x.clearRect(0, 0, DW.w, DW.h); x.drawImage(s.c, 0, 0); dwUndoUI(); dwRender(); }
+function dwSnap(L) { const c = newLayerCanvas(DW.w, DW.h); c.getContext('2d').drawImage(L.cv, 0, 0); DW.undo.push({ L, c }); phUndoTrim(); DW.redo = []; dirty(L); dwUndoUI(); }
+function dwSwap(from, to) {
+  const s = from.pop(); if (!s) return;
+  if (s.doc) { to.push({ doc: phDocState() }); phDocRestore(s.doc); dwUndoUI(); dwRender(); return; }
+  const own = s.L.owner || s.L;
+  if (!DW.layers.includes(own) || s.L.cv.width !== s.c.width || s.L.cv.height !== s.c.height || (s.L.owner && s.L.cv !== own.mask)) { dwUndoUI(); return; }
+  const c = newLayerCanvas(DW.w, DW.h); c.getContext('2d').drawImage(s.L.cv, 0, 0); to.push({ L: s.L, c }); const x = s.L.cv.getContext('2d'); x.clearRect(0, 0, DW.w, DW.h); x.drawImage(s.c, 0, 0); dirty(s.L);
+  dwUndoUI(); dwRender();
+}
 function dwUndo() { dwSwap(DW.undo, DW.redo); }
 function dwRedo() { dwSwap(DW.redo, DW.undo); }
 function dwUndoUI() { const u = $('#dwUndo'), r = $('#dwRedo'); if (u) u.disabled = !DW.undo.length; if (r) r.disabled = !DW.redo.length; }
@@ -4740,16 +4803,20 @@ function smudgeAt(x, st, px, py, size) {
   }
 }
 function dwBindStage(stage) {
-  const pts = new Map(); let st = null, pinch = null, sm = null, rd = null;
+  const pts = new Map(); let st = null, pinch = null, sm = null, rd = null, phSt = null;
   stage.addEventListener('pointerdown', e => {
     e.preventDefault(); stage.setPointerCapture(e.pointerId);
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pts.size === 2) { // second finger: cancel the stroke and pan / zoom instead
       if (st) { dwCancelStroke(st); st = null; }
+      if (phSt) { phSt.cancel ? phSt.cancel() : phSt.up && phSt.up(); phSt = null; }
       const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, z: DW.view.z, vx: DW.view.x, vy: DW.view.y }; return;
     }
     if (pts.size > 2) return;
     const p = dwPt(e), L = DW.layers[DW.cur], t = DW_PREF.tool;
+    if (DW.panel && DW.panel.tap) { DW.panel.tap(p); return; }
+    if (PH_H[t]) { phSt = PH_H[t].down(p, e) || null; dwRender(); return; }
+    if (!DW.editMask && (L.kind === 'adj' || L.kind === 'text') && t !== 'pick' && t !== 'ruler') { toast(L.kind === 'text' ? 'This is a text layer. Use the Text tool, or Layer > Text to pixels to paint on it.' : 'This is an adjustment layer. Paint on its mask from the Layers panel.'); return; }
     if (!L.vis && t !== 'pick') { toast('This layer is hidden'); return; }
     if (t === 'pick') { dwPick(p); return; }
     if (t === 'fill') { dwFill(p); return; }
@@ -4760,7 +4827,7 @@ function dwBindStage(stage) {
     st = dwStartStroke(t, p, e); st.snap = snap; sm = { x: p.x, y: p.y }; DW.stroking = true;
   });
   stage.addEventListener('pointermove', e => {
-    if (!pts.has(e.pointerId)) { if (e.pointerType === 'mouse' && PAINT[DW_PREF.tool]) { const p = dwPt(e); DW.cursor = { x: p.x, y: p.y, r: DW_PREF[PAINT[DW_PREF.tool].size] / 2 }; dwRender(); } return; }
+    if (!pts.has(e.pointerId)) { if (e.pointerType === 'mouse' && (PAINT[DW_PREF.tool] || (PH_H[DW_PREF.tool] && PH_H[DW_PREF.tool].brush))) { const p = dwPt(e); DW.cursor = { x: p.x, y: p.y, r: (PAINT[DW_PREF.tool] ? DW_PREF[PAINT[DW_PREF.tool].size] : DW_PREF.psize) / 2 }; dwRender(); } return; }
     pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch && pts.size === 2) {
       const [a, b] = [...pts.values()], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, r = stage.getBoundingClientRect();
@@ -4769,6 +4836,7 @@ function dwBindStage(stage) {
       DW.view = { z, x: mx - r.left - cx * z, y: my - r.top - cy * z, fit: false }; dwRender(); return;
     }
     if (rd) { dwRulerMove(rd, dwPt(e)); dwRender(); return; }
+    if (phSt) { const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : []; for (const ev of evs.length ? evs : [e]) phSt.move && phSt.move(dwPt(ev), ev); dwRender(); return; }
     if (!st) return;
     const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
     for (const ev of evs.length ? evs : [e]) {
@@ -4784,6 +4852,7 @@ function dwBindStage(stage) {
     pts.delete(e.pointerId);
     if (pinch) { if (pts.size < 2) pinch = null; return; }
     if (rd) { rd = null; DW.rulerDrag = 0; savePref(); return; }
+    if (phSt) { const s_ = phSt; phSt = null; s_.up && s_.up(); dwRender(); return; }
     if (st) { dwEndStroke(st); st = null; } DW.stroking = false;
   };
   stage.addEventListener('pointerup', up); stage.addEventListener('pointercancel', up);
@@ -4791,10 +4860,11 @@ function dwBindStage(stage) {
   stage.addEventListener('wheel', e => { e.preventDefault(); const r = stage.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, z0 = DW.view.z, z = clamp(z0 * Math.exp(-e.deltaY * .0015), .05, 40); DW.view = { z, x: mx - (mx - DW.view.x) * z / z0, y: my - (my - DW.view.y) * z / z0, fit: false }; dwRender(); }, { passive: false });
 }
 function dwStartStroke(t, p, e) {
-  const L = DW.layers[DW.cur];
+  const L = dwTarget();
   const pk = PAINT[t], b = pk ? BRUSHES[DW_PREF[pk.key]] : BRUSHES[DW_PREF.brush];
   if (isPaint(t)) t = 'brush';
   const st = { t, L, b, size: pk ? DW_PREF[pk.size] : DW_PREF.size, color: t === 'eraser' ? '#000000ff' : DW_PREF.color, last: null, dist: 0, n: 0, rnd: tipRand(Date.now() & 0xffff), pen: e.pointerType === 'pen', p0: p, p1: p };
+  if (L.isMask && t !== 'move') { const [r_, g_, b_] = hexToRgba(DW_PREF.color); if (t === 'eraser' || (r_ + g_ + b_) / 3 < 128) st.t = 'eraser'; st.color = '#ffffffff'; }
   dwSnap(L);
   const sx = DW.stroke.getContext('2d'); sx.setTransform(1, 0, 0, 1, 0, 0); sx.globalCompositeOperation = 'source-over'; sx.globalAlpha = 1; sx.clearRect(0, 0, DW.w, DW.h);
   if (t === 'move') { st.copy = newLayerCanvas(DW.w, DW.h); st.copy.getContext('2d').drawImage(L.cv, 0, 0); return st; }
@@ -4811,7 +4881,7 @@ function dwLiveFor(st) {
     const x = tmp.getContext('2d'); x.globalCompositeOperation = 'copy'; x.globalAlpha = 1; x.drawImage(L.cv, 0, 0);
     x.globalAlpha = DW_PREF.op / 100;
     x.globalCompositeOperation = st.t === 'eraser' ? 'destination-out' : L.lock ? 'source-atop' : 'source-over';
-    x.drawImage(gtmp ? grainStroke(DW.stroke, st.b.grain, gtmp) : DW.stroke, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+    x.drawImage(phClipSel(gtmp ? grainStroke(DW.stroke, st.b.grain, gtmp) : DW.stroke), 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
     return tmp;
   };
 }
@@ -4857,14 +4927,15 @@ function dwEndStroke(st) {
   else if (!st.direct) {
     x.save(); x.globalAlpha = DW_PREF.op / 100;
     x.globalCompositeOperation = st.t === 'eraser' ? 'destination-out' : L.lock ? 'source-atop' : 'source-over';
-    x.drawImage(st.b && st.b.grain && st.t !== 'line' && st.t !== 'shape' ? grainStroke(DW.stroke, st.b.grain, newLayerCanvas(DW.w, DW.h)) : DW.stroke, 0, 0); x.restore();
+    x.drawImage(phClipSel(st.b && st.b.grain && st.t !== 'line' && st.t !== 'shape' && st.t !== 'gradient' ? grainStroke(DW.stroke, st.b.grain, newLayerCanvas(DW.w, DW.h)) : DW.stroke), 0, 0); x.restore();
   }
+  dirty(L);
   DW.stroke.getContext('2d').clearRect(0, 0, DW.w, DW.h); DW.live = null; dwRender();
 }
 function dwCancelStroke(st) { DW.stroke.getContext('2d').clearRect(0, 0, DW.w, DW.h); DW.live = null; const s = DW.undo.pop(); if (s) { const x = s.L.cv.getContext('2d'); x.clearRect(0, 0, DW.w, DW.h); x.drawImage(s.c, 0, 0); } dwUndoUI(); dwRender(); }
 
 /* eyedropper: the color of all visible layers together */
-function dwComposite() { const c = newLayerCanvas(DW.w, DW.h), x = c.getContext('2d'); for (const L of DW.layers) { if (!L.vis) continue; x.globalAlpha = L.op / 100; x.globalCompositeOperation = L.blend; x.drawImage(L.cv, 0, 0); } return c; }
+function dwComposite() { return docFlat(); }
 function dwPick(p) {
   const X = Math.floor(p.x), Y = Math.floor(p.y); if (X < 0 || Y < 0 || X >= DW.w || Y >= DW.h) return;
   const c = dwComposite(); const d = c.getContext('2d').getImageData(X, Y, 1, 1).data;
@@ -4876,7 +4947,7 @@ function dwPick(p) {
 /* bucket: flood fill, or flood erase (makes the area see-through) */
 function dwFill(p) {
   const X = Math.floor(p.x), Y = Math.floor(p.y), W = DW.w, H = DW.h; if (X < 0 || Y < 0 || X >= W || Y >= H) return;
-  const L = DW.layers[DW.cur]; dwSnap(L);
+  const L = dwTarget(); dwSnap(L);
   const src = DW_PREF.sample === 'all' ? dwComposite() : L.cv;
   const sd = src.getContext('2d').getImageData(0, 0, W, H).data;
   const i0 = (Y * W + X) * 4, r0 = sd[i0], g0 = sd[i0 + 1], b0 = sd[i0 + 2], a0 = sd[i0 + 3], tol = DW_PREF.tol;
@@ -4894,10 +4965,13 @@ function dwFill(p) {
     }
   }
   for (let g = 0; g < DW_PREF.grow; g++) { const m2 = mask.slice(); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (mask[i]) continue; if ((x > 0 && mask[i - 1]) || (x < W - 1 && mask[i + 1]) || (y > 0 && mask[i - W]) || (y < H - 1 && mask[i + W])) m2[i] = 1; } mask.set(m2); }
+  if (DW.sel) { const sa = DW.sel.getContext('2d').getImageData(0, 0, W, H).data; for (let i = 0; i < W * H; i++) if (sa[i * 4 + 3] < 128) mask[i] = 0; }
+  let fillCol = DW_PREF.color, fmode = DW_PREF.fillMode;
+  if (L.isMask) { const [r_, g_, b_] = hexToRgba(fillCol); if ((r_ + g_ + b_) / 3 < 128) fmode = 'erase'; fillCol = '#ffffffff'; }
   const lx = L.cv.getContext('2d'), img = lx.getImageData(0, 0, W, H), d = img.data;
-  if (DW_PREF.fillMode === 'erase') { for (let i = 0; i < W * H; i++) if (mask[i]) d[i * 4 + 3] = 0; }
+  if (fmode === 'erase') { for (let i = 0; i < W * H; i++) if (mask[i]) d[i * 4 + 3] = 0; }
   else {
-    const [r, g, b, a] = hexToRgba(DW_PREF.color), al = a * DW_PREF.op / 100;
+    const [r, g, b, a] = hexToRgba(fillCol), al = a * DW_PREF.op / 100;
     for (let i = 0; i < W * H; i++) if (mask[i]) {
       const j = i * 4; if (L.lock && d[j + 3] === 0) continue;
       const da = d[j + 3] / 255, oa = al + da * (1 - al);
@@ -4905,22 +4979,27 @@ function dwFill(p) {
       d[j] = (r * al + d[j] * da * (1 - al)) / oa; d[j + 1] = (g * al + d[j + 1] * da * (1 - al)) / oa; d[j + 2] = (b * al + d[j + 2] * da * (1 - al)) / oa; d[j + 3] = (L.lock ? da : oa) * 255;
     }
   }
-  lx.putImageData(img, 0, 0); dwRender();
+  lx.putImageData(img, 0, 0); dirty(L); dwRender();
 }
 
 /* ---------- finish: save layers + flattened picture, put the drawing on the timeline ---------- */
 function canvasBlob(c) { return new Promise(res => c.toBlob(b => res(b), 'image/png')); }
 async function closeDraw(save) {
-  if (!save) { if (DW.undo.length && !(await confirmBox('Leave without saving this drawing?', 'Leave', 'Keep drawing'))) return; DW.on = false; DW.root.remove(); return; }
-  toast('Saving drawing…', 8000);
+  if (!save) { if (DW.undo.length && !(await confirmBox(DW.mode === 'photo' ? 'Leave without saving this photo?' : 'Leave without saving this drawing?', 'Leave', 'Keep editing'))) return; DW.on = false; DW.root.remove(); return; }
+  if (DW.tf) phTfApply();
+  toast('Saving…', 8000);
   const metas = [];
-  for (const L of DW.layers) { const m = await addMedia(await canvasBlob(L.cv), '~draw-layer.png'); metas.push({ id: L.id, name: L.name, vis: L.vis, op: L.op, blend: L.blend, lock: L.lock, media: m.id }); }
+  for (const L of DW.layers) {
+    const m = L.kind === 'adj' ? null : await addMedia(await canvasBlob(L.cv), '~draw-layer.png');
+    const mm = L.mask ? await addMedia(await canvasBlob(L.mask), '~draw-mask.png') : null;
+    metas.push({ id: L.id, name: L.name, vis: L.vis, op: L.op, blend: L.blend, lock: L.lock, media: m ? m.id : null, kind: L.kind, adj: L.adj, text: L.text, fx: L.fx, clip: L.clip, maskOff: L.maskOff, maskMedia: mm ? mm.id : null });
+  }
   const comp = await addMedia(await canvasBlob(dwComposite()), '~drawing.png');
   let c = DW.clip;
-  if (!c) { addMediaClip(comp, true, 1); c = allClips().find(x => x.media === comp.id); if (c) c.name = 'Drawing'; }
-  if (c) { c.media = comp.id; c.draw = { w: DW.w, h: DW.h, layers: metas }; }
+  if (!c) { addMediaClip(comp, true, 1); c = allClips().find(x => x.media === comp.id); if (c) c.name = DW.mode === 'photo' ? (DW.name || 'Photo') : 'Drawing'; }
+  if (c) { c.media = comp.id; c.draw = { w: DW.w, h: DW.h, layers: metas, mode: DW.mode }; }
   DW.on = false; DW.root.remove();
-  commit(); refreshAll(); toast('Drawing saved');
+  commit(); refreshAll(); toast(DW.mode === 'photo' ? 'Photo sent to Animate' : 'Drawing sent to Animate');
 }
 
 /* ---------- photo tools: one-tap fixes and looks for the current layer, with a strength slider and live preview ---------- */
@@ -5027,5 +5106,1483 @@ function dwDrawRuler(x, d, v) {
   x.restore();
   if (active) for (const [, q] of dwRulerHandles()) { const [hx, hy] = S_(q); x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = '#fff'; x.strokeStyle = '#0e0f11'; x.lineWidth = 2 * d; x.beginPath(); x.arc(hx, hy, 10 * d, 0, 7); x.fill(); x.stroke(); x.restore(); }
 }
+
+/* ================= Photo editor: a second workspace on the same layered picture as Draw =================
+   Layers can be pixels, text or adjustments, each with an optional mask, styles and clipping.
+   Draw and Photo share one document, so work moves between them (and to Animate) without copying. */
+
+const dirty = L => { if (!L) return; const o = L.owner || L; o.ver = (o.ver || 0) + 1; };
+function dwTarget() {
+  const L = DW.layers[DW.cur];
+  if (DW.editMask && L.mask) { const p = L._mp || (L._mp = { isMask: true, owner: L, vis: true, op: 100, blend: 'source-over', lock: false }); p.cv = L.mask; p.name = L.name + ' mask'; return p; }
+  return L;
+}
+function ctxReset(x) { x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; x.filter = 'none'; x.shadowColor = 'transparent'; x.shadowBlur = 0; x.shadowOffsetX = x.shadowOffsetY = 0; x.imageSmoothingEnabled = true; return x; }
+// scratch canvases, reused by name
+function tmpCv(k, w = DW.w, hh = DW.h) {
+  const T_ = DW._t || (DW._t = {}); let c = T_[k];
+  if (!c) c = T_[k] = newLayerCanvas(w, hh);
+  if (c.width !== w || c.height !== hh) { c.width = w; c.height = hh; }
+  const x = ctxReset(c.getContext('2d')); x.clearRect(0, 0, w, hh); return c;
+}
+function copyCv(c) { const n = newLayerCanvas(c.width, c.height); n.getContext('2d').drawImage(c, 0, 0); return n; }
+function phClipSel(c) {
+  if (!DW.sel) return c;
+  const t = tmpCv('selclip'), x = t.getContext('2d'); x.drawImage(c, 0, 0); x.globalCompositeOperation = 'destination-in'; x.drawImage(DW.sel, 0, 0); x.globalCompositeOperation = 'source-over'; return t;
+}
+// orig outside the selection, changed inside it (exact, premultiplied add)
+function phMix(orig, changed, sel, into) {
+  sel = sel === undefined ? DW.sel : sel;
+  const out = into || newLayerCanvas(orig.width, orig.height), x = ctxReset(out.getContext('2d'));
+  if (!sel) { x.clearRect(0, 0, out.width, out.height); x.drawImage(changed, 0, 0, out.width, out.height); return out; }
+  const a = tmpCv('mixA', out.width, out.height), ax = a.getContext('2d'); ax.drawImage(changed, 0, 0, out.width, out.height); ax.globalCompositeOperation = 'destination-in'; ax.drawImage(sel, 0, 0);
+  x.clearRect(0, 0, out.width, out.height); x.drawImage(orig, 0, 0); x.globalCompositeOperation = 'destination-out'; x.drawImage(sel, 0, 0);
+  x.globalCompositeOperation = 'lighter'; x.drawImage(a, 0, 0); x.globalCompositeOperation = 'source-over';
+  return out;
+}
+
+/* ---------- layer styles ---------- */
+const FX_DEF = {
+  shadow: { on: false, color: '#000000ff', op: 60, angle: 120, dist: 12, blur: 16 },
+  glow: { on: false, color: '#ffe680ff', op: 80, size: 24 },
+  stroke: { on: false, color: '#000000ff', size: 6 },
+  inner: { on: false, color: '#000000ff', op: 60, angle: 120, dist: 6, blur: 10 },
+  bevel: { on: false, depth: 6, angle: 120, soft: 4, op: 70 },
+  color: { on: false, color: '#ff3b30ff', op: 100 },
+  grad: { on: false, c1: '#000000ff', c2: '#ffffffff', angle: 90, op: 100 }
+};
+const fxOn = L => !!(L.fx && Object.keys(L.fx).some(k => L.fx[k] && L.fx[k].on));
+function shadowOnly(x, src, color, ox, oy, blur) { // draws just the shadow of src
+  const far = (DW.w + DW.h) * 3; x.save(); x.shadowColor = color; x.shadowBlur = blur; x.shadowOffsetX = ox + far; x.shadowOffsetY = oy; x.drawImage(src, -far, 0); x.restore();
+}
+function ringOf(src, size, color, key) {
+  const t = tmpCv(key), x = t.getContext('2d'), n = Math.max(12, Math.min(48, Math.round(size * 3)));
+  for (let r = size; r > 0; r -= Math.max(2, size / 3)) for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; x.drawImage(src, Math.cos(a) * r, Math.sin(a) * r); }
+  x.globalCompositeOperation = 'source-in'; x.fillStyle = css(color); x.fillRect(0, 0, t.width, t.height); return t;
+}
+function applyFx(src, f, key) {
+  const W = DW.w, H = DW.h, o = tmpCv(key + 'fx'), x = o.getContext('2d'), rad = a => a * Math.PI / 180;
+  if (f.shadow && f.shadow.on) { const s = f.shadow; shadowOnly(x, src, css(s.color, s.op / 100), -Math.cos(rad(s.angle)) * s.dist, Math.sin(rad(s.angle)) * s.dist, s.blur); }
+  if (f.glow && f.glow.on) { const s = f.glow; shadowOnly(x, src, css(s.color, s.op / 100), 0, 0, s.size); shadowOnly(x, src, css(s.color, s.op / 200), 0, 0, s.size / 3); }
+  if (f.stroke && f.stroke.on) x.drawImage(ringOf(src, f.stroke.size, f.stroke.color, key + 'ring'), 0, 0);
+  const body = tmpCv(key + 'body'), bx = body.getContext('2d'); bx.drawImage(src, 0, 0); bx.globalCompositeOperation = 'source-atop';
+  if (f.color && f.color.on) { bx.globalAlpha = f.color.op / 100; bx.fillStyle = css(f.color.color); bx.fillRect(0, 0, W, H); bx.globalAlpha = 1; }
+  if (f.grad && f.grad.on) { const s = f.grad, a = rad(s.angle), r = Math.hypot(W, H) / 2, g = bx.createLinearGradient(W / 2 - Math.cos(a) * r, H / 2 + Math.sin(a) * r, W / 2 + Math.cos(a) * r, H / 2 - Math.sin(a) * r); g.addColorStop(0, css(s.c1)); g.addColorStop(1, css(s.c2)); bx.globalAlpha = s.op / 100; bx.fillStyle = g; bx.fillRect(0, 0, W, H); bx.globalAlpha = 1; }
+  if ((f.inner && f.inner.on) || (f.bevel && f.bevel.on)) {
+    const inv = tmpCv(key + 'inv'), ix = inv.getContext('2d'); ix.fillStyle = '#000'; ix.fillRect(0, 0, W, H); ix.globalCompositeOperation = 'destination-out'; ix.drawImage(src, 0, 0);
+    if (f.inner && f.inner.on) { const s = f.inner; shadowOnly(bx, inv, css(s.color, s.op / 100), -Math.cos(rad(s.angle)) * s.dist, Math.sin(rad(s.angle)) * s.dist, s.blur); }
+    if (f.bevel && f.bevel.on) { const s = f.bevel, dx = Math.cos(rad(s.angle)) * s.depth, dy = -Math.sin(rad(s.angle)) * s.depth; shadowOnly(bx, inv, `rgba(255,255,255,${s.op / 100})`, dx, dy, s.soft); shadowOnly(bx, inv, `rgba(0,0,0,${s.op / 100})`, -dx, -dy, s.soft); }
+  }
+  bx.globalCompositeOperation = 'source-over';
+  x.drawImage(body, 0, 0); return o;
+}
+
+/* ---------- compositing: masks, styles, clipping, adjustment layers (cached) ---------- */
+function layerKey(L) { return L.id + ':' + (L.ver || 0) + ':' + (L.vis ? 1 : 0) + ':' + L.op + ':' + L.blend + ':' + (L.clip ? 1 : 0) + ':' + (L.maskOff ? 1 : 0) + ':' + (L.mask ? 1 : 0) + ':' + (L.fx ? JSON.stringify(L.fx) : '') + ':' + (L.adj ? JSON.stringify(L.adj) : ''); }
+function layerImg(L, i, live, key) {
+  let src = L.cv, msk = L.mask && !L.maskOff ? L.mask : null;
+  if (live && i === DW.cur && DW.live) { if (DW.editMask && L.mask) msk = DW.live(dwTarget()); else src = DW.live(L); }
+  if (!msk && !fxOn(L)) return src;
+  const t = tmpCv('li' + key), x = t.getContext('2d'); x.drawImage(src, 0, 0);
+  if (msk) { x.globalCompositeOperation = 'destination-in'; x.drawImage(msk, 0, 0); x.globalCompositeOperation = 'source-over'; }
+  return fxOn(L) ? applyFx(t, L.fx, key) : t;
+}
+function applyAdjLayer(out, L, i, live) {
+  const W = DW.w, H = DW.h, ox = out.getContext('2d');
+  const img = ox.getImageData(0, 0, W, H); phAdjust(L.adj.op, L.adj.p, img, W, H, 1);
+  const r = tmpCv('adjr'), rx = r.getContext('2d'); rx.putImageData(img, 0, 0);
+  let msk = L.mask && !L.maskOff ? L.mask : null;
+  if (live && i === DW.cur && DW.live && DW.editMask && L.mask) msk = DW.live(dwTarget());
+  if (!msk && L.op >= 100) { ox.globalCompositeOperation = 'copy'; ox.drawImage(r, 0, 0); ox.globalCompositeOperation = 'source-over'; return; }
+  const m = tmpCv('adjm'), mx = m.getContext('2d'); mx.globalAlpha = L.op / 100; if (msk) mx.drawImage(msk, 0, 0); else { mx.fillStyle = '#fff'; mx.fillRect(0, 0, W, H); }
+  rx.globalCompositeOperation = 'destination-in'; rx.drawImage(m, 0, 0);
+  ox.globalCompositeOperation = 'destination-out'; ox.drawImage(m, 0, 0); ox.globalCompositeOperation = 'lighter'; ox.drawImage(r, 0, 0); ox.globalCompositeOperation = 'source-over';
+}
+function docRender(live) {
+  const W = DW.w, H = DW.h;
+  if (!DW.comp || DW.comp.width !== W || DW.comp.height !== H) DW.comp = newLayerCanvas(W, H);
+  const out = DW.comp, x = ctxReset(out.getContext('2d')); x.clearRect(0, 0, W, H);
+  const Ls = DW.layers, cache = DW.adjCache || (DW.adjCache = {}), keys = []; let key = '';
+  for (let i = 0; i < Ls.length; i++) { key += '|' + layerKey(Ls[i]) + (live && DW.live && i === DW.cur ? '~' + Math.random() : ''); keys.push(key); }
+  let start = 0;
+  for (let i = Ls.length - 1; i >= 0; i--) { const L = Ls[i]; if (L.kind === 'adj' && L.vis && cache[L.id] && cache[L.id].key === keys[i] && cache[L.id].cv.width === W && cache[L.id].cv.height === H) { x.drawImage(cache[L.id].cv, 0, 0); start = i + 1; break; } }
+  const used = new Set();
+  for (let i = start; i < Ls.length; i++) {
+    const L = Ls[i]; if (!L.vis) continue;
+    if (L.kind === 'adj') {
+      applyAdjLayer(out, L, i, live);
+      const c = cache[L.id] || (cache[L.id] = { cv: newLayerCanvas(W, H) }); if (c.cv.width !== W || c.cv.height !== H) { c.cv.width = W; c.cv.height = H; }
+      const cx = ctxReset(c.cv.getContext('2d')); cx.clearRect(0, 0, W, H); cx.drawImage(out, 0, 0); c.key = keys[i]; continue;
+    }
+    if (L.clip && used.has(i)) continue;
+    let img = layerImg(L, i, live, 'b');
+    const clipped = []; for (let j = i + 1; j < Ls.length && Ls[j].clip && Ls[j].kind !== 'adj'; j++) { used.add(j); if (Ls[j].vis) clipped.push(j); }
+    if (clipped.length) {
+      const g = tmpCv('grp'), gx = g.getContext('2d'); gx.drawImage(img, 0, 0);
+      for (const k of clipped) {
+        const C = Ls[k], ci = layerImg(C, k, live, 'c'), t = tmpCv('clp'), tx = t.getContext('2d');
+        tx.drawImage(ci, 0, 0); tx.globalCompositeOperation = 'destination-in'; tx.drawImage(img, 0, 0);
+        gx.globalAlpha = C.op / 100; gx.globalCompositeOperation = C.blend; gx.drawImage(t, 0, 0); gx.globalAlpha = 1; gx.globalCompositeOperation = 'source-over';
+      }
+      img = g;
+    }
+    x.globalAlpha = L.op / 100; x.globalCompositeOperation = L.blend; x.drawImage(img, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+  }
+  return out;
+}
+function docFlat() { return copyCv(docRender(false)); }
+
+/* ---------- whole-document undo steps (layer list, size, masks...) ---------- */
+function phDocState() {
+  return { w: DW.w, h: DW.h, cur: DW.cur, sel: DW.sel ? copyCv(DW.sel) : null, layers: DW.layers.map(L => { const n = { ...L, cv: copyCv(L.cv), mask: L.mask ? copyCv(L.mask) : null }; delete n._mp; for (const k of ['adj', 'text', 'fx']) if (L[k]) n[k] = deep(L[k]); return n; }) };
+}
+function phDocRestore(s) {
+  const resized = s.w !== DW.w || s.h !== DW.h;
+  DW.w = s.w; DW.h = s.h; DW.layers = s.layers; DW.cur = clamp(s.cur, 0, DW.layers.length - 1);
+  for (const L of DW.layers) dirty(L);
+  if (resized) { DW.stroke = newLayerCanvas(DW.w, DW.h); DW.ref = null; DW.view.fit = true; dwFit(); }
+  DW.sel = s.sel; DW.tf = null; DW.crop = null; DW.editMask = DW.editMask && !!DW.layers[DW.cur].mask; phSelChanged(); dwToolUI();
+}
+function phSnapDoc() { DW.undo.push({ doc: phDocState() }); DW.redo = []; phUndoTrim(); dwUndoUI(); }
+function phUndoTrim() {
+  const size = e => e.doc ? e.doc.layers.reduce((a, L) => a + L.cv.width * L.cv.height * (L.mask ? 8 : 4), 0) : e.c.width * e.c.height * 4;
+  let tot = DW.undo.reduce((a, e) => a + size(e), 0);
+  while (DW.undo.length > 1 && (DW.undo.length > 40 || tot > 420e6)) tot -= size(DW.undo.shift());
+}
+
+/* ---------- selection: an alpha mask the size of the picture ---------- */
+function selCv() { return newLayerCanvas(DW.w, DW.h); }
+function phSetSel(c, mode) {
+  mode = mode || DW_PREF.selMode || 'new';
+  const f = DW_PREF.feather || 0;
+  if (f > 0) { const t = newLayerCanvas(DW.w, DW.h), x = t.getContext('2d'); x.filter = `blur(${f}px)`; x.drawImage(c, 0, 0); c = t; }
+  if (mode === 'new' || !DW.sel) { if (mode === 'sub' || mode === 'int') { if (!DW.sel) return phSelChanged(); } DW.sel = c; }
+  else { const x = ctxReset(DW.sel.getContext('2d')); x.globalCompositeOperation = mode === 'add' ? 'source-over' : mode === 'sub' ? 'destination-out' : 'destination-in'; x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-over'; }
+  phSelChanged();
+}
+function phDeselect() { if (DW.sel) DW.lastSel = DW.sel; DW.sel = null; phSelChanged(); }
+// outline for the marching ants, from a smaller copy of the mask
+function phSelChanged() {
+  DW.ants = null; DW.selBox = null;
+  if (!DW.sel) { dwRender(); return; }
+  const W = DW.w, H = DW.h, s = Math.max(1, Math.ceil(Math.max(W, H) / 900)), w = Math.ceil(W / s), hh = Math.ceil(H / s);
+  const sm = newLayerCanvas(w, hh), sx = sm.getContext('2d'); sx.drawImage(DW.sel, 0, 0, w, hh);
+  const a = sx.getImageData(0, 0, w, hh).data, inn = (x, y) => x >= 0 && y >= 0 && x < w && y < hh && a[(y * w + x) * 4 + 3] >= 128;
+  const seg = []; let any = false, x0 = w, y0 = hh, x1 = 0, y1 = 0;
+  for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) {
+    if (!inn(x, y)) continue; any = true; if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y;
+    if (!inn(x - 1, y)) seg.push(x, y, x, y + 1); if (!inn(x + 1, y)) seg.push(x + 1, y, x + 1, y + 1);
+    if (!inn(x, y - 1)) seg.push(x, y, x + 1, y); if (!inn(x, y + 1)) seg.push(x, y + 1, x + 1, y + 1);
+  }
+  if (!any) { DW.sel = null; dwRender(); return; }
+  DW.ants = { seg: new Float32Array(seg.map(v => v * s)) }; DW.selBox = { x: x0 * s, y: y0 * s, w: (x1 - x0 + 1) * s, h: (y1 - y0 + 1) * s };
+  dwRender();
+}
+function phAntsTimer() { clearInterval(DW.antT); DW.antT = setInterval(() => { if (!DW.on) { clearInterval(DW.antT); return; } if (DW.ants) { DW.antPh = (DW.antPh || 0) + 1; dwRender(); } }, 320); }
+function drawAnts(x, d, v) {
+  const S = DW.ants.seg, ph = DW.antPh || 0, pa = new Path2D(), pb = new Path2D(), k = d * v.z;
+  for (let i = 0; i < S.length; i += 4) { const X = d * v.x + S[i] * k, Y = d * v.y + S[i + 1] * k, X2 = d * v.x + S[i + 2] * k, Y2 = d * v.y + S[i + 3] * k; const pth = ((Math.floor((X + Y) / 7) + ph) & 1) ? pa : pb; pth.moveTo(X, Y); pth.lineTo(X2, Y2); }
+  x.lineWidth = Math.max(1, d); x.strokeStyle = '#000'; x.stroke(pa); x.strokeStyle = '#fff'; x.stroke(pb);
+}
+function maskToCanvas(mask, W, H) { const c = newLayerCanvas(W, H), x = c.getContext('2d'), img = x.createImageData(W, H), d = img.data; for (let i = 0; i < W * H; i++) if (mask[i]) { const j = i * 4; d[j] = d[j + 1] = d[j + 2] = 255; d[j + 3] = mask[i] === 1 ? 255 : mask[i]; } x.putImageData(img, 0, 0); return c; }
+function floodMask(sd, W, H, X, Y, tol, contiguous) {
+  const i0 = (Y * W + X) * 4, r0 = sd[i0], g0 = sd[i0 + 1], b0 = sd[i0 + 2], a0 = sd[i0 + 3], mask = new Uint8Array(W * H);
+  const same = i => { const j = i * 4; return Math.abs(sd[j] - r0) <= tol && Math.abs(sd[j + 1] - g0) <= tol && Math.abs(sd[j + 2] - b0) <= tol && Math.abs(sd[j + 3] - a0) <= tol; };
+  if (!contiguous) { for (let i = 0; i < W * H; i++) if (same(i)) mask[i] = 1; return mask; }
+  const stack = [X, Y];
+  while (stack.length) {
+    const y = stack.pop(); let x = stack.pop(), i = y * W + x;
+    while (x >= 0 && !mask[i] && same(i)) { x--; i--; }
+    x++; i++; let up = false, dn = false;
+    while (x < W && !mask[i] && same(i)) {
+      mask[i] = 1;
+      if (y > 0) { const k = i - W; if (!mask[k] && same(k)) { if (!up) { stack.push(x, y - 1); up = true; } } else up = false; }
+      if (y < H - 1) { const k = i + W; if (!mask[k] && same(k)) { if (!dn) { stack.push(x, y + 1); dn = true; } } else dn = false; }
+      x++; i++;
+    }
+  }
+  return mask;
+}
+function phSelGrow(c, r) { // spread the mask outward by r pixels
+  const t = newLayerCanvas(c.width, c.height), x = t.getContext('2d'), n = Math.max(16, Math.min(64, Math.round(r * 2)));
+  x.drawImage(c, 0, 0); for (let rr = r; rr > 0; rr -= Math.max(1, r / 4)) for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; x.drawImage(c, Math.cos(a) * rr, Math.sin(a) * rr); }
+  return t;
+}
+function phSelInvert(c) { const t = newLayerCanvas(DW.w, DW.h), x = t.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, DW.w, DW.h); if (c) { x.globalCompositeOperation = 'destination-out'; x.drawImage(c, 0, 0); } return t; }
+function phSelThreshold(c, lim = 128) { const x = c.getContext('2d'), img = x.getImageData(0, 0, c.width, c.height), d = img.data; for (let i = 3; i < d.length; i += 4) d[i] = d[i] >= lim ? 255 : 0; x.putImageData(img, 0, 0); return c; }
+
+/* ---------- text layers: kept as words, drawn into pixels when they change ---------- */
+function phTextFont(t) { return `${t.italic ? 'italic ' : ''}${t.bold ? 'bold ' : ''}${t.size}px ${t.font}`; }
+function phRenderText(L) {
+  const t = L.text, x = ctxReset(L.cv.getContext('2d')); x.clearRect(0, 0, L.cv.width, L.cv.height);
+  x.font = phTextFont(t); try { x.letterSpacing = (t.ls || 0) + 'px'; } catch (e) { }
+  x.textBaseline = 'top'; x.textAlign = t.align || 'left'; x.lineJoin = 'round';
+  const lines = String(t.s || '').split('\n'), lh = t.size * (t.lh || 1.2);
+  let mw = 0; for (const ln of lines) mw = Math.max(mw, x.measureText(ln).width);
+  const hh = lines.length * lh, ax = t.align === 'center' ? -mw / 2 : t.align === 'right' ? -mw : 0;
+  x.translate(t.x, t.y); if (t.rot) x.rotate(t.rot * Math.PI / 180);
+  lines.forEach((ln, i) => { if (t.sw > 0) { x.strokeStyle = css(t.sc || '#000000ff'); x.lineWidth = t.sw * 2; x.strokeText(ln, 0, i * lh); } x.fillStyle = css(t.color); x.fillText(ln, 0, i * lh); });
+  const c = Math.cos((t.rot || 0) * Math.PI / 180), s = Math.sin((t.rot || 0) * Math.PI / 180), pts = [[ax, 0], [ax + mw, 0], [ax + mw, hh], [ax, hh]].map(([px, py]) => [t.x + px * c - py * s, t.y + px * s + py * c]);
+  t.box = pts; dirty(L);
+}
+function phNewText(p) {
+  phSnapDoc();
+  const L = dwLayer('Text'); L.kind = 'text';
+  L.text = { s: 'Your text', font: DW_PREF.tfont || 'system-ui, sans-serif', size: DW_PREF.tsize || Math.round(Math.max(24, Math.min(DW.w, DW.h) / 10)), color: DW_PREF.color, bold: !!DW_PREF.tbold, italic: false, align: 'left', lh: 1.2, ls: 0, sw: 0, sc: '#000000ff', rot: 0, x: p.x, y: p.y };
+  DW.layers.splice(DW.cur + 1, 0, L); DW.cur++; phRenderText(L); return L;
+}
+function inPoly(p, q) { let ins = false; for (let i = 0, j = q.length - 1; i < q.length; j = i++) { const [xi, yi] = q[i], [xj, yj] = q[j]; if ((yi > p.y) !== (yj > p.y) && p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi) ins = !ins; } return ins; }
+
+/* ---------- editor switch: Animate / Draw / Photo ---------- */
+function phToolFor(mode) {
+  const list = mode === 'photo' ? PH_TOOLS : DW_TOOLS, key = mode === 'photo' ? 'ptool' : 'dtool';
+  if (DW_PREF[key] && list.some(t => t[0] === DW_PREF[key])) DW_PREF.tool = DW_PREF[key];
+  if (!list.some(t => t[0] === DW_PREF.tool)) DW_PREF.tool = mode === 'photo' ? 'tf' : 'brush';
+}
+function phSetMode(m) {
+  if (m === DW.mode) return;
+  if (m === 'animate') { closeDraw(true); return; }
+  if (DW.tf) phTfApply(); DW.crop = null; DW.panel = null; DW.live = null;
+  DW_PREF[DW.mode === 'photo' ? 'ptool' : 'dtool'] = DW_PREF.tool;
+  DW.mode = m; phToolFor(m); savePref();
+  buildDrawUI(); dwFit(); dwRender();
+  toast(m === 'photo' ? 'Now in Photo. Your layers came along.' : 'Now in Draw. Your layers came along.');
+}
+function phModeRow() {
+  const row_ = h('div', { class: 'dwmodes' });
+  row_.append(segBox({ options: [{ v: 'animate', l: 'Animate', i: 'video' }, { v: 'draw', l: 'Draw', i: 'dbrush' }, { v: 'photo', l: 'Photo', i: 'image' }], value: DW.mode, onChange: phSetMode }));
+  if (DW.mode === 'photo') { const mb = h('div', { class: 'phmenus' }); for (const [id, n] of PH_MENUS) mb.append(h('button', { class: 'phm', onclick: e => phOpenMenu(id, e.currentTarget) }, n)); row_.append(mb); }
+  return row_;
+}
+
+/* ---------- overlay on top of the picture (selection, tools) ---------- */
+function phOverlay(x, d, v) {
+  const S = (px, py) => [d * (v.x + px * v.z), d * (v.y + py * v.z)];
+  x.save();
+  if (DW.ants) drawAnts(x, d, v);
+  const t = PH_H[DW_PREF.tool]; if (t && t.overlay) t.overlay(x, d, v, S);
+  if (DW.panel && DW.panel.overlay) DW.panel.overlay(x, d, v, S);
+  x.restore();
+}
+function handleDot(x, X, Y, r, round) { x.fillStyle = '#fff'; x.strokeStyle = '#1b1d22'; x.lineWidth = 1.5; x.beginPath(); if (round) x.arc(X, Y, r, 0, 7); else x.rect(X - r, Y - r, r * 2, r * 2); x.fill(); x.stroke(); }
+
+/* ---------- layers panel (both editors) ---------- */
+function phLayersSheet() {
+  const body = h('div', { class: 'lsheet' });
+  let m_;
+  const draw = () => {
+    body.innerHTML = '';
+    for (let i = DW.layers.length - 1; i >= 0; i--) {
+      const L = DW.layers[i];
+      const th = h('canvas', { class: 'lthumb' }); th.width = 64; th.height = Math.max(8, Math.round(64 * DW.h / DW.w));
+      const tx = th.getContext('2d');
+      if (L.kind === 'adj') { tx.fillStyle = '#2a2c31'; tx.fillRect(0, 0, 64, th.height); tx.fillStyle = '#e4e5e8'; tx.font = '600 11px system-ui'; tx.textAlign = 'center'; tx.textBaseline = 'middle'; tx.fillText((ADJ[L.adj.op] || { n: '' }).n.slice(0, 10), 32, th.height / 2); }
+      else tx.drawImage(L.cv, 0, 0, th.width, th.height);
+      let mt = '';
+      if (L.mask) { mt = h('canvas', { class: 'lthumb lmask' + (DW.editMask && i === DW.cur ? ' on' : '') }); mt.width = 64; mt.height = th.height; const mx = mt.getContext('2d'); mx.fillStyle = '#000'; mx.fillRect(0, 0, 64, mt.height); mx.drawImage(L.mask, 0, 0, 64, mt.height); mt.title = 'Mask'; mt.onclick = e => { e.stopPropagation(); DW.cur = i; DW.editMask = !(DW.editMask && i === DW.cur); dwToolUI(); draw(); dwRender(); }; }
+      const kindTxt = L.kind === 'text' ? 'Text' : L.kind === 'adj' ? 'Adjustment' : '';
+      const info = [kindTxt, `${L.op}%`, L.blend !== 'source-over' ? (DW_BLENDS.find(b => b[0] === L.blend) || [0, ''])[1] : '', L.clip ? 'clipped' : '', fxOn(L) ? 'styles' : '', L.lock ? 'see-through locked' : ''].filter(Boolean).join(' · ');
+      const rowEl = h('div', { class: 'lrow' + (i === DW.cur ? ' on' : '') + (L.clip ? ' lclip' : ''), onclick: () => { DW.cur = i; if (!L.mask) DW.editMask = false; dwToolUI(); draw(); dwRender(); } },
+        h('button', { class: 'tb', title: L.vis ? 'Hide' : 'Show', html: icon(L.vis ? 'eye' : 'eyeoff'), onclick: e => { e.stopPropagation(); L.vis = !L.vis; draw(); dwRender(); } }),
+        th, mt, h('div', { class: 'lname' }, L.name, h('small', null, info)));
+      body.append(rowEl);
+    }
+    const L = DW.layers[DW.cur];
+    const ctl = h('div', { class: 'lctl' });
+    ctl.append(rangeRow('Opacity', { min: 0, max: 100, step: 1, value: L.op, suf: '%', onInput: v => { L.op = v; dwRender(); } }));
+    if (L.kind !== 'adj') ctl.append(row('Blend', selectBox({ options: DW_BLENDS.map(([v, l]) => ({ v, l })), value: L.blend, onChange: v => { L.blend = v; dwRender(); draw(); } })));
+    ctl.append(row('', checkBox('Lock see-through parts', L.lock, v => { L.lock = v; draw(); }), DW.cur > 0 && L.kind !== 'adj' ? checkBox('Clip to layer below', !!L.clip, v => { L.clip = v; draw(); dwRender(); }) : ''));
+    const btn = (l, f, snap = true) => h('button', { class: 'btn sm', onclick: async () => { if (snap) phSnapDoc(); await f(); draw(); dwRender(); } }, l);
+    ctl.append(h('div', { class: 'lbtns' },
+      btn('New layer', () => { DW.layers.splice(DW.cur + 1, 0, dwLayer('Layer ' + (DW.layers.length + 1))); DW.cur++; DW.editMask = false; }),
+      btn('Duplicate', () => phDupLayer()),
+      btn('Move up', () => { if (DW.cur < DW.layers.length - 1) { DW.layers.splice(DW.cur + 1, 0, DW.layers.splice(DW.cur, 1)[0]); DW.cur++; } }),
+      btn('Move down', () => { if (DW.cur > 0) { DW.layers.splice(DW.cur - 1, 0, DW.layers.splice(DW.cur, 1)[0]); DW.cur--; } }),
+      btn('Merge down', () => phMergeDown()),
+      btn('Rename', async () => { const n = await promptBox('Layer name', L.name); if (n) L.name = n; }, false),
+      btn('Delete', () => { if (DW.layers.length > 1) { DW.layers.splice(DW.cur, 1); DW.cur = Math.max(0, DW.cur - 1); DW.editMask = false; } else toast('A picture needs at least one layer'); })));
+    ctl.append(h('div', { class: 'lbtns' },
+      L.mask ? btn(DW.editMask ? 'Paint the layer' : 'Paint the mask', () => { DW.editMask = !DW.editMask; dwToolUI(); }, false) : btn('Add mask', () => phAddMask(DW.sel ? 'sel' : 'reveal')),
+      L.mask ? btn(L.maskOff ? 'Turn mask on' : 'Turn mask off', () => { L.maskOff = !L.maskOff; }) : '',
+      L.mask && L.kind !== 'adj' ? btn('Apply mask', () => phApplyMask()) : '',
+      L.mask ? btn('Delete mask', () => { L.mask = null; DW.editMask = false; }) : '',
+      L.kind !== 'adj' ? btn('Styles', () => { m_.close(); phStylesPanel(); }, false) : btn('Edit adjustment', () => { m_.close(); phOpenAdj(L.adj.op, { layer: L }); }, false),
+      L.kind === 'text' ? btn('Text to pixels', () => { L.kind = undefined; delete L.text; }) : ''));
+    body.append(ctl);
+  };
+  draw();
+  m_ = modal('Layers', body, [{ l: 'Close' }], { width: 480 });
+}
+function phDupLayer() {
+  const L = DW.layers[DW.cur], n = dwLayer(L.name + ' copy');
+  Object.assign(n, { op: L.op, blend: L.blend, kind: L.kind, clip: L.clip, adj: L.adj && deep(L.adj), text: L.text && deep(L.text), fx: L.fx && deep(L.fx), maskOff: L.maskOff });
+  n.cv.getContext('2d').drawImage(L.cv, 0, 0); if (L.mask) n.mask = copyCv(L.mask);
+  DW.layers.splice(DW.cur + 1, 0, n); DW.cur++; return n;
+}
+function phMergeDown() {
+  if (DW.cur < 1) return toast('Nothing below to merge into');
+  const top = DW.layers[DW.cur], B_ = DW.layers[DW.cur - 1];
+  if (B_.kind === 'adj') return toast('The layer below is an adjustment layer');
+  if (top.kind === 'adj') { const keep = DW.layers; DW.layers = [B_, top]; const f = docFlat(); DW.layers = keep; const x = ctxReset(B_.cv.getContext('2d')); x.clearRect(0, 0, DW.w, DW.h); x.drawImage(f, 0, 0); }
+  else { const img = layerImg(top, -1, false, 'm'), x = ctxReset(B_.cv.getContext('2d')); x.globalAlpha = top.op / 100; x.globalCompositeOperation = top.blend; x.drawImage(img, 0, 0); ctxReset(x); }
+  if (B_.kind === 'text') { B_.kind = undefined; delete B_.text; }
+  DW.layers.splice(DW.cur, 1); DW.cur--; dirty(B_); DW.editMask = false;
+}
+function phAddMask(how) {
+  const L = DW.layers[DW.cur], m = newLayerCanvas(DW.w, DW.h), x = m.getContext('2d');
+  if (how === 'sel' && DW.sel) x.drawImage(DW.sel, 0, 0); else if (how !== 'hide') { x.fillStyle = '#fff'; x.fillRect(0, 0, DW.w, DW.h); }
+  L.mask = m; L.maskOff = false; dirty(L);
+}
+function phApplyMask() { const L = DW.layers[DW.cur]; if (!L.mask) return; const x = ctxReset(L.cv.getContext('2d')); x.globalCompositeOperation = 'destination-in'; x.drawImage(L.mask, 0, 0); ctxReset(x); L.mask = null; DW.editMask = false; dirty(L); }
+
+/* ---------- layer styles panel ---------- */
+function phStylesPanel() {
+  const L = DW.layers[DW.cur]; if (L.kind === 'adj') return;
+  phSnapDoc();
+  if (!L.fx) L.fx = {};
+  const names = { shadow: 'Drop shadow', glow: 'Outer glow', stroke: 'Stroke', inner: 'Inner shadow', bevel: 'Bevel', color: 'Color overlay', grad: 'Gradient overlay' };
+  const fields = { color: ['Color', 'c'], c1: ['From', 'c'], c2: ['To', 'c'], op: ['Opacity', 0, 100, '%'], angle: ['Angle', 0, 360, '°'], dist: ['Distance', 0, 200, 'px'], blur: ['Blur', 0, 200, 'px'], size: ['Size', 1, 200, 'px'], depth: ['Depth', 1, 60, 'px'], soft: ['Softness', 0, 60, 'px'] };
+  DW.panel = {
+    title: 'Layer styles: ' + L.name,
+    build(o) {
+      for (const k of Object.keys(names)) {
+        const f = L.fx[k] || (L.fx[k] = deep(FX_DEF[k]));
+        o.append(h('div', { class: 'dwo' }, h('label', null, ''), checkBox(names[k], f.on, v => { f.on = v; dwRender(); dwToolUI(); })));
+        if (!f.on) continue;
+        for (const fk of Object.keys(f)) {
+          if (fk === 'on' || !fields[fk]) continue; const fd = fields[fk];
+          if (fd[1] === 'c') o.append(h('div', { class: 'dwo' }, h('label', null, fd[0]), colorBtn({ value: f[fk], onInput: v => { f[fk] = v; dwRender(); } })));
+          else o.append(rangeRow(fd[0], { min: fd[1], max: fd[2], step: 1, value: f[fk], suf: fd[3], onInput: v => { f[fk] = v; dwRender(); } }));
+        }
+      }
+      o.append(h('div', { class: 'dwo' }, h('label', null, ''), h('button', { class: 'btn pri sm', onclick: () => { DW.panel = null; dwToolUI(); } }, 'Done'), h('button', { class: 'btn sm', onclick: () => { dwUndo(); DW.redo = []; dwUndoUI(); DW.panel = null; dwToolUI(); dwRender(); } }, 'Cancel')));
+    }
+  };
+  dwToolUI(); dwRender();
+}
+
+/* ================= Photo editor tools ================= */
+Object.assign(ICONS, {
+  ptf: 'M12 3v18M3 12h18M12 3l-2.5 2.5M12 3l2.5 2.5M12 21l-2.5-2.5M12 21l2.5-2.5M3 12l2.5-2.5M3 12l2.5 2.5M21 12l-2.5-2.5M21 12l-2.5 2.5',
+  pmarq: 'M4 4h3M10 4h4M17 4h3v3M20 10v4M20 17v3h-3M14 20h-4M7 20H4v-3M4 14v-4M4 7V4',
+  plasso: 'M12 4c5 0 8.5 2.3 8.5 5.2S17 14.5 12 14.5 3.5 12.2 3.5 9.2 7 4 12 4zM7 13.5c-1 1.5-.5 3 1 3.5s1.5 2 0 3.5',
+  pwand: 'M4 20l11-11M13.5 7.5l3 3M18 3v3M16.5 4.5h3M20 9v2M19 10h2M10 4v2M9 5h2',
+  pqsel: 'M9.5 14.5l8-8 2 2-8 8zM9.5 14.5c-2 0-3 1.2-3 3s-1 2.5-3 3c3 .5 6-.5 6-3.5M3.5 4.5h2M3.5 8.5h2M7.5 3.5v2',
+  pcrop: 'M7 3v14h14M3 7h14v14',
+  pheal: 'M4.5 14.5l10-10a3 3 0 014.2 4.2l-10 10a3 3 0 01-4.2-4.2zM9.5 9.5l5 5M11 11h.01M13 13h.01',
+  phealb: 'M12 5v14M5 12h14M8.5 3.5h7v4.5h4.5v7h-4.5v4.5h-7V15H4V8h4.5z',
+  pclone: 'M9 3.5h6v4l-1 3h5v4H5v-4h5l-1-3zM5 18h14v2.5H5z',
+  predeye: 'M2.5 12S6 6 12 6s9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6zM12 9.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5z',
+  pgrad: 'M3.5 4.5h17v15h-17zM7 4.5v15M10 4.5v15M12.5 4.5v15M14.5 4.5v15M16 4.5v15',
+  pdodge: 'M12 13v8M12 3.5a4.75 4.75 0 110 9.5 4.75 4.75 0 010-9.5z',
+  pburn: 'M8 21v-6c-2-1-3-3-2.5-5L7 7.5c.3-1 1.7-1 2 0V12V4.5c0-1.3 2-1.3 2 0V11V3.5c0-1.3 2-1.3 2 0V11V5c0-1.3 2-1.3 2 0v7c0 3-1 4.5-2 5v4',
+  psponge: 'M4 9.5C4 7.5 6 6 8 6h8c2 0 4 1.5 4 3.5v6c0 2-2 3.5-4 3.5H8c-2 0-4-1.5-4-3.5zM8 10h.01M12 12h.01M16 10h.01M10 15h.01M15 15h.01',
+  pblur: 'M12 3.5s6 6.5 6 10.5a6 6 0 01-12 0c0-4 6-10.5 6-10.5z',
+  psharp: 'M12 3.5l8.5 16h-17z',
+  psmudge: 'M10 21v-9.5a1.5 1.5 0 013 0V8.5a1.5 1.5 0 013 0v7.5c0 3-2 5-4 5zM4 6c3-1 6-1 8 1',
+  pliq: 'M12 11a1 1 0 110 2 1 1 0 010-2zM12 12c3 0 4-2.5 3-4.5S11 4 8 6s-4 6-1 10 10 5 13 0',
+  ptext: 'M5 5.5h14M12 5.5v13M9 18.5h6'
+});
+const PH_TOOLS = [['tf', 'Move', 'ptf'], ['marquee', 'Select box', 'pmarq'], ['lasso', 'Lasso', 'plasso'], ['wand', 'Magic wand', 'pwand'], ['qsel', 'Quick select', 'pqsel'], ['crop', 'Crop', 'pcrop'],
+  ['brush', 'Brush', 'dbrush'], ['eraser', 'Eraser', 'deraser'], ['spot', 'Spot heal', 'pheal'], ['healb', 'Healing', 'phealb'], ['clone', 'Clone', 'pclone'], ['redeye', 'Red eye', 'predeye'],
+  ['gradient', 'Gradient', 'pgrad'], ['fill', 'Bucket', 'dfill'], ['pick', 'Eyedropper', 'dpick'], ['text', 'Text', 'ptext'], ['shape', 'Shapes', 'dshape'], ['line', 'Line', 'dline'],
+  ['dodge', 'Dodge', 'pdodge'], ['burn', 'Burn', 'pburn'], ['sponge', 'Sponge', 'psponge'], ['blurb', 'Blur', 'pblur'], ['sharpb', 'Sharpen', 'psharp'], ['smudge', 'Smudge', 'psmudge'], ['liquify', 'Liquify', 'pliq']];
+Object.assign(DW_PREF, Object.assign({ selMode: 'new', feather: 0, marq: 'rect', lasso: 'free', wtol: 32, wcont: true, wall: true, qadd: true, qsmart: true, cropR: 'free', psize: 60, phard: 50, pstr: 50, csample: 'layer', caligned: true, gtype: 'linear', gcols: 'fb', grev: false, bg: '#ffffffff', drange: 'mid', sponge: 'desat', liq: 'push', tfKeep: true }, DW_PREF));
+// re-apply any saved preferences over the defaults above
+try { Object.assign(DW_PREF, JSON.parse(localStorage.getItem('fw-draw') || '{}')); } catch (e) { }
+const PH_H = {};
+
+/* ---------- shared option rows ---------- */
+function selModeRow(o) {
+  o.append(h('div', { class: 'dwo' }, h('label', null, 'Mode'), segBox({ options: [{ v: 'new', l: 'New' }, { v: 'add', l: 'Add' }, { v: 'sub', l: 'Take away' }, { v: 'int', l: 'Overlap' }], value: DW_PREF.selMode, onChange: v => { DW_PREF.selMode = v; savePref(); } })));
+  o.append(rangeRow('Soft edge', { min: 0, max: 200, step: 1, value: DW_PREF.feather, suf: 'px', onInput: v => { DW_PREF.feather = v; savePref(); } }));
+}
+function selQuick(o) {
+  o.append(h('div', { class: 'dwo' }, h('label', null, ''), h('button', { class: 'btn sm', onclick: () => { phSetSel(phSelInvert(null), 'new'); } }, 'All'), h('button', { class: 'btn sm', onclick: phDeselect }, 'None'), h('button', { class: 'btn sm', onclick: () => { if (DW.sel) { DW.sel = phSelInvert(DW.sel); phSelChanged(); } } }, 'Invert')));
+}
+function brushRows(o, str, strLabel) {
+  o.append(rangeRow('Size', { min: 1, max: 800, step: 1, value: DW_PREF.psize, suf: 'px', onInput: v => { DW_PREF.psize = v; savePref(); } }));
+  o.append(rangeRow('Hardness', { min: 0, max: 100, step: 1, value: DW_PREF.phard, suf: '%', onInput: v => { DW_PREF.phard = v; savePref(); } }));
+  if (str) o.append(rangeRow(strLabel || 'Strength', { min: 1, max: 100, step: 1, value: DW_PREF.pstr, suf: '%', onInput: v => { DW_PREF.pstr = v; savePref(); } }));
+}
+function needPixels(L) {
+  L = L || dwTarget();
+  if (!L.isMask && L.kind === 'adj') { toast('This is an adjustment layer. Pick a picture layer first.'); return false; }
+  if (!L.isMask && L.kind === 'text') { toast('This is a text layer. Use Layer > Text to pixels first.'); return false; }
+  if (!L.isMask && !L.vis) { toast('This layer is hidden'); return false; }
+  return true;
+}
+const softTip = () => tintedTip({ tip: 'round', hard: DW_PREF.phard / 100, ratio: 1 }, '#ffffffff');
+// walks a stroke and calls dab(x, y, dx, dy) every few pixels
+function stepper(p, dab, spacing) {
+  let last = { x: p.x, y: p.y }, dist = 0; dab(p.x, p.y, 0, 0);
+  return q => {
+    const dx = q.x - last.x, dy = q.y - last.y, L = Math.hypot(dx, dy), step = spacing(); if (L < 1e-6) return;
+    let t = step - dist, px = last.x, py = last.y;
+    while (t <= L) { const nx = last.x + dx * t / L, ny = last.y + dy * t / L; dab(nx, ny, nx - px, ny - py); px = nx; py = ny; t += step; }
+    dist = L - (t - step); last = { x: q.x, y: q.y };
+  };
+}
+function boxOf(x, y, r) { const x0 = Math.max(0, Math.floor(x - r)), y0 = Math.max(0, Math.floor(y - r)), x1 = Math.min(DW.w, Math.ceil(x + r)), y1 = Math.min(DW.h, Math.ceil(y + r)); return x1 > x0 && y1 > y0 ? { x0, y0, w: x1 - x0, h: y1 - y0 } : null; }
+const falloff = (d, r) => { if (d >= r) return 0; const hard = DW_PREF.phard / 100, t = d / r; return t <= hard ? 1 : 1 - Math.pow((t - hard) / (1 - hard + 1e-6), 2) * (3 - 2 * (t - hard) / (1 - hard + 1e-6)); };
+const selAt = (() => { let cache = null, src = null; return (x, y) => { if (!DW.sel) return 1; if (src !== DW.sel || DW.selVer !== cache.v) { src = DW.sel; cache = { v: DW.selVer, d: DW.sel.getContext('2d').getImageData(0, 0, DW.w, DW.h).data }; } return cache.d[(y * DW.w + x) * 4 + 3] / 255; }; })();
+
+/* ---------- Move / free transform ---------- */
+function phTfBegin() {
+  const L = DW.layers[DW.cur]; DW.tf = null;
+  if (L.kind === 'adj') { toast('Adjustment layers have nothing to move'); return; }
+  if (L.kind === 'text') { DW.tf = { L, text: true }; return; }
+  const W = DW.w, H = DW.h, src = L.cv;
+  let sel = DW.sel, box;
+  const a = src.getContext('2d').getImageData(0, 0, W, H).data, sa = sel ? sel.getContext('2d').getImageData(0, 0, W, H).data : null;
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4 + 3; if (a[i] && (!sa || sa[i] > 8)) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+  if (x1 < 0) { DW.tf = { L, empty: true }; return; }
+  box = { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  const fl = newLayerCanvas(box.w, box.h), fx = fl.getContext('2d'); fx.drawImage(src, -box.x, -box.y);
+  if (sel) { fx.globalCompositeOperation = 'destination-in'; fx.drawImage(sel, -box.x, -box.y); }
+  const base = copyCv(src), bx = base.getContext('2d'); if (sel) { bx.globalCompositeOperation = 'destination-out'; bx.drawImage(sel, 0, 0); } else bx.clearRect(0, 0, W, H);
+  DW.tf = { L, fl, base, w: box.w, h: box.h, cx: box.x + box.w / 2, cy: box.y + box.h / 2, sx: 1, sy: 1, rot: 0, q: null, hadSel: !!sel, mode: 'free' };
+  DW.live = LL => LL === L ? phTfImage() : LL.cv;
+}
+function tfCorners(t) { const c = Math.cos(t.rot), s = Math.sin(t.rot); return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => { const lx = a * t.w / 2 * t.sx, ly = b * t.h / 2 * t.sy; return [t.cx + lx * c - ly * s, t.cy + lx * s + ly * c]; }); }
+function drawQuad(x, img, q) {
+  const N = 14, W = img.width, H = img.height, P_ = (u, v) => { const tx = q[0][0] + (q[1][0] - q[0][0]) * u, ty = q[0][1] + (q[1][1] - q[0][1]) * u, bx = q[3][0] + (q[2][0] - q[3][0]) * u, by = q[3][1] + (q[2][1] - q[3][1]) * u; return [tx + (bx - tx) * v, ty + (by - ty) * v]; };
+  const tri = (s0, s1, s2, d0, d1, d2) => {
+    x.save(); const cx = (d0[0] + d1[0] + d2[0]) / 3, cy = (d0[1] + d1[1] + d2[1]) / 3, g = p => [p[0] + (p[0] - cx) * .02, p[1] + (p[1] - cy) * .02];
+    const e0 = g(d0), e1 = g(d1), e2 = g(d2); x.beginPath(); x.moveTo(e0[0], e0[1]); x.lineTo(e1[0], e1[1]); x.lineTo(e2[0], e2[1]); x.closePath(); x.clip();
+    const den = s0[0] * (s1[1] - s2[1]) + s1[0] * (s2[1] - s0[1]) + s2[0] * (s0[1] - s1[1]); if (Math.abs(den) < 1e-9) { x.restore(); return; }
+    const a = (d0[0] * (s1[1] - s2[1]) + d1[0] * (s2[1] - s0[1]) + d2[0] * (s0[1] - s1[1])) / den, b = (d0[1] * (s1[1] - s2[1]) + d1[1] * (s2[1] - s0[1]) + d2[1] * (s0[1] - s1[1])) / den;
+    const c = (d0[0] * (s2[0] - s1[0]) + d1[0] * (s0[0] - s2[0]) + d2[0] * (s1[0] - s0[0])) / den, d = (d0[1] * (s2[0] - s1[0]) + d1[1] * (s0[0] - s2[0]) + d2[1] * (s1[0] - s0[0])) / den;
+    const e = (d0[0] * (s1[0] * s2[1] - s2[0] * s1[1]) + d1[0] * (s2[0] * s0[1] - s0[0] * s2[1]) + d2[0] * (s0[0] * s1[1] - s1[0] * s0[1])) / den, f = (d0[1] * (s1[0] * s2[1] - s2[0] * s1[1]) + d1[1] * (s2[0] * s0[1] - s0[0] * s2[1]) + d2[1] * (s0[0] * s1[1] - s1[0] * s0[1])) / den;
+    x.transform(a, b, c, d, e, f); x.drawImage(img, 0, 0); x.restore();
+  };
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const u0 = i / N, u1 = (i + 1) / N, v0 = j / N, v1 = (j + 1) / N;
+    const s00 = [u0 * W, v0 * H], s10 = [u1 * W, v0 * H], s11 = [u1 * W, v1 * H], s01 = [u0 * W, v1 * H];
+    tri(s00, s10, s11, P_(u0, v0), P_(u1, v0), P_(u1, v1)); tri(s00, s11, s01, P_(u0, v0), P_(u1, v1), P_(u0, v1));
+  }
+}
+function phTfDraw(x, t) {
+  if (t.q) drawQuad(x, t.fl, t.q);
+  else { x.save(); x.translate(t.cx, t.cy); x.rotate(t.rot); x.scale(t.sx, t.sy); x.drawImage(t.fl, -t.w / 2, -t.h / 2); x.restore(); }
+}
+function phTfImage(t = DW.tf) { const o = tmpCv('tfo'), x = o.getContext('2d'); x.drawImage(t.base, 0, 0); phTfDraw(x, t); return o; }
+function phTfApply(cancel) {
+  const t = DW.tf; DW.tf = null; if (!t) return;
+  if (t.text || t.empty || cancel) { DW.live = null; dwRender(); return; }
+  const changed = t.q || t.sx !== 1 || t.sy !== 1 || t.rot || t.moved;
+  if (!changed) { DW.live = null; return; }
+  dwSnap(t.L); const r = phTfImage(t), x = ctxReset(t.L.cv.getContext('2d')); x.clearRect(0, 0, DW.w, DW.h); x.drawImage(r, 0, 0); dirty(t.L);
+  if (t.hadSel) { const m = newLayerCanvas(DW.w, DW.h), mx = m.getContext('2d'); const fm = newLayerCanvas(t.w, t.h), fmx = fm.getContext('2d'); fmx.drawImage(t.fl, 0, 0); fmx.globalCompositeOperation = 'source-in'; fmx.fillStyle = '#fff'; fmx.fillRect(0, 0, t.w, t.h); phTfDraw(mx, { ...t, fl: fm }); DW.sel = m; phSelChanged(); }
+  DW.live = null; dwRender();
+}
+PH_H.tf = {
+  ui(o) {
+    if (!DW.tf || DW.tf.L !== DW.layers[DW.cur]) phTfBegin();
+    const t = DW.tf; if (!t) return;
+    if (t.empty) { o.append(h('div', { class: 'hint' }, 'This layer is empty here. Pick another layer in Layers.')); return; }
+    if (t.text) { o.append(h('div', { class: 'hint' }, 'Drag to move the text. Use the Text tool to change it.')); return; }
+    o.append(h('div', { class: 'dwo' }, h('label', null, 'Mode'), segBox({ options: [{ v: 'free', l: 'Free transform' }, { v: 'distort', l: 'Distort corners' }], value: t.q ? 'distort' : 'free', onChange: v => { if (v === 'distort' && !t.q) t.q = tfCorners(t); if (v === 'free' && t.q) t.q = null; dwRender(); } })));
+    o.append(h('div', { class: 'dwo' }, h('label', null, ''), checkBox('Keep proportions', DW_PREF.tfKeep, v => { DW_PREF.tfKeep = v; savePref(); })));
+    const b = (l, f) => h('button', { class: 'btn sm', onclick: () => { f(); dwRender(); } }, l);
+    o.append(h('div', { class: 'dwo' }, h('label', null, ''), b('Mirror', () => { t.q ? (t.q = [t.q[1], t.q[0], t.q[3], t.q[2]]) : (t.sx *= -1); }), b('Flip', () => { t.q ? (t.q = [t.q[3], t.q[2], t.q[1], t.q[0]]) : (t.sy *= -1); }), b('Turn 90°', () => { if (t.q) t.q = [t.q[3], t.q[0], t.q[1], t.q[2]]; else t.rot += Math.PI / 2; })));
+    o.append(h('div', { class: 'dwo' }, h('label', null, ''), h('button', { class: 'btn pri sm', onclick: () => { phTfApply(); phTfBegin(); dwToolUI(); } }, 'Apply'), h('button', { class: 'btn sm', onclick: () => { phTfApply(true); phTfBegin(); dwToolUI(); } }, 'Cancel')));
+    o.append(h('div', { class: 'hint' }, (DW.sel ? 'Moving the selected part. ' : 'Moving the whole layer. ') + 'Drag inside to move, corners to resize, the round handle (or outside the box) to turn.'));
+  },
+  down(p, e) {
+    const t = DW.tf; if (!t || t.empty) return;
+    if (t.text) { const L = t.L, x0 = L.text.x, y0 = L.text.y; phSnapDoc(); return { move: q => { L.text.x = x0 + q.x - p.x; L.text.y = y0 + q.y - p.y; phRenderText(L); } }; }
+    const z = DW.view.z, hr = 22 / z, C = t.q || tfCorners(t), near = (a, b) => Math.hypot(a[0] - b.x, a[1] - b.y) < hr;
+    const s0 = { cx: t.cx, cy: t.cy, sx: t.sx, sy: t.sy, rot: t.rot, q: t.q && t.q.map(v => v.slice()) };
+    if (t.q) {
+      const k = C.findIndex(c => near(c, p));
+      if (k >= 0) return { move: q => { t.q[k] = [q.x, q.y]; } };
+      if (inPoly(p, t.q)) return { move: q => { t.q = s0.q.map(([a, b]) => [a + q.x - p.x, b + q.y - p.y]); } };
+      return;
+    }
+    const top = [(C[0][0] + C[1][0]) / 2, (C[0][1] + C[1][1]) / 2], ang = t.rot - Math.PI / 2, knob = [top[0] + Math.cos(ang) * 34 / z * Math.sign(t.sy || 1), top[1] + Math.sin(ang) * 34 / z * Math.sign(t.sy || 1)];
+    const rotate = () => { const a0 = Math.atan2(p.y - t.cy, p.x - t.cx); return { move: q => { let r = s0.rot + Math.atan2(q.y - t.cy, q.x - t.cx) - a0; const deg = r * 180 / Math.PI, sn = Math.round(deg / 45) * 45; if (Math.abs(deg - sn) < 3) r = sn * Math.PI / 180; t.rot = r; } }; };
+    if (near(knob, p)) return rotate();
+    const signs = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+    const cs = Math.cos(t.rot), sn = Math.sin(t.rot), toW = (lx, ly) => [lx * cs - ly * sn, lx * sn + ly * cs], toL = (dx, dy) => [dx * cs + dy * sn, -dx * sn + dy * cs];
+    for (let k = 0; k < 4; k++) if (near(C[k], p)) {
+      const [ax, ay] = signs[k], A = C[(k + 2) % 4];
+      return { move: q => { const [dx, dy] = toL(q.x - A[0], q.y - A[1]); let sx = dx / (ax * t.w), sy = dy / (ay * t.h); if (DW_PREF.tfKeep) { const kk = (sx / s0.sx + sy / s0.sy) / 2; sx = s0.sx * kk; sy = s0.sy * kk; } t.sx = sx; t.sy = sy; const [ox, oy] = toW(ax * t.w / 2 * sx, ay * t.h / 2 * sy); t.cx = A[0] + ox; t.cy = A[1] + oy; } };
+    }
+    const mids = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    for (const [mx, my] of mids) {
+      const [ox, oy] = toW(mx * t.w / 2 * t.sx, my * t.h / 2 * t.sy), M = [t.cx + ox, t.cy + oy];
+      if (near(M, p)) { const A = [t.cx - ox, t.cy - oy]; return { move: q => { const [dx, dy] = toL(q.x - A[0], q.y - A[1]); if (mx) t.sx = dx / (mx * t.w); else t.sy = dy / (my * t.h); const [px_, py_] = toW(mx * t.w / 2 * t.sx, my * t.h / 2 * t.sy); t.cx = A[0] + px_; t.cy = A[1] + py_; } }; }
+    }
+    if (inPoly(p, C)) return { move: q => { t.cx = s0.cx + q.x - p.x; t.cy = s0.cy + q.y - p.y; t.moved = true; } };
+    return rotate();
+  },
+  overlay(x, d, v, S) {
+    const t = DW.tf; if (!t || t.empty) return;
+    if (t.text) { if (t.L.text.box) { x.strokeStyle = '#3fd6c0'; x.lineWidth = 1.5; x.beginPath(); t.L.text.box.forEach((c, i) => { const [X, Y] = S(c[0], c[1]); i ? x.lineTo(X, Y) : x.moveTo(X, Y); }); x.closePath(); x.stroke(); } return; }
+    const C = (t.q || tfCorners(t)).map(c => S(c[0], c[1]));
+    x.strokeStyle = '#3fd6c0'; x.lineWidth = 1.5; x.beginPath(); C.forEach(([X, Y], i) => i ? x.lineTo(X, Y) : x.moveTo(X, Y)); x.closePath(); x.stroke();
+    for (const [X, Y] of C) handleDot(x, X, Y, 7 * d / 1.5);
+    if (!t.q) {
+      for (let k = 0; k < 4; k++) { const a = C[k], b = C[(k + 1) % 4]; handleDot(x, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 5 * d / 1.5); }
+      const top = [(C[0][0] + C[1][0]) / 2, (C[0][1] + C[1][1]) / 2], ang = t.rot - Math.PI / 2, s = Math.sign(t.sy || 1), k = [top[0] + Math.cos(ang) * 34 * d * s, top[1] + Math.sin(ang) * 34 * d * s];
+      x.beginPath(); x.moveTo(top[0], top[1]); x.lineTo(k[0], k[1]); x.stroke(); handleDot(x, k[0], k[1], 7 * d / 1.5, true);
+    }
+  }
+};
+
+/* ---------- selections ---------- */
+PH_H.marquee = {
+  ui(o) {
+    o.append(h('div', { class: 'dwo' }, h('label', null, 'Shape'), segBox({ options: [{ v: 'rect', l: 'Box' }, { v: 'ellipse', l: 'Circle' }], value: DW_PREF.marq, onChange: v => { DW_PREF.marq = v; savePref(); } })));
+    o.append(h('div', { class: 'dwo' }, h('label', null, ''), checkBox('Keep even', !!DW_PREF.marqEven, v => { DW_PREF.marqEven = v; savePref(); })));
+    selModeRow(o); selQuick(o);
+    o.append(h('div', { class: 'hint' }, 'Drag over the part you want. Tap outside it to drop the selection.'));
+  },
+  down(p) {
+    DW.selDraft = null;
+    return {
+      move: q => { let bx = q.x, by = q.y; if (DW_PREF.marqEven) { const m = Math.max(Math.abs(bx - p.x), Math.abs(by - p.y)); bx = p.x + Math.sign(bx - p.x || 1) * m; by = p.y + Math.sign(by - p.y || 1) * m; } DW.selDraft = { a: p, b: { x: bx, y: by } }; },
+      up: () => {
+        const dr = DW.selDraft; DW.selDraft = null;
+        if (!dr || Math.hypot(dr.b.x - dr.a.x, dr.b.y - dr.a.y) * DW.view.z < 6) { if (DW_PREF.selMode === 'new') phDeselect(); return; }
+        const c = selCv(), x = c.getContext('2d'), l = Math.min(dr.a.x, dr.b.x), t = Math.min(dr.a.y, dr.b.y), w = Math.abs(dr.b.x - dr.a.x), hh = Math.abs(dr.b.y - dr.a.y);
+        x.fillStyle = '#fff'; x.beginPath(); if (DW_PREF.marq === 'ellipse') x.ellipse(l + w / 2, t + hh / 2, w / 2, hh / 2, 0, 0, 7); else x.rect(Math.round(l), Math.round(t), Math.round(w), Math.round(hh)); x.fill();
+        phSetSel(c);
+      }
+    };
+  },
+  overlay(x, d, v, S) { const dr = DW.selDraft; if (!dr) return; const [ax, ay] = S(dr.a.x, dr.a.y), [bx, by] = S(dr.b.x, dr.b.y); x.setLineDash([5, 4]); x.strokeStyle = '#fff'; x.lineWidth = 1.2 * d; x.beginPath(); if (DW_PREF.marq === 'ellipse') x.ellipse((ax + bx) / 2, (ay + by) / 2, Math.abs(bx - ax) / 2, Math.abs(by - ay) / 2, 0, 0, 7); else x.rect(ax, ay, bx - ax, by - ay); x.stroke(); x.setLineDash([]); }
+};
+function lassoFinish() {
+  const pts = DW.lassoPts; DW.lassoPts = null; if (!pts || pts.length < 3) { dwToolUI(); dwRender(); return; }
+  const c = selCv(), x = c.getContext('2d'); x.fillStyle = '#fff'; x.beginPath(); pts.forEach((q, i) => i ? x.lineTo(q.x, q.y) : x.moveTo(q.x, q.y)); x.closePath(); x.fill(); phSetSel(c); dwToolUI();
+}
+PH_H.lasso = {
+  ui(o) {
+    o.append(h('div', { class: 'dwo' }, h('label', null, 'Draw'), segBox({ options: [{ v: 'free', l: 'Freehand' }, { v: 'poly', l: 'Straight edges' }], value: DW_PREF.lasso, onChange: v => { DW_PREF.lasso = v; DW.lassoPts = null; savePref(); dwToolUI(); dwRender(); } })));
+    selModeRow(o);
+    if (DW_PREF.lasso === 'poly') o.append(h('div', { class: 'dwo' }, h('label', null, ''), h('button', { class: 'btn pri sm', onclick: lassoFinish }, 'Close shape'), h('button', { class: 'btn sm', onclick: () => { DW.lassoPts = null; dwRender(); } }, 'Start over')));
+    selQuick(o);
+    o.append(h('div', { class: 'hint' }, DW_PREF.lasso === 'poly' ? 'Tap corner after corner. Tap the first corner again (or Close shape) to finish.' : 'Draw around the part you want. Letting go closes the shape.'));
+  },
+  down(p) {
+    if (DW_PREF.lasso === 'poly') {
+      const pts = DW.lassoPts || (DW.lassoPts = []);
+      if (pts.length > 2 && Math.hypot(pts[0].x - p.x, pts[0].y - p.y) * DW.view.z < 18) { lassoFinish(); return; }
+      pts.push({ x: p.x, y: p.y }); DW.lassoHover = null; return { move: q => { pts[pts.length - 1] = { x: q.x, y: q.y }; } };
+    }
+    DW.lassoPts = [{ x: p.x, y: p.y }];
+    return { move: q => { const l = DW.lassoPts[DW.lassoPts.length - 1]; if (Math.hypot(q.x - l.x, q.y - l.y) * DW.view.z > 2) DW.lassoPts.push({ x: q.x, y: q.y }); }, up: lassoFinish, cancel: () => { DW.lassoPts = null; } };
+  },
+  overlay(x, d, v, S) { const pts = DW.lassoPts; if (!pts || !pts.length) return; x.strokeStyle = '#fff'; x.lineWidth = 1.2 * d; x.setLineDash([5, 4]); x.beginPath(); pts.forEach((q, i) => { const [X, Y] = S(q.x, q.y); i ? x.lineTo(X, Y) : x.moveTo(X, Y); }); x.stroke(); x.setLineDash([]); if (DW_PREF.lasso === 'poly') for (const q of pts) { const [X, Y] = S(q.x, q.y); handleDot(x, X, Y, 4 * d); } }
+};
+PH_H.wand = {
+  ui(o) {
+    o.append(rangeRow('Tolerance', { min: 0, max: 255, step: 1, value: DW_PREF.wtol, onInput: v => { DW_PREF.wtol = v; savePref(); } }));
+    o.append(h('div', { class: 'dwo' }, h('label', null, ''), checkBox('Touching only', DW_PREF.wcont, v => { DW_PREF.wcont = v; savePref(); }), checkBox('All layers', DW_PREF.wall, v => { DW_PREF.wall = v; savePref(); })));
+    selModeRow(o); selQuick(o);
+    o.append(h('div', { class: 'hint' }, 'Tap a color to select the area around it. Touching only off picks that color everywhere.'));
+  },
+  down(p) {
+    const X = Math.floor(p.x), Y = Math.floor(p.y); if (X < 0 || Y < 0 || X >= DW.w || Y >= DW.h) return;
+    const src = DW_PREF.wall ? docFlat() : DW.layers[DW.cur].cv, sd = src.getContext('2d').getImageData(0, 0, DW.w, DW.h).data;
+    phSetSel(maskToCanvas(floodMask(sd, DW.w, DW.h, X, Y, DW_PREF.wtol, DW_PREF.wcont), DW.w, DW.h));
+  }
+};
+PH_H.qsel = {
+  brush: true,
+  ui(o) {
+    o.append(h('div', { class: 'dwo' }, h('label', null, 'Brush'), segBox({ options: [{ v: true, l: 'Add' }, { v: false, l: 'Take away' }], value: DW_PREF.qadd, onChange: v => { DW_PREF.qadd = v; savePref(); } })));
+    o.append(rangeRow('Size', { min: 2, max: 600, step: 1, value: DW_PREF.psize, suf: 'px', onInput: v => { DW_PREF.psize = v; savePref(); } }));
+    o.append(h('div', { class: 'dwo' }, h('label', null, ''), checkBox('Find edges', DW_PREF.qsmart, v => { DW_PREF.qsmart = v; savePref(); })));
+    if (DW_PREF.qsmart) o.append(rangeRow('Tolerance', { min: 2, max: 120, step: 1, value: DW_PREF.wtol, onInput: v => { DW_PREF.wtol = v; savePref(); } }));
+    selQuick(o);
+    o.append(h('div', { class: 'hint' }, 'Paint over the thing you want. With Find edges on, the selection stops at color edges.'));
+  },
+  down(p) {
+    const W = DW.w, H = DW.h, m = newLayerCanvas(W, H), mx = m.getContext('2d'); DW.qsMask = m;
+    const sd = DW_PREF.qsmart ? docFlat().getContext('2d').getImageData(0, 0, W, H).data : null;
+    const dab = (x, y) => {
+      const r = DW_PREF.psize / 2;
+      if (!sd) { mx.fillStyle = '#fff'; mx.beginPath(); mx.arc(x, y, r, 0, 7); mx.fill(); return; }
+      const R = r * 1.6, b = boxOf(x, y, R); if (!b) return; const X = Math.floor(x), Y = Math.floor(y); if (X < 0 || Y < 0 || X >= W || Y >= H) return;
+      const i0 = (Y * W + X) * 4, tol = DW_PREF.wtol, seen = new Uint8Array(b.w * b.h), out = mx.createImageData(b.w, b.h), od = out.data, st = [X - b.x0, Y - b.y0];
+      while (st.length) { const yy = st.pop(), xx = st.pop(); if (xx < 0 || yy < 0 || xx >= b.w || yy >= b.h) continue; const k = yy * b.w + xx; if (seen[k]) continue; seen[k] = 1; const gx = xx + b.x0, gy = yy + b.y0; if (Math.hypot(gx - x, gy - y) > R) continue; const j = (gy * W + gx) * 4; if (Math.abs(sd[j] - sd[i0]) > tol || Math.abs(sd[j + 1] - sd[i0 + 1]) > tol || Math.abs(sd[j + 2] - sd[i0 + 2]) > tol) continue; od[k * 4] = od[k * 4 + 1] = od[k * 4 + 2] = od[k * 4 + 3] = 255; st.push(xx + 1, yy, xx - 1, yy, xx, yy + 1, xx, yy - 1); }
+      const t = tmpCv('qs', b.w, b.h); t.getContext('2d').putImageData(out, 0, 0); mx.drawImage(t, b.x0, b.y0);
+    };
+    const go = stepper(p, dab, () => Math.max(2, DW_PREF.psize * .25));
+    return { move: q => go(q), up: () => { DW.qsMask = null; phSetSel(m, DW_PREF.qadd ? (DW.sel ? 'add' : 'new') : 'sub'); }, cancel: () => { DW.qsMask = null; } };
+  },
+  overlay(x, d, v, S) { if (!DW.qsMask) return; const t = tmpCv('qsv'), tx = t.getContext('2d'); tx.drawImage(DW.qsMask, 0, 0); tx.globalCompositeOperation = 'source-in'; tx.fillStyle = DW_PREF.qadd ? 'rgba(63,214,192,.45)' : 'rgba(255,80,80,.45)'; tx.fillRect(0, 0, t.width, t.height); x.setTransform(d * v.z, 0, 0, d * v.z, d * v.x, d * v.y); x.drawImage(t, 0, 0); x.setTransform(1, 0, 0, 1, 0, 0); }
+};
+
+/* ---------- crop ---------- */
+const CROP_R = [['free', 'Free'], ['orig', 'Original'], ['1', '1:1'], ['4:5', '4:5'], ['4:3', '4:3'], ['3:2', '3:2'], ['16:9', '16:9'], ['9:16', '9:16']];
+function cropRatio() { const r = DW_PREF.cropR; if (r === 'free') return 0; if (r === 'orig') return DW.w / DW.h; if (r === '1') return 1; const [a, b] = r.split(':').map(Number); return a / b; }
+function cropFit() { const R_ = cropRatio(); let w = DW.w, hh = DW.h; if (R_) { if (w / hh > R_) w = hh * R_; else hh = w / R_; } DW.crop = { x: (DW.w - w) / 2, y: (DW.h - hh) / 2, w, h: hh }; }
+PH_H.crop = {
+  ui(o) {
+    if (!DW.crop) cropFit();
+    o.append(h('div', { class: 'dwo' }, h('label', null, 'Shape'), selectBox({ options: CROP_R.map(([v, l]) => ({ v, l })), value: DW_PREF.cropR, onChange: v => { DW_PREF.cropR = v; savePref(); cropFit(); dwRender(); } })));
+    o.append(h('div', { class: 'dwo' }, h('label', null, ''), h('button', { class: 'btn pri sm', onclick: () => { const c = DW.crop; phCropTo(Math.round(c.x), Math.round(c.y), Math.round(c.w), Math.round(c.h)); cropFit(); dwToolUI(); } }, 'Crop'), h('button', { class: 'btn sm', onclick: () => { cropFit(); dwRender(); } }, 'Reset')));
+    o.append(h('div', { class: 'hint' }, 'Drag the corners or edges, or drag inside to move the frame. Everything outside it is cut off.'));
+    dwRender();
+  },
+  down(p) {
+    const c = DW.crop; if (!c) return; const z = DW.view.z, hr = 24 / z, c0 = { ...c }, R_ = cropRatio();
+    const ex = [p.x - c.x < hr ? -1 : c.x + c.w - p.x < hr ? 1 : 0, p.y - c.y < hr ? -1 : c.y + c.h - p.y < hr ? 1 : 0];
+    const inside = p.x > c.x - hr && p.x < c.x + c.w + hr && p.y > c.y - hr && p.y < c.y + c.h + hr;
+    if (!inside) return;
+    if (!ex[0] && !ex[1]) return { move: q => { c.x = clamp(c0.x + q.x - p.x, 0, DW.w - c.w); c.y = clamp(c0.y + q.y - p.y, 0, DW.h - c.h); } };
+    return {
+      move: q => {
+        let x0 = c0.x, y0 = c0.y, x1 = c0.x + c0.w, y1 = c0.y + c0.h;
+        if (ex[0] < 0) x0 = clamp(q.x, 0, x1 - 4); if (ex[0] > 0) x1 = clamp(q.x, x0 + 4, DW.w);
+        if (ex[1] < 0) y0 = clamp(q.y, 0, y1 - 4); if (ex[1] > 0) y1 = clamp(q.y, y0 + 4, DW.h);
+        if (R_) { let w = x1 - x0, hh = y1 - y0; if (ex[0] && (!ex[1] || w / hh > R_)) hh = w / R_; else w = hh * R_; if (ex[0] < 0) x0 = x1 - w; else x1 = x0 + w; if (ex[1] < 0) y0 = y1 - hh; else y1 = y0 + hh; if (x0 < 0 || y0 < 0 || x1 > DW.w || y1 > DW.h) return; }
+        Object.assign(c, { x: x0, y: y0, w: x1 - x0, h: y1 - y0 });
+      }
+    };
+  },
+  overlay(x, d, v, S) {
+    const c = DW.crop; if (!c) return; const [ax, ay] = S(c.x, c.y), [bx, by] = S(c.x + c.w, c.y + c.h), [ox, oy] = S(0, 0), [px, py] = S(DW.w, DW.h);
+    x.fillStyle = 'rgba(0,0,0,.55)'; x.beginPath(); x.rect(ox, oy, px - ox, py - oy); x.rect(ax, ay, bx - ax, by - ay); x.fill('evenodd');
+    x.strokeStyle = '#fff'; x.lineWidth = 1.5; x.strokeRect(ax, ay, bx - ax, by - ay);
+    x.strokeStyle = 'rgba(255,255,255,.4)'; x.lineWidth = 1; x.beginPath(); for (const f of [1 / 3, 2 / 3]) { x.moveTo(ax + (bx - ax) * f, ay); x.lineTo(ax + (bx - ax) * f, by); x.moveTo(ax, ay + (by - ay) * f); x.lineTo(bx, ay + (by - ay) * f); } x.stroke();
+    x.fillStyle = '#fff'; const L_ = 16 * d, T_ = 4 * d;
+    for (const [X, Y, sx, sy] of [[ax, ay, 1, 1], [bx, ay, -1, 1], [bx, by, -1, -1], [ax, by, 1, -1]]) { x.fillRect(X - (sx < 0 ? T_ : 0), Y - (sy < 0 ? T_ : 0), T_, sy * L_); x.fillRect(X - (sx < 0 ? L_ : 0), Y - (sy < 0 ? T_ : 0), L_, T_); }
+  }
+};
+// change the size of the whole picture; draw(ctx, oldCanvas) places the old content
+function phResizeDoc(W2, H2, draw, opts = {}) {
+  phSnapDoc();
+  for (const L of DW.layers) {
+    const n = newLayerCanvas(W2, H2), x = n.getContext('2d'); if (L.kind !== 'adj') draw(x, L.cv); L.cv = n;
+    if (L.mask) { const m = newLayerCanvas(W2, H2), mx = m.getContext('2d'); mx.fillStyle = '#fff'; mx.fillRect(0, 0, W2, H2); if (opts.rect) mx.clearRect(opts.rect.x, opts.rect.y, opts.rect.w, opts.rect.h); else mx.clearRect(0, 0, W2, H2); draw(mx, L.mask); L.mask = m; }
+    if (L.kind === 'text' && opts.text) { opts.text(L.text); }
+    dirty(L);
+  }
+  DW.w = W2; DW.h = H2; DW.stroke = newLayerCanvas(W2, H2); DW.ref = null; DW.sel = null; DW.tf = null; DW.adjCache = {};
+  for (const L of DW.layers) if (L.kind === 'text') phRenderText(L);
+  phSelChanged(); DW.view.fit = true; dwFit(); dwRender();
+}
+function phCropTo(x, y, w, hh) { if (w < 1 || hh < 1) return; phResizeDoc(w, hh, (c, src) => c.drawImage(src, -x, -y), { rect: { x: -x, y: -y, w: DW.w, h: DW.h }, text: t => { t.x -= x; t.y -= y; } }); toast('Cropped to ' + w + ' × ' + hh); }
+
+/* ---------- clone stamp and healing brush ---------- */
+function cloneStroke(p, e, heal) {
+  const L = dwTarget(); if (!needPixels(L)) return;
+  if (DW.cloneSetMode || !DW.cloneSrc) { DW.cloneSrc = { x: p.x, y: p.y }; DW.cloneOff = null; DW.cloneSetMode = false; toast('Source spot set. Now paint where it should go.'); dwToolUI(); return; }
+  const src = DW_PREF.csample === 'all' ? docFlat() : copyCv(L.cv);
+  if (!DW_PREF.caligned || !DW.cloneOff) DW.cloneOff = { x: DW.cloneSrc.x - p.x, y: DW.cloneSrc.y - p.y };
+  const off = DW.cloneOff, st = { t: 'clone', L };
+  dwSnap(L); const sx = ctxReset(DW.stroke.getContext('2d')); sx.clearRect(0, 0, DW.w, DW.h);
+  const bb = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+  const dab = (x, y) => {
+    const s = Math.max(2, Math.ceil(DW_PREF.psize)), t = tmpCv('cdab', s, s), tx = t.getContext('2d');
+    tx.drawImage(src, x + off.x - s / 2, y + off.y - s / 2, s, s, 0, 0, s, s); tx.globalCompositeOperation = 'destination-in'; tx.drawImage(softTip(), 0, 0, s, s);
+    sx.drawImage(t, x - s / 2, y - s / 2); DW.cloneLive = { x: x + off.x, y: y + off.y };
+    bb.x0 = Math.min(bb.x0, x - s / 2); bb.y0 = Math.min(bb.y0, y - s / 2); bb.x1 = Math.max(bb.x1, x + s / 2); bb.y1 = Math.max(bb.y1, y + s / 2);
+  };
+  DW.live = dwLiveFor(st);
+  const go = stepper(p, dab, () => Math.max(1, DW_PREF.psize * .12));
+  return {
+    move: q => go(q),
+    up: () => { DW.cloneLive = null; if (heal) healStroke(L, src, off, bb); dwEndStroke(st); },
+    cancel: () => { DW.cloneLive = null; dwCancelStroke(st); }
+  };
+}
+// healing: keep the texture from the source, take the light and color from around the target
+function healStroke(L, src, off, bb) {
+  const r = Math.max(2, DW_PREF.psize * .35), pad = Math.ceil(r * 2);
+  const x0 = Math.max(0, Math.floor(bb.x0) - pad), y0 = Math.max(0, Math.floor(bb.y0) - pad), x1 = Math.min(DW.w, Math.ceil(bb.x1) + pad), y1 = Math.min(DW.h, Math.ceil(bb.y1) + pad), w = x1 - x0, hh = y1 - y0; if (w < 2 || hh < 2) return;
+  const S_ = newLayerCanvas(w, hh); S_.getContext('2d').drawImage(src, x0 + off.x, y0 + off.y, w, hh, 0, 0, w, hh);
+  const T_ = newLayerCanvas(w, hh); T_.getContext('2d').drawImage(L.cv, x0, y0, w, hh, 0, 0, w, hh);
+  const sd = S_.getContext('2d').getImageData(0, 0, w, hh).data, bs = blurData(S_, r), bt = blurData(T_, r);
+  const kx = DW.stroke.getContext('2d'), img = kx.getImageData(x0, y0, w, hh), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { if (!d[i + 3]) continue; for (let c = 0; c < 3; c++) d[i + c] = sd[i + c] + bt[i + c] - bs[i + c]; }
+  kx.putImageData(img, x0, y0);
+}
+// a blurred copy of a canvas's pixels with the edges repeated (no dark rim)
+function blurData(cv, r) {
+  const w = cv.width, hh = cv.height, p = Math.ceil(r * 2.5), t = newLayerCanvas(w + p * 2, hh + p * 2), x = t.getContext('2d');
+  x.drawImage(cv, p, p); x.drawImage(cv, 0, 0, 1, hh, 0, p, p, hh); x.drawImage(cv, w - 1, 0, 1, hh, p + w, p, p, hh); x.drawImage(t, 0, p, w + p * 2, 1, 0, 0, w + p * 2, p); x.drawImage(t, 0, p + hh - 1, w + p * 2, 1, 0, p + hh, w + p * 2, p);
+  const o = newLayerCanvas(w, hh), ox = o.getContext('2d'); ox.filter = `blur(${r}px)`; ox.drawImage(t, -p, -p); return ox.getImageData(0, 0, w, hh).data;
+}
+function cloneUI(o, heal) {
+  brushRows(o);
+  o.append(h('div', { class: 'dwo' }, h('label', null, 'Take from'), segBox({ options: [{ v: 'layer', l: 'This layer' }, { v: 'all', l: 'All layers' }], value: DW_PREF.csample, onChange: v => { DW_PREF.csample = v; savePref(); } })));
+  o.append(h('div', { class: 'dwo' }, h('label', null, ''), checkBox('Aligned', DW_PREF.caligned, v => { DW_PREF.caligned = v; savePref(); }), h('button', { class: 'btn sm' + (DW.cloneSetMode ? ' pri' : ''), onclick: () => { DW.cloneSetMode = !DW.cloneSetMode; dwToolUI(); } }, DW.cloneSetMode ? 'Tap the source spot…' : 'Set source spot')));
+  if (!heal) o.append(rangeRow('Opacity', { min: 1, max: 100, step: 1, value: DW_PREF.op, suf: '%', onInput: v => { DW_PREF.op = v; savePref(); } }));
+  o.append(h('div', { class: 'hint' }, (DW.cloneSrc ? '' : 'First tap the spot to copy from. ') + (heal ? 'Healing copies the texture and blends it into the light and color around it.' : 'Painting copies from the source spot.')));
+}
+function cloneOverlay(x, d, v, S) { const c = DW.cloneLive || DW.cloneSrc; if (!c) return; const [X, Y] = S(c.x, c.y), r = Math.max(6, DW_PREF.psize / 2 * v.z * d); x.strokeStyle = '#fff'; x.lineWidth = 1.5; x.beginPath(); x.arc(X, Y, r, 0, 7); x.moveTo(X - 6, Y); x.lineTo(X + 6, Y); x.moveTo(X, Y - 6); x.lineTo(X, Y + 6); x.stroke(); x.strokeStyle = 'rgba(0,0,0,.6)'; x.beginPath(); x.arc(X, Y, r + 1.5, 0, 7); x.stroke(); }
+PH_H.clone = { brush: true, ui: o => cloneUI(o, false), down: (p, e) => cloneStroke(p, e, false), overlay: cloneOverlay };
+PH_H.healb = { brush: true, ui: o => cloneUI(o, true), down: (p, e) => cloneStroke(p, e, true), overlay: cloneOverlay };
+
+/* ---------- spot healing / content-aware fill: fill a hole from what is around it ---------- */
+function inpaint(cv, mask, x0, y0, w, hh) {
+  const x = cv.getContext('2d'), img = x.getImageData(x0, y0, w, hh), d = img.data;
+  // pyramid: push known colors down, pull them back up into the hole
+  let lv = [{ w, h: hh, c: new Float32Array(w * hh * 4), k: new Float32Array(w * hh) }];
+  for (let i = 0; i < w * hh; i++) { const kk = 1 - mask[i]; lv[0].k[i] = kk; for (let c = 0; c < 4; c++) lv[0].c[i * 4 + c] = d[i * 4 + c] * kk; }
+  while (lv[lv.length - 1].w > 1 || lv[lv.length - 1].h > 1) {
+    const a = lv[lv.length - 1], W2 = Math.max(1, Math.ceil(a.w / 2)), H2 = Math.max(1, Math.ceil(a.h / 2)), b = { w: W2, h: H2, c: new Float32Array(W2 * H2 * 4), k: new Float32Array(W2 * H2) };
+    for (let y = 0; y < a.h; y++) for (let xx = 0; xx < a.w; xx++) { const i = y * a.w + xx, j = (y >> 1) * W2 + (xx >> 1); b.k[j] += a.k[i]; for (let c = 0; c < 4; c++) b.c[j * 4 + c] += a.c[i * 4 + c]; }
+    for (let j = 0; j < W2 * H2; j++) { const kk = b.k[j]; if (kk > 1) { for (let c = 0; c < 4; c++) b.c[j * 4 + c] /= kk; b.k[j] = 1; } }
+    lv.push(b);
+  }
+  for (let l = lv.length - 2; l >= 0; l--) {
+    const a = lv[l], b = lv[l + 1];
+    for (let y = 0; y < a.h; y++) for (let xx = 0; xx < a.w; xx++) {
+      const i = y * a.w + xx, kk = a.k[i]; if (kk >= 1) continue;
+      const fx = Math.min(b.w - 1, Math.max(0, (xx - .5) / 2)), fy = Math.min(b.h - 1, Math.max(0, (y - .5) / 2)), ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy, ix2 = Math.min(b.w - 1, ix + 1), iy2 = Math.min(b.h - 1, iy + 1);
+      for (let c = 0; c < 4; c++) { const v00 = b.c[(iy * b.w + ix) * 4 + c], v10 = b.c[(iy * b.w + ix2) * 4 + c], v01 = b.c[(iy2 * b.w + ix) * 4 + c], v11 = b.c[(iy2 * b.w + ix2) * 4 + c]; const up = (v00 * (1 - tx) + v10 * tx) * (1 - ty) + (v01 * (1 - tx) + v11 * tx) * ty; a.c[i * 4 + c] = a.c[i * 4 + c] + up * (1 - kk); }
+      a.k[i] = 1;
+    }
+  }
+  // add back fine texture from a nearby untouched area of the same size
+  let mx0 = w, mx1 = 0; for (let y = 0; y < hh; y++) for (let xx = 0; xx < w; xx++) if (mask[y * w + xx] > .5) { if (xx < mx0) mx0 = xx; if (xx > mx1) mx1 = xx; }
+  const shift = Math.max(4, mx1 - mx0 + 4), sm = blurPlain(d, w, hh, 2);
+  for (let y = 0; y < hh; y++) for (let xx = 0; xx < w; xx++) {
+    const i = y * w + xx, m = mask[i]; if (m <= 0) continue;
+    let sxp = xx + shift < w && mask[y * w + xx + shift] < .5 ? xx + shift : xx - shift >= 0 && mask[y * w + xx - shift] < .5 ? xx - shift : -1;
+    for (let c = 0; c < 4; c++) { let v = lv[0].c[i * 4 + c]; if (sxp >= 0 && c < 3) { const j = (y * w + sxp) * 4 + c; v += (d[j] - sm[j]) * .9; } d[i * 4 + c] = d[i * 4 + c] * (1 - m) + v * m; }
+  }
+  x.putImageData(img, x0, y0);
+}
+function blurPlain(d, w, hh, r) { const o = new Float32Array(d.length), tmp = new Float32Array(d.length); for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) for (let c = 0; c < 4; c++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const xx = x + k; if (xx < 0 || xx >= w) continue; s += d[(y * w + xx) * 4 + c]; n++; } tmp[(y * w + x) * 4 + c] = s / n; } for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) for (let c = 0; c < 4; c++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const yy = y + k; if (yy < 0 || yy >= hh) continue; s += tmp[(yy * w + x) * 4 + c]; n++; } o[(y * w + x) * 4 + c] = s / n; } return o; }
+function fillHole(L, maskCv, bb) {
+  const pad = Math.ceil(Math.max(bb.w, bb.h) * .6 + 8), x0 = Math.max(0, Math.floor(bb.x - pad)), y0 = Math.max(0, Math.floor(bb.y - pad)), x1 = Math.min(DW.w, Math.ceil(bb.x + bb.w + pad)), y1 = Math.min(DW.h, Math.ceil(bb.y + bb.h + pad)), w = x1 - x0, hh = y1 - y0;
+  if (w < 2 || hh < 2) return;
+  const md = maskCv.getContext('2d').getImageData(x0, y0, w, hh).data, m = new Float32Array(w * hh); for (let i = 0; i < w * hh; i++) m[i] = md[i * 4 + 3] / 255;
+  inpaint(L.cv, m, x0, y0, w, hh); dirty(L);
+}
+PH_H.spot = {
+  brush: true,
+  ui(o) { brushRows(o); o.append(h('div', { class: 'hint' }, 'Paint over a spot, scratch or small thing you want gone. When you let go it is filled in from around it.')); },
+  down(p) {
+    const L = dwTarget(); if (!needPixels(L)) return;
+    const sx = ctxReset(DW.stroke.getContext('2d')); sx.clearRect(0, 0, DW.w, DW.h); DW.spotOn = true;
+    const bb = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+    const dab = (x, y) => { const s = DW_PREF.psize; sx.drawImage(tintedTip({ tip: 'round', hard: Math.max(.6, DW_PREF.phard / 100), ratio: 1 }, '#ffffffff'), x - s / 2, y - s / 2, s, s); bb.x0 = Math.min(bb.x0, x - s / 2); bb.y0 = Math.min(bb.y0, y - s / 2); bb.x1 = Math.max(bb.x1, x + s / 2); bb.y1 = Math.max(bb.y1, y + s / 2); };
+    const go = stepper(p, dab, () => Math.max(1, DW_PREF.psize * .15));
+    return {
+      move: q => go(q),
+      up: () => { DW.spotOn = false; dwSnap(L); const m = phClipSel(DW.stroke); fillHole(L, m, { x: bb.x0, y: bb.y0, w: bb.x1 - bb.x0, h: bb.y1 - bb.y0 }); sx.clearRect(0, 0, DW.w, DW.h); dwRender(); },
+      cancel: () => { DW.spotOn = false; sx.clearRect(0, 0, DW.w, DW.h); }
+    };
+  },
+  overlay(x, d, v) { if (!DW.spotOn) return; const t = tmpCv('spv'), tx = t.getContext('2d'); tx.drawImage(DW.stroke, 0, 0); tx.globalCompositeOperation = 'source-in'; tx.fillStyle = 'rgba(255,60,80,.45)'; tx.fillRect(0, 0, t.width, t.height); x.setTransform(d * v.z, 0, 0, d * v.z, d * v.x, d * v.y); x.drawImage(t, 0, 0); x.setTransform(1, 0, 0, 1, 0, 0); }
+};
+PH_H.redeye = {
+  ui(o) { o.append(rangeRow('Size', { min: 4, max: 400, step: 1, value: DW_PREF.psize, suf: 'px', onInput: v => { DW_PREF.psize = v; savePref(); } })); o.append(rangeRow('Darken', { min: 0, max: 100, step: 1, value: DW_PREF.pstr, suf: '%', onInput: v => { DW_PREF.pstr = v; savePref(); } })); o.append(h('div', { class: 'hint' }, 'Tap the middle of each red eye.')); },
+  down(p) {
+    const L = dwTarget(); if (!needPixels(L)) return; const r = DW_PREF.psize / 2, b = boxOf(p.x, p.y, r); if (!b) return;
+    dwSnap(L); const x = L.cv.getContext('2d'), img = x.getImageData(b.x0, b.y0, b.w, b.h), d = img.data, dk = 1 - DW_PREF.pstr / 200;
+    for (let y = 0; y < b.h; y++) for (let xx = 0; xx < b.w; xx++) {
+      const f = falloff(Math.hypot(xx + b.x0 - p.x, y + b.y0 - p.y), r); if (!f) continue; const i = (y * b.w + xx) * 4, R_ = d[i], G = d[i + 1], B_ = d[i + 2];
+      const red = R_ / Math.max(1, (G + B_) / 2); if (red < 1.4 || R_ < 50) continue; const k = Math.min(1, (red - 1.4) / .6) * f, m = (G + B_) / 2 * dk;
+      d[i] = R_ + (m - R_) * k; d[i + 1] = G + (G * dk - G) * k; d[i + 2] = B_ + (B_ * dk - B_) * k;
+    }
+    x.putImageData(img, b.x0, b.y0); dirty(L); dwRender();
+  }
+};
+
+/* ---------- gradient ---------- */
+function gradStops() {
+  const fg = DW_PREF.color, bg = DW_PREF.bg, cl = c => { const [r, g, b] = hexToRgba(c); return rgbaToHex(r, g, b, 0); };
+  let s = { fb: [[0, fg], [1, bg]], fc: [[0, fg], [1, cl(fg)]], bw: [[0, '#000000ff'], [1, '#ffffffff']], rainbow: [[0, '#ff3b30ff'], [.17, '#ff9500ff'], [.33, '#ffd60aff'], [.5, '#34c759ff'], [.67, '#0a84ffff'], [.83, '#5e5ce6ff'], [1, '#bf5af2ff']], sunset: [[0, '#2b1055ff'], [.5, '#d53369ff'], [1, '#ffcc70ff']], chrome: [[0, '#2c2f36ff'], [.45, '#f2f4f7ff'], [.55, '#8c939eff'], [1, '#e9edf2ff']] }[DW_PREF.gcols] || [[0, fg], [1, bg]];
+  if (DW_PREF.grev) s = s.map(([t, c]) => [1 - t, c]).reverse();
+  return s;
+}
+function paintGradient(x, a, b) {
+  const W = DW.w, H = DW.h, ty = DW_PREF.gtype, len = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)); let g;
+  const stops = gradStops();
+  if (ty === 'radial') g = x.createRadialGradient(a.x, a.y, 0, a.x, a.y, len);
+  else if (ty === 'angle') g = x.createConicGradient(Math.atan2(b.y - a.y, b.x - a.x), a.x, a.y);
+  else if (ty === 'reflected') { g = x.createLinearGradient(a.x - (b.x - a.x), a.y - (b.y - a.y), b.x, b.y); for (const [t, c] of stops) { g.addColorStop(.5 + t / 2, css(c)); g.addColorStop(.5 - t / 2, css(c)); } x.fillStyle = g; x.fillRect(0, 0, W, H); return; }
+  else g = x.createLinearGradient(a.x, a.y, b.x, b.y);
+  for (const [t, c] of stops) g.addColorStop(t, css(c));
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+}
+function fgbgRow(o) {
+  o.append(h('div', { class: 'dwo' }, h('label', null, 'Colors'), colorBtn({ value: DW_PREF.color, onInput: v => { DW_PREF.color = v; savePref(); } }), colorBtn({ value: DW_PREF.bg, onInput: v => { DW_PREF.bg = v; savePref(); } }), h('button', { class: 'btn sm', onclick: () => { [DW_PREF.color, DW_PREF.bg] = [DW_PREF.bg, DW_PREF.color]; savePref(); dwToolUI(); } }, 'Swap')));
+}
+PH_H.gradient = {
+  ui(o) {
+    o.append(h('div', { class: 'dwo' }, h('label', null, 'Type'), selectBox({ options: [{ v: 'linear', l: 'Straight' }, { v: 'radial', l: 'Round' }, { v: 'angle', l: 'Around' }, { v: 'reflected', l: 'Mirrored' }], value: DW_PREF.gtype, onChange: v => { DW_PREF.gtype = v; savePref(); } })));
+    o.append(h('div', { class: 'dwo' }, h('label', null, 'Colors from'), selectBox({ options: [{ v: 'fb', l: 'Front to back color' }, { v: 'fc', l: 'Front color to see-through' }, { v: 'bw', l: 'Black to white' }, { v: 'rainbow', l: 'Rainbow' }, { v: 'sunset', l: 'Sunset' }, { v: 'chrome', l: 'Chrome' }], value: DW_PREF.gcols, onChange: v => { DW_PREF.gcols = v; savePref(); } })));
+    fgbgRow(o);
+    o.append(h('div', { class: 'dwo' }, h('label', null, ''), checkBox('Reverse', DW_PREF.grev, v => { DW_PREF.grev = v; savePref(); })));
+    o.append(rangeRow('Opacity', { min: 1, max: 100, step: 1, value: DW_PREF.op, suf: '%', onInput: v => { DW_PREF.op = v; savePref(); } }));
+    o.append(h('div', { class: 'hint' }, 'Drag across the picture. It fills the selection, or the whole layer.'));
+  },
+  down(p) {
+    const L = dwTarget(); if (!needPixels(L)) return; const st = { t: 'gradient', L };
+    dwSnap(L); const sx = ctxReset(DW.stroke.getContext('2d')); sx.clearRect(0, 0, DW.w, DW.h); DW.gline = { a: p, b: p };
+    DW.live = dwLiveFor(st);
+    return { move: q => { DW.gline.b = q; sx.clearRect(0, 0, DW.w, DW.h); paintGradient(sx, p, q); }, up: () => { if (Math.hypot(DW.gline.b.x - p.x, DW.gline.b.y - p.y) < 1) paintGradient(sx, p, { x: p.x + 1, y: p.y }); DW.gline = null; dwEndStroke(st); }, cancel: () => { DW.gline = null; dwCancelStroke(st); } };
+  },
+  overlay(x, d, v, S) { const g = DW.gline; if (!g) return; const [ax, ay] = S(g.a.x, g.a.y), [bx, by] = S(g.b.x, g.b.y); x.strokeStyle = '#fff'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(ax, ay); x.lineTo(bx, by); x.stroke(); handleDot(x, ax, ay, 5, true); handleDot(x, bx, by, 5, true); }
+};
+
+/* ---------- toning and retouch brushes that change pixels in place ---------- */
+function pixelBrush(p, fn) {
+  const L = dwTarget(); if (!needPixels(L)) return; dwSnap(L);
+  const x = L.cv.getContext('2d'); DW.selVer = (DW.selVer || 0) + 1;
+  const dab = (cx, cy, dx, dy) => {
+    const r = DW_PREF.psize / 2, b = boxOf(cx, cy, r + 2); if (!b) return;
+    const img = x.getImageData(b.x0, b.y0, b.w, b.h), d = img.data, k = DW_PREF.pstr / 100;
+    fn(d, b, cx, cy, r, k, dx, dy);
+    if (DW.sel) { const orig = x.getImageData(b.x0, b.y0, b.w, b.h).data; for (let y = 0; y < b.h; y++) for (let xx = 0; xx < b.w; xx++) { const s = selAt(xx + b.x0, y + b.y0); if (s >= 1) continue; const i = (y * b.w + xx) * 4; for (let c = 0; c < 4; c++) d[i + c] = orig[i + c] + (d[i + c] - orig[i + c]) * s; } }
+    x.putImageData(img, b.x0, b.y0); dirty(L);
+  };
+  const go = stepper(p, dab, () => Math.max(1, DW_PREF.psize * .2));
+  return { move: q => go(q) };
+}
+const lumOf = (r, g, b) => (r * .299 + g * .587 + b * .114) / 255;
+function rangeW(l) { const r = DW_PREF.drange; return r === 'sh' ? Math.pow(1 - l, 2) : r === 'hi' ? l * l : 1 - Math.pow(2 * l - 1, 2); }
+const rangeRowUI = o => o.append(h('div', { class: 'dwo' }, h('label', null, 'Range'), segBox({ options: [{ v: 'sh', l: 'Shadows' }, { v: 'mid', l: 'Middle' }, { v: 'hi', l: 'Highlights' }], value: DW_PREF.drange, onChange: v => { DW_PREF.drange = v; savePref(); } })));
+function each(d, b, cx, cy, r, f) { for (let y = 0; y < b.h; y++) for (let x = 0; x < b.w; x++) { const w = falloff(Math.hypot(x + b.x0 - cx, y + b.y0 - cy), r); if (w > 0) f((y * b.w + x) * 4, w); } }
+PH_H.dodge = { brush: true, ui(o) { brushRows(o, true, 'Exposure'); rangeRowUI(o); o.append(h('div', { class: 'hint' }, 'Paint to lighten.')); }, down: p => pixelBrush(p, (d, b, cx, cy, r, k) => each(d, b, cx, cy, r, (i, w) => { const a = k * w * .12 * rangeW(lumOf(d[i], d[i + 1], d[i + 2])); for (let c = 0; c < 3; c++) d[i + c] += (255 - d[i + c]) * a; })) };
+PH_H.burn = { brush: true, ui(o) { brushRows(o, true, 'Exposure'); rangeRowUI(o); o.append(h('div', { class: 'hint' }, 'Paint to darken.')); }, down: p => pixelBrush(p, (d, b, cx, cy, r, k) => each(d, b, cx, cy, r, (i, w) => { const a = k * w * .12 * rangeW(lumOf(d[i], d[i + 1], d[i + 2])); for (let c = 0; c < 3; c++) d[i + c] *= 1 - a; })) };
+PH_H.sponge = {
+  brush: true,
+  ui(o) { brushRows(o, true, 'Flow'); o.append(h('div', { class: 'dwo' }, h('label', null, 'Mode'), segBox({ options: [{ v: 'desat', l: 'Less color' }, { v: 'sat', l: 'More color' }], value: DW_PREF.sponge, onChange: v => { DW_PREF.sponge = v; savePref(); } }))); },
+  down: p => pixelBrush(p, (d, b, cx, cy, r, k) => each(d, b, cx, cy, r, (i, w) => { const g = (d[i] + d[i + 1] + d[i + 2]) / 3, a = k * w * .1 * (DW_PREF.sponge === 'sat' ? 1 : -1); for (let c = 0; c < 3; c++) d[i + c] = g + (d[i + c] - g) * (1 + a); }))
+};
+PH_H.sharpb = {
+  brush: true, ui(o) { brushRows(o, true); o.append(h('div', { class: 'hint' }, 'Paint to make edges crisper.')); },
+  down: p => pixelBrush(p, (d, b, cx, cy, r, k) => { const s = d.slice(), W = b.w; each(d, b, cx, cy, r, (i, w) => { const x = (i / 4) % W, y = Math.floor(i / 4 / W); if (x < 1 || y < 1 || x >= W - 1 || y >= b.h - 1) return; for (let c = 0; c < 3; c++) { const lap = 4 * s[i + c] - s[i + c - 4] - s[i + c + 4] - s[i + c - W * 4] - s[i + c + W * 4]; d[i + c] = s[i + c] + lap * k * w * .25; } }); })
+};
+function bundledBrush(mode) { const i = BRUSHES.findIndex(b => b.mode === mode); return i >= 0 ? BRUSHES[i] : null; }
+function modeBrush(p, e, mode) {
+  const L = dwTarget(); if (!needPixels(L)) return; const b0 = bundledBrush(mode); if (!b0) return;
+  const b = { ...b0, hard: DW_PREF.phard / 100, str: Math.max(.05, DW_PREF.pstr / 100) };
+  dwSnap(L); const st = { t: 'brush', L, b, size: DW_PREF.psize, color: DW_PREF.color, last: null, dist: 0, n: 0, rnd: tipRand(1), pen: false };
+  const x = L.cv.getContext('2d'); dabTo(null, st, p.x, p.y, .5, x);
+  return { move: q => { dabTo(null, st, q.x, q.y, .5, x); dirty(L); }, up: () => dirty(L) };
+}
+PH_H.blurb = { brush: true, ui(o) { brushRows(o, true); o.append(h('div', { class: 'hint' }, 'Paint to soften.')); }, down: (p, e) => modeBrush(p, e, 'blur') };
+PH_H.smudge = { brush: true, ui(o) { brushRows(o, true); o.append(h('div', { class: 'hint' }, 'Drag to push paint around.')); }, down: (p, e) => modeBrush(p, e, 'smudge') };
+
+/* ---------- liquify ---------- */
+PH_H.liquify = {
+  brush: true,
+  ui(o) {
+    o.append(h('div', { class: 'dwo' }, h('label', null, 'Mode'), selectBox({ options: [{ v: 'push', l: 'Push' }, { v: 'bloat', l: 'Bigger (bloat)' }, { v: 'pinch', l: 'Smaller (pinch)' }, { v: 'twcw', l: 'Twirl right' }, { v: 'twccw', l: 'Twirl left' }, { v: 'restore', l: 'Put back' }], value: DW_PREF.liq, onChange: v => { DW_PREF.liq = v; savePref(); } })));
+    brushRows(o, true, 'Pressure');
+    o.append(h('div', { class: 'hint' }, 'Push, grow, shrink or twirl parts of the picture. Put back paints the picture back the way it was when you picked this tool.'));
+    DW.liqOrig = null;
+  },
+  down(p) {
+    const L = dwTarget(); if (!needPixels(L)) return;
+    if (!DW.liqOrig || DW.liqOrig.L !== L || DW.liqOrig.c.width !== DW.w) DW.liqOrig = { L, c: copyCv(L.cv) };
+    const orig = DW_PREF.liq === 'restore' ? DW.liqOrig.c.getContext('2d') : null;
+    return pixelBrush(p, (d, b, cx, cy, r, k, dx, dy) => {
+      const s = d.slice(), W = b.w, H = b.h, mode = DW_PREF.liq, od = orig ? orig.getImageData(b.x0, b.y0, W, H).data : null;
+      const samp = (fx, fy, i) => { fx = clamp(fx, 0, W - 1.001); fy = clamp(fy, 0, H - 1.001); const ix = fx | 0, iy = fy | 0, tx = fx - ix, ty = fy - iy, a = (iy * W + ix) * 4, bq = a + 4, c = a + W * 4, dq = c + 4; for (let ch = 0; ch < 4; ch++) d[i + ch] = (s[a + ch] * (1 - tx) + s[bq + ch] * tx) * (1 - ty) + (s[c + ch] * (1 - tx) + s[dq + ch] * tx) * ty; };
+      each(d, b, cx, cy, r, (i, w) => {
+        const x = (i / 4) % W, y = Math.floor(i / 4 / W), px = x + b.x0 - cx, py = y + b.y0 - cy, f = w * k;
+        if (mode === 'push') samp(x - dx * f, y - dy * f, i);
+        else if (mode === 'bloat') samp(cx - b.x0 + px * (1 - .08 * f), cy - b.y0 + py * (1 - .08 * f), i);
+        else if (mode === 'pinch') samp(cx - b.x0 + px * (1 + .08 * f), cy - b.y0 + py * (1 + .08 * f), i);
+        else if (mode === 'restore') { for (let ch = 0; ch < 4; ch++) d[i + ch] = s[i + ch] + (od[i + ch] - s[i + ch]) * Math.min(1, f * .5); }
+        else { const a = (mode === 'twcw' ? -1 : 1) * .12 * f, c = Math.cos(a), sn = Math.sin(a); samp(cx - b.x0 + px * c - py * sn, cy - b.y0 + px * sn + py * c, i); }
+      });
+    });
+  }
+};
+
+/* ---------- text ---------- */
+PH_H.text = {
+  ui(o) {
+    const L = DW.layers[DW.cur];
+    if (!L || L.kind !== 'text') { o.append(h('div', { class: 'hint' }, 'Tap the picture to add text there. Tap existing text to change it. Drag text to move it.')); return; }
+    const t = L.text, upd = () => { phRenderText(L); dwRender(); };
+    let snapped = false; const once = () => { if (!snapped) { phSnapDoc(); snapped = true; } };
+    const ta = h('textarea', { class: 'txt phta', rows: 3, spellcheck: 'false' }); ta.value = t.s;
+    ta.addEventListener('input', () => { once(); t.s = ta.value; upd(); }); ta.addEventListener('keydown', e => e.stopPropagation());
+    o.append(ta);
+    o.append(h('div', { class: 'dwo' }, h('label', null, 'Font'), selectBox({ options: fontOptions(), value: t.font, onChange: v => { once(); t.font = v; DW_PREF.tfont = v; savePref(); upd(); } })));
+    o.append(rangeRow('Size', { min: 4, max: 1200, step: 1, value: t.size, suf: 'px', onInput: v => { once(); t.size = v; DW_PREF.tsize = v; upd(); } }));
+    o.append(h('div', { class: 'dwo' }, h('label', null, 'Color'), colorBtn({ value: t.color, onInput: v => { once(); t.color = v; upd(); } })));
+    o.append(h('div', { class: 'dwo' }, h('label', null, ''), checkBox('Bold', t.bold, v => { once(); t.bold = v; upd(); }), checkBox('Italic', t.italic, v => { once(); t.italic = v; upd(); })));
+    o.append(h('div', { class: 'dwo' }, h('label', null, 'Align'), segBox({ options: [{ v: 'left', l: 'Left' }, { v: 'center', l: 'Middle' }, { v: 'right', l: 'Right' }], value: t.align, onChange: v => { once(); t.align = v; upd(); } })));
+    o.append(rangeRow('Line height', { min: .6, max: 3, step: .05, value: t.lh, onInput: v => { once(); t.lh = v; upd(); } }));
+    o.append(rangeRow('Letter gap', { min: -20, max: 200, step: 1, value: t.ls, suf: 'px', onInput: v => { once(); t.ls = v; upd(); } }));
+    o.append(rangeRow('Outline', { min: 0, max: 60, step: 1, value: t.sw, suf: 'px', onInput: v => { once(); t.sw = v; upd(); } }));
+    o.append(h('div', { class: 'dwo' }, h('label', null, 'Outline color'), colorBtn({ value: t.sc, onInput: v => { once(); t.sc = v; upd(); } })));
+    o.append(rangeRow('Turn', { min: -180, max: 180, step: 1, value: t.rot, suf: '°', onInput: v => { once(); t.rot = v; upd(); } }));
+    o.append(h('div', { class: 'hint' }, 'Shadows, glow and outlines with more choice are in Layers > Styles.'));
+  },
+  down(p) {
+    for (let i = DW.layers.length - 1; i >= 0; i--) {
+      const L = DW.layers[i]; if (L.kind !== 'text' || !L.vis || !L.text.box || !inPoly(p, L.text.box)) continue;
+      const was = DW.cur === i; DW.cur = i; DW.editMask = false; if (!was) dwToolUI();
+      const x0 = L.text.x, y0 = L.text.y; let snapped = false;
+      return { move: q => { if (!snapped && Math.hypot(q.x - p.x, q.y - p.y) * DW.view.z > 4) { phSnapDoc(); snapped = true; } if (snapped) { L.text.x = x0 + q.x - p.x; L.text.y = y0 + q.y - p.y; phRenderText(L); } } };
+    }
+    phNewText(p); dwToolUI();
+    setTimeout(() => { const ta = $('.phta', DW.root); if (ta) { ta.focus(); ta.select(); } }, 50);
+  },
+  overlay(x, d, v, S) { const L = DW.layers[DW.cur]; if (!L || L.kind !== 'text' || !L.text.box) return; x.strokeStyle = 'rgba(63,214,192,.9)'; x.lineWidth = 1.2; x.setLineDash([4, 3]); x.beginPath(); L.text.box.forEach((c, i) => { const [X, Y] = S(c[0], c[1]); i ? x.lineTo(X, Y) : x.moveTo(X, Y); }); x.closePath(); x.stroke(); x.setLineDash([]); }
+};
+
+/* ================= Photo editor: adjustments and filters ================= */
+const lumN = (r, g, b) => r * .299 + g * .587 + b * .114;
+function rgb2hsl(r, g, b) { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2; let hh = 0, s = 0; if (mx !== mn) { const d = mx - mn; s = l > .5 ? d / (2 - mx - mn) : d / (mx + mn); hh = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; hh *= 60; } return [hh, s, l]; }
+function hsl2rgb(hh, s, l) { hh = ((hh % 360) + 360) % 360 / 360; if (!s) return [l * 255, l * 255, l * 255]; const q = l < .5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q, f = t => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < .5 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; }; return [f(hh + 1 / 3) * 255, f(hh) * 255, f(hh - 1 / 3) * 255]; }
+function lutRun(d, lr, lg, lb) { lg = lg || lr; lb = lb || lr; for (let i = 0; i < d.length; i += 4) { d[i] = lr[d[i]]; d[i + 1] = lg[d[i + 1]]; d[i + 2] = lb[d[i + 2]]; } }
+function lutOf(f) { const l = new Uint8ClampedArray(256); for (let v = 0; v < 256; v++) l[v] = f(v); return l; }
+// smooth curve through points (monotone cubic)
+function curveLut(pts) {
+  const p = pts.slice().sort((a, b) => a[0] - b[0]), n = p.length; if (n < 2) return lutOf(v => v);
+  const dx = [], m = [], s = []; for (let i = 0; i < n - 1; i++) { dx[i] = Math.max(1e-6, p[i + 1][0] - p[i][0]); s[i] = (p[i + 1][1] - p[i][1]) / dx[i]; }
+  m[0] = s[0]; m[n - 1] = s[n - 2]; for (let i = 1; i < n - 1; i++) m[i] = s[i - 1] * s[i] <= 0 ? 0 : (s[i - 1] + s[i]) / 2;
+  for (let i = 0; i < n - 1; i++) { if (!s[i]) { m[i] = m[i + 1] = 0; continue; } const a = m[i] / s[i], b = m[i + 1] / s[i], hh = a * a + b * b; if (hh > 9) { const t = 3 / Math.sqrt(hh); m[i] = t * a * s[i]; m[i + 1] = t * b * s[i]; } }
+  return lutOf(v => { if (v <= p[0][0]) return p[0][1]; if (v >= p[n - 1][0]) return p[n - 1][1]; let i = 0; while (v > p[i + 1][0]) i++; const hh = dx[i], t = (v - p[i][0]) / hh, t2 = t * t, t3 = t2 * t; return (2 * t3 - 3 * t2 + 1) * p[i][1] + (t3 - 2 * t2 + t) * hh * m[i] + (-2 * t3 + 3 * t2) * p[i + 1][1] + (t3 - t2) * hh * m[i + 1]; });
+}
+function imgCanvas(img) { const c = newLayerCanvas(img.width, img.height); c.getContext('2d').putImageData(img, 0, 0); return c; }
+const P_ = (k, l, min, max, v, suf, step) => ({ k, l, min, max, v, suf, step });
+const PC = (k, l, v) => ({ k, l, v, type: 'color' }), PS = (k, l, v, options) => ({ k, l, v, type: 'seg', options }), PK = (k, l, v) => ({ k, l, v, type: 'check' });
+
+/* ---------- adjustments (also usable as adjustment layers) ---------- */
+const ADJ = {
+  brightcon: { n: 'Brightness / contrast', ps: [P_('b', 'Brightness', -150, 150, 0), P_('c', 'Contrast', -100, 100, 0)], f(d, W, H, p) { const k = (259 * (p.c * 1.28 + 255)) / (255 * (259 - p.c * 1.28)); lutRun(d, lutOf(v => (v + p.b * .6 - 128) * k + 128)); } },
+  levels: { n: 'Levels', ps: [PS('ch', 'Channel', 'rgb', [['rgb', 'All'], ['r', 'Red'], ['g', 'Green'], ['b', 'Blue']]), P_('ib', 'Dark point', 0, 254, 0), P_('g', 'Middle', .1, 9.9, 1, '', .01), P_('iw', 'Light point', 1, 255, 255), P_('ob', 'Output dark', 0, 255, 0), P_('ow', 'Output light', 0, 255, 255)], hist: true,
+    f(d, W, H, p) { const l = lutOf(v => p.ob + (p.ow - p.ob) * Math.pow(clamp((v - p.ib) / Math.max(1, p.iw - p.ib), 0, 1), 1 / p.g)), id = lutOf(v => v); lutRun(d, p.ch === 'rgb' || p.ch === 'r' ? l : id, p.ch === 'rgb' || p.ch === 'g' ? l : id, p.ch === 'rgb' || p.ch === 'b' ? l : id); } },
+  curves: { n: 'Curves', ps: [{ k: 'pts', type: 'curves', v: { rgb: [[0, 0], [255, 255]], r: [[0, 0], [255, 255]], g: [[0, 0], [255, 255]], b: [[0, 0], [255, 255]] } }], hist: true,
+    f(d, W, H, p) { const m = curveLut(p.pts.rgb), r = curveLut(p.pts.r), g = curveLut(p.pts.g), b = curveLut(p.pts.b); lutRun(d, lutOf(v => r[m[v]]), lutOf(v => g[m[v]]), lutOf(v => b[m[v]])); } },
+  exposure: { n: 'Exposure', ps: [P_('e', 'Exposure', -5, 5, 0, '', .01), P_('o', 'Offset', -.5, .5, 0, '', .005), P_('g', 'Gamma', .1, 3, 1, '', .01)], f(d, W, H, p) { const k = Math.pow(2, p.e); lutRun(d, lutOf(v => Math.pow(Math.max(0, v / 255 * k + p.o), 1 / p.g) * 255)); } },
+  vibrance: { n: 'Vibrance', ps: [P_('v', 'Vibrance', -100, 100, 0), P_('s', 'Saturation', -100, 100, 0)], f(d, W, H, p) { const vb = p.v / 100, sa = 1 + p.s / 100; for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], b = d[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), cur = (mx - mn) / 255, k = sa * (1 + vb * (1 - cur) * (vb > 0 ? 1.2 : 1)), l = lumN(r, g, b); d[i] = l + (r - l) * k; d[i + 1] = l + (g - l) * k; d[i + 2] = l + (b - l) * k; } } },
+  huesat: { n: 'Hue / saturation', ps: [P_('h', 'Hue', -180, 180, 0, '°'), P_('s', 'Saturation', -100, 100, 0), P_('l', 'Lightness', -100, 100, 0), PK('col', 'Colorize', false)],
+    f(d, W, H, p) { for (let i = 0; i < d.length; i += 4) { let [hh, s, l] = rgb2hsl(d[i], d[i + 1], d[i + 2]); if (p.col) { hh = p.h + 180; s = clamp(.25 + p.s / 100 * .75, 0, 1); } else { hh += p.h; s = clamp(s * (1 + p.s / 100), 0, 1); } l = p.l > 0 ? l + (1 - l) * p.l / 100 : l * (1 + p.l / 100); const [r, g, b] = hsl2rgb(hh, s, l); d[i] = r; d[i + 1] = g; d[i + 2] = b; } } },
+  colorbal: { n: 'Color balance', ps: [P_('sr', 'Shadows: cyan / red', -100, 100, 0), P_('sg', 'Shadows: magenta / green', -100, 100, 0), P_('sb', 'Shadows: yellow / blue', -100, 100, 0), P_('mr', 'Middle: cyan / red', -100, 100, 0), P_('mg', 'Middle: magenta / green', -100, 100, 0), P_('mb', 'Middle: yellow / blue', -100, 100, 0), P_('hr', 'Lights: cyan / red', -100, 100, 0), P_('hg', 'Lights: magenta / green', -100, 100, 0), P_('hb', 'Lights: yellow / blue', -100, 100, 0), PK('keep', 'Keep brightness', true)],
+    f(d, W, H, p) { for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], b = d[i + 2], l = lumN(r, g, b) / 255, ws = Math.pow(1 - l, 2), wh = l * l, wm = 1 - ws - wh; let R = r + (p.sr * ws + p.mr * wm + p.hr * wh) * .5, G = g + (p.sg * ws + p.mg * wm + p.hg * wh) * .5, B = b + (p.sb * ws + p.mb * wm + p.hb * wh) * .5; if (p.keep) { const k = lumN(r, g, b) / Math.max(1, lumN(R, G, B)); R *= k; G *= k; B *= k; } d[i] = R; d[i + 1] = G; d[i + 2] = B; } } },
+  bw: { n: 'Black and white', ps: [P_('r', 'Reds', -200, 300, 40, '%'), P_('y', 'Yellows', -200, 300, 60, '%'), P_('g', 'Greens', -200, 300, 40, '%'), P_('c', 'Cyans', -200, 300, 60, '%'), P_('b', 'Blues', -200, 300, 20, '%'), P_('m', 'Magentas', -200, 300, 80, '%'), PK('tint', 'Tint', false), PC('tc', 'Tint color', '#e0c49aff')],
+    f(d, W, H, p) { const [tr, tg, tb] = hexToRgba(p.tc); for (let i = 0; i < d.length; i += 4) { const c = [d[i], d[i + 1], d[i + 2]], idx = [0, 1, 2].sort((a, b) => c[b] - c[a]), mx = c[idx[0]], md = c[idx[1]], mn = c[idx[2]]; const prim = ['r', 'g', 'b'][idx[0]], sec = (idx[0] + idx[1] === 1) ? 'y' : (idx[0] + idx[1] === 3) ? 'c' : 'm'; const g = clamp((mx - md) * p[prim] / 100 + (md - mn) * p[sec] / 100 + mn, 0, 255); if (p.tint) { const l = g / 255; d[i] = l < .5 ? 2 * l * tr : 255 - 2 * (1 - l) * (255 - tr); d[i + 1] = l < .5 ? 2 * l * tg : 255 - 2 * (1 - l) * (255 - tg); d[i + 2] = l < .5 ? 2 * l * tb : 255 - 2 * (1 - l) * (255 - tb); } else d[i] = d[i + 1] = d[i + 2] = g; } } },
+  photofilter: { n: 'Photo filter', ps: [PC('c', 'Color', '#ec8a00ff'), P_('d', 'Density', 0, 100, 25, '%'), PK('keep', 'Keep brightness', true)], f(d, W, H, p) { const [fr, fg, fb] = hexToRgba(p.c), k = p.d / 100; for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], b = d[i + 2]; let R = r + (r * fr / 255 - r) * k * 2, G = g + (g * fg / 255 - g) * k * 2, B = b + (b * fb / 255 - b) * k * 2; if (p.keep) { const q = lumN(r, g, b) / Math.max(1, lumN(R, G, B)); R *= q; G *= q; B *= q; } d[i] = R; d[i + 1] = G; d[i + 2] = B; } } },
+  chanmix: { n: 'Channel mixer', ps: [P_('rr', 'Red from red', -200, 200, 100, '%'), P_('rg', 'Red from green', -200, 200, 0, '%'), P_('rb', 'Red from blue', -200, 200, 0, '%'), P_('gr', 'Green from red', -200, 200, 0, '%'), P_('gg', 'Green from green', -200, 200, 100, '%'), P_('gb', 'Green from blue', -200, 200, 0, '%'), P_('br', 'Blue from red', -200, 200, 0, '%'), P_('bg', 'Blue from green', -200, 200, 0, '%'), P_('bb', 'Blue from blue', -200, 200, 100, '%'), PK('mono', 'Gray (uses the red row)', false)],
+    f(d, W, H, p) { for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], b = d[i + 2], R = (r * p.rr + g * p.rg + b * p.rb) / 100; if (p.mono) { d[i] = d[i + 1] = d[i + 2] = R; continue; } d[i] = R; d[i + 1] = (r * p.gr + g * p.gg + b * p.gb) / 100; d[i + 2] = (r * p.br + g * p.bg + b * p.bb) / 100; } } },
+  temp: { n: 'White balance', ps: [P_('t', 'Temperature', -100, 100, 0), P_('ti', 'Tint', -100, 100, 0)], f(d, W, H, p) { const t = p.t * .5, g_ = p.ti * .4; for (let i = 0; i < d.length; i += 4) { d[i] += t; d[i + 2] -= t; d[i + 1] -= g_; d[i] += g_ * .3; d[i + 2] += g_ * .3; } } },
+  shadhigh: { n: 'Shadows / highlights', ps: [P_('s', 'Shadows', 0, 100, 35, '%'), P_('h', 'Highlights', 0, 100, 0, '%'), P_('r', 'Radius', 1, 200, 30, 'px')],
+    f(d, W, H, p, sc) { const bl = blurData(imgCanvas(new ImageData(new Uint8ClampedArray(d), W, H)), Math.max(1, p.r * sc)); for (let i = 0; i < d.length; i += 4) { const L = lumN(bl[i], bl[i + 1], bl[i + 2]) / 255, up = p.s / 100 * Math.pow(1 - L, 2) * 1.6, dn = p.h / 100 * L * L * .6; for (let c = 0; c < 3; c++) { let v = d[i + c] / 255; v = v + (1 - v) * up * (1 - v); v = v * (1 - dn); d[i + c] = v * 255; } } } },
+  clarity: { n: 'Clarity', ps: [P_('a', 'Amount', -100, 100, 30), P_('r', 'Radius', 4, 200, 40, 'px')], f(d, W, H, p, sc) { const bl = blurData(imgCanvas(new ImageData(new Uint8ClampedArray(d), W, H)), Math.max(1, p.r * sc)), k = p.a / 100; for (let i = 0; i < d.length; i += 4) { const l = lumN(d[i], d[i + 1], d[i + 2]) / 255, w = 1 - Math.pow(2 * l - 1, 2); for (let c = 0; c < 3; c++) d[i + c] += (d[i + c] - bl[i + c]) * k * w; } } },
+  dehaze: { n: 'Remove haze', ps: [P_('a', 'Amount', -100, 100, 40)], f(d, W, H, p, sc) { const t = newLayerCanvas(W, H), x = t.getContext('2d'), im = x.createImageData(W, H); for (let i = 0; i < d.length; i += 4) { const m = Math.min(d[i], d[i + 1], d[i + 2]); im.data[i] = im.data[i + 1] = im.data[i + 2] = m; im.data[i + 3] = 255; } x.putImageData(im, 0, 0); const dk = blurData(t, Math.max(2, 15 * sc)), A = 245, k = p.a / 100; for (let i = 0; i < d.length; i += 4) { const tt = clamp(1 - k * .9 * dk[i] / A, .25, 1.6); for (let c = 0; c < 3; c++) d[i + c] = (d[i + c] - A) / tt + A; } } },
+  invert: { n: 'Invert', ps: [], f(d) { for (let i = 0; i < d.length; i += 4) { d[i] = 255 - d[i]; d[i + 1] = 255 - d[i + 1]; d[i + 2] = 255 - d[i + 2]; } } },
+  posterize: { n: 'Posterize', ps: [P_('n', 'Levels', 2, 64, 6)], f(d, W, H, p) { const n = p.n - 1; lutRun(d, lutOf(v => Math.round(v / 255 * n) / n * 255)); } },
+  threshold: { n: 'Threshold', ps: [P_('t', 'Level', 1, 255, 128)], hist: true, f(d, W, H, p) { for (let i = 0; i < d.length; i += 4) d[i] = d[i + 1] = d[i + 2] = lumN(d[i], d[i + 1], d[i + 2]) >= p.t ? 255 : 0; } },
+  gradmap: { n: 'Gradient map', ps: [PC('a', 'Dark color', '#1b1446ff'), PC('m', 'Middle color', '#d1495bff'), PC('b', 'Light color', '#ffe9a8ff'), PK('rev', 'Reverse', false)],
+    f(d, W, H, p) { const A = hexToRgba(p.rev ? p.b : p.a), M = hexToRgba(p.m), B = hexToRgba(p.rev ? p.a : p.b); for (let i = 0; i < d.length; i += 4) { const l = lumN(d[i], d[i + 1], d[i + 2]) / 255, [u, v, t] = l < .5 ? [A, M, l * 2] : [M, B, l * 2 - 1]; for (let c = 0; c < 3; c++) d[i + c] = u[c] + (v[c] - u[c]) * t; } } },
+  selcolor: { n: 'Selective color', ps: [PS('rng', 'Colors', 'r', [['r', 'Reds'], ['y', 'Yellows'], ['g', 'Greens'], ['c', 'Cyans'], ['b', 'Blues'], ['m', 'Magentas']]), P_('hs', 'Hue', -60, 60, 0, '°'), P_('ss', 'Saturation', -100, 100, 0), P_('ls', 'Lightness', -100, 100, 0)],
+    f(d, W, H, p) { const c0 = { r: 0, y: 60, g: 120, c: 180, b: 240, m: 300 }[p.rng]; for (let i = 0; i < d.length; i += 4) { let [hh, s, l] = rgb2hsl(d[i], d[i + 1], d[i + 2]); let dh = Math.abs(((hh - c0 + 540) % 360) - 180); const w = clamp(1 - (dh - 15) / 30, 0, 1) * Math.min(1, s * 3); if (w <= 0) continue; hh += p.hs * w; s = clamp(s * (1 + p.ss / 100 * w), 0, 1); l = clamp(l + p.ls / 100 * w * .5, 0, 1); const [r, g, b] = hsl2rgb(hh, s, l); d[i] = r; d[i + 1] = g; d[i + 2] = b; } } },
+  desat: { n: 'Remove color', ps: [], instant: true, f(d) { for (let i = 0; i < d.length; i += 4) d[i] = d[i + 1] = d[i + 2] = lumN(d[i], d[i + 1], d[i + 2]); } },
+  equalize: { n: 'Equalize', ps: [], instant: true, f(d) { const hs = new Float64Array(256); let n = 0; for (let i = 0; i < d.length; i += 4) { if (!d[i + 3]) continue; hs[Math.round(lumN(d[i], d[i + 1], d[i + 2]))]++; n++; } let acc = 0; const map = new Float64Array(256); for (let v = 0; v < 256; v++) { acc += hs[v]; map[v] = acc / Math.max(1, n) * 255; } for (let i = 0; i < d.length; i += 4) { const l = Math.round(lumN(d[i], d[i + 1], d[i + 2])), k = map[l] / Math.max(1, l); for (let c = 0; c < 3; c++) d[i + c] *= k; } } },
+  autotone: { n: 'Auto tone', ps: [], instant: true, f(d) { autoStretch(d, true); } },
+  autocon: { n: 'Auto contrast', ps: [], instant: true, f(d) { autoStretch(d, false); } },
+  autocol: { n: 'Auto color', ps: [], instant: true, f(d) { autoStretch(d, true); let r = 0, g = 0, b = 0, n = 0; for (let i = 0; i < d.length; i += 16) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; } const m = (r + g + b) / 3 / n; const kr = m / Math.max(1, r / n), kg = m / Math.max(1, g / n), kb = m / Math.max(1, b / n); for (let i = 0; i < d.length; i += 4) { d[i] *= (1 + (kr - 1) * .6); d[i + 1] *= (1 + (kg - 1) * .6); d[i + 2] *= (1 + (kb - 1) * .6); } } }
+};
+function autoStretch(d, perCh) {
+  const cut = (hs, n) => { let a = 0, lo = 0, hi = 255; for (let v = 0; v < 256; v++) { a += hs[v]; if (a > n * .002) { lo = v; break; } } a = 0; for (let v = 255; v >= 0; v--) { a += hs[v]; if (a > n * .002) { hi = v; break; } } return [lo, Math.max(lo + 1, hi)]; };
+  const H3 = [new Float64Array(256), new Float64Array(256), new Float64Array(256)], HL = new Float64Array(256); let n = 0;
+  for (let i = 0; i < d.length; i += 4) { if (!d[i + 3]) continue; for (let c = 0; c < 3; c++) H3[c][d[i + c]]++; HL[Math.round(lumN(d[i], d[i + 1], d[i + 2]))]++; n++; }
+  const r = perCh ? H3.map(h_ => cut(h_, n)) : [0, 1, 2].map(() => cut(HL, n));
+  const luts = r.map(([lo, hi]) => lutOf(v => (v - lo) / (hi - lo) * 255)); lutRun(d, luts[0], luts[1], luts[2]);
+}
+function phAdjust(op, p, img, W, H, sc) { const a = ADJ[op]; if (a) a.f(img.data, W || img.width, H || img.height, p, sc || 1); }
+
+/* ---------- filters ---------- */
+function remap(d, W, H, fn) { // fn(x, y) -> [sx, sy] or null
+  const s = d.slice(); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const q = fn(x, y), i = (y * W + x) * 4; if (!q) { d[i + 3] = 0; continue; }
+    let [fx, fy] = q; if (fx < 0 || fy < 0 || fx > W - 1 || fy > H - 1) { fx = clamp(fx, 0, W - 1); fy = clamp(fy, 0, H - 1); }
+    const ix = Math.min(W - 2, fx | 0), iy = Math.min(H - 2, fy | 0), tx = fx - ix, ty = fy - iy, a = (iy * W + ix) * 4, b = a + 4, c = a + W * 4, e = c + 4;
+    for (let ch = 0; ch < 4; ch++) d[i + ch] = (s[a + ch] * (1 - tx) + s[b + ch] * tx) * (1 - ty) + (s[c + ch] * (1 - tx) + s[e + ch] * tx) * ty;
+  }
+}
+function convolve(d, W, H, k, div, add = 0, keepA = true) { const s = d.slice(), n = Math.sqrt(k.length) | 0, r = n >> 1; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; for (let c = 0; c < 3; c++) { let v = 0; for (let j = 0; j < n; j++) for (let q = 0; q < n; q++) { const xx = clamp(x + q - r, 0, W - 1), yy = clamp(y + j - r, 0, H - 1); v += s[(yy * W + xx) * 4 + c] * k[j * n + q]; } d[i + c] = v / div + add; } } }
+function minmax(d, W, H, r, isMax) {
+  const f = isMax ? Math.max : Math.min, t = new Uint8ClampedArray(d.length);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) for (let c = 0; c < 3; c++) { let v = isMax ? 0 : 255; for (let k = -r; k <= r; k++) v = f(v, d[(y * W + clamp(x + k, 0, W - 1)) * 4 + c]); t[(y * W + x) * 4 + c] = v; }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) for (let c = 0; c < 3; c++) { let v = isMax ? 0 : 255; for (let k = -r; k <= r; k++) v = f(v, t[(clamp(y + k, 0, H - 1) * W + x) * 4 + c]); d[(y * W + x) * 4 + c] = v; }
+}
+function median(d, W, H, r, thr) {
+  const s = d.slice(), hist = new Int32Array(256), half = ((2 * r + 1) * (2 * r + 1)) >> 1;
+  for (let c = 0; c < 3; c++) for (let y = 0; y < H; y++) {
+    hist.fill(0);
+    for (let j = -r; j <= r; j++) for (let k = -r; k <= r; k++) hist[s[(clamp(y + j, 0, H - 1) * W + clamp(k, 0, W - 1)) * 4 + c]]++;
+    for (let x = 0; x < W; x++) {
+      let a = 0, m = 0; for (; m < 256; m++) { a += hist[m]; if (a > half) break; }
+      const i = (y * W + x) * 4 + c; if (!thr || Math.abs(s[i] - m) > thr) d[i] = m;
+      for (let j = -r; j <= r; j++) { const yy = clamp(y + j, 0, H - 1); hist[s[(yy * W + clamp(x - r, 0, W - 1)) * 4 + c]]--; hist[s[(yy * W + clamp(x + r + 1, 0, W - 1)) * 4 + c]]++; }
+    }
+  }
+}
+function kuwahara(d, W, H, r) { // oil paint: average of the calmest quarter around each pixel
+  const N = (W + 1) * (H + 1), S = [0, 1, 2].map(() => new Float64Array(N)), Q = new Float64Array(N);
+  for (let y = 0; y < H; y++) { const rs = [0, 0, 0]; let rq = 0; for (let x = 0; x < W; x++) { const i = (y * W + x) * 4, l = lumN(d[i], d[i + 1], d[i + 2]); for (let c = 0; c < 3; c++) rs[c] += d[i + c]; rq += l * l; const k = (y + 1) * (W + 1) + x + 1, k2 = y * (W + 1) + x + 1; for (let c = 0; c < 3; c++) S[c][k] = S[c][k2] + rs[c]; Q[k] = Q[k2] + rq; } }
+  const Lsum = new Float64Array(N); for (let y = 0; y < H; y++) { let rl = 0; for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; rl += lumN(d[i], d[i + 1], d[i + 2]); Lsum[(y + 1) * (W + 1) + x + 1] = Lsum[y * (W + 1) + x + 1] + rl; } }
+  const box = (A, x0, y0, x1, y1) => A[y1 * (W + 1) + x1] - A[y0 * (W + 1) + x1] - A[y1 * (W + 1) + x0] + A[y0 * (W + 1) + x0];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let best = 1e18, out = null;
+    for (const [ax, ay] of [[x - r, y - r], [x, y - r], [x - r, y], [x, y]]) {
+      const x0 = clamp(ax, 0, W), y0 = clamp(ay, 0, H), x1 = clamp(ax + r + 1, 0, W), y1 = clamp(ay + r + 1, 0, H), n = (x1 - x0) * (y1 - y0); if (n <= 0) continue;
+      const m = box(Lsum, x0, y0, x1, y1) / n, v = box(Q, x0, y0, x1, y1) / n - m * m; if (v < best) { best = v; out = [x0, y0, x1, y1, n]; }
+    }
+    const i = (y * W + x) * 4; for (let c = 0; c < 3; c++) d[i + c] = box(S[c], out[0], out[1], out[2], out[3]) / out[4];
+  }
+}
+function noise2(x, y, seed) { const s = Math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453; return s - Math.floor(s); }
+function vnoise(x, y, seed) { const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy); const a = noise2(ix, iy, seed), b = noise2(ix + 1, iy, seed), c = noise2(ix, iy + 1, seed), e = noise2(ix + 1, iy + 1, seed); return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + e * u) * v; }
+const FILT = {
+  gblur: { g: 'Blur', n: 'Gaussian blur', ps: [P_('r', 'Radius', 0, 250, 6, 'px', .5)], c: (cv, p, sc) => blurCv(cv, p.r * sc) },
+  mblur: { g: 'Blur', n: 'Motion blur', ps: [P_('a', 'Angle', -180, 180, 0, '°'), P_('d', 'Distance', 1, 400, 30, 'px')], c(cv, p, sc) { const W = cv.width, H = cv.height, o = newLayerCanvas(W, H), x = o.getContext('2d'), n = Math.max(4, Math.min(48, Math.round(p.d * sc / 2))), a = p.a * Math.PI / 180; x.globalAlpha = 1; for (let i = 0; i < n; i++) { const t = (i / (n - 1) - .5) * p.d * sc; x.globalAlpha = 1 / (i + 1); x.drawImage(cv, Math.cos(a) * t, -Math.sin(a) * t); } return o; } },
+  zblur: { g: 'Blur', n: 'Zoom blur', ps: [P_('a', 'Amount', 1, 100, 20), P_('cx', 'Center across', 0, 100, 50, '%'), P_('cy', 'Center down', 0, 100, 50, '%')], c(cv, p) { const W = cv.width, H = cv.height, o = newLayerCanvas(W, H), x = o.getContext('2d'), n = 28, cx = W * p.cx / 100, cy = H * p.cy / 100; for (let i = 0; i < n; i++) { const s = 1 + p.a / 100 * .5 * i / (n - 1); x.globalAlpha = 1 / (i + 1); x.setTransform(s, 0, 0, s, cx - cx * s, cy - cy * s); x.drawImage(cv, 0, 0); } return o; } },
+  sblur: { g: 'Blur', n: 'Spin blur', ps: [P_('a', 'Angle', 1, 90, 12, '°'), P_('cx', 'Center across', 0, 100, 50, '%'), P_('cy', 'Center down', 0, 100, 50, '%')], c(cv, p) { const W = cv.width, H = cv.height, o = newLayerCanvas(W, H), x = o.getContext('2d'), n = 30, cx = W * p.cx / 100, cy = H * p.cy / 100; for (let i = 0; i < n; i++) { const a = (i / (n - 1) - .5) * p.a * Math.PI / 180; x.globalAlpha = 1 / (i + 1); x.setTransform(Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), cx - cx * Math.cos(a) + cy * Math.sin(a), cy - cx * Math.sin(a) - cy * Math.cos(a)); x.drawImage(cv, 0, 0); } return o; } },
+  tilt: { g: 'Blur', n: 'Tilt-shift', ps: [P_('y', 'Sharp band at', 0, 100, 55, '%'), P_('w', 'Band size', 2, 100, 22, '%'), P_('r', 'Blur', 1, 120, 14, 'px')], c(cv, p, sc) { const W = cv.width, H = cv.height, b = blurCv(cv, p.r * sc), m = newLayerCanvas(W, H), mx = m.getContext('2d'), g = mx.createLinearGradient(0, 0, 0, H), c = p.y / 100, w = p.w / 200; g.addColorStop(0, '#fff'); g.addColorStop(clamp(c - w * 2, 0, 1), '#fff'); g.addColorStop(clamp(c - w, 0, 1), 'rgba(255,255,255,0)'); g.addColorStop(clamp(c + w, 0, 1), 'rgba(255,255,255,0)'); g.addColorStop(clamp(c + w * 2, 0, 1), '#fff'); g.addColorStop(1, '#fff'); mx.fillStyle = g; mx.fillRect(0, 0, W, H); return phMix(cv, b, m); } },
+  unsharp: { g: 'Sharpen', n: 'Unsharp mask', ps: [P_('a', 'Amount', 1, 500, 120, '%'), P_('r', 'Radius', .5, 60, 2, 'px', .5), P_('t', 'Threshold', 0, 100, 2)], f(d, W, H, p, sc) { const b = blurData(imgCanvas(new ImageData(new Uint8ClampedArray(d), W, H)), Math.max(.5, p.r * sc)), k = p.a / 100; for (let i = 0; i < d.length; i += 4) for (let c = 0; c < 3; c++) { const df = d[i + c] - b[i + c]; if (Math.abs(df) >= p.t) d[i + c] += df * k; } } },
+  sharpen: { g: 'Sharpen', n: 'Sharpen', ps: [P_('a', 'Amount', 1, 100, 40)], f(d, W, H, p) { const k = p.a / 100 * 1.6; convolve(d, W, H, [0, -k, 0, -k, 1 + 4 * k, -k, 0, -k, 0], 1); } },
+  highpass: { g: 'Sharpen', n: 'High pass', ps: [P_('r', 'Radius', 1, 100, 8, 'px')], f(d, W, H, p, sc) { const b = blurData(imgCanvas(new ImageData(new Uint8ClampedArray(d), W, H)), p.r * sc); for (let i = 0; i < d.length; i += 4) for (let c = 0; c < 3; c++) d[i + c] = 128 + d[i + c] - b[i + c]; } },
+  noise: { g: 'Noise', n: 'Add noise', ps: [P_('a', 'Amount', 0, 100, 12, '%'), PK('mono', 'Gray noise', true)], f(d, W, H, p) { const r = tipRand(77), k = p.a * 2.2; for (let i = 0; i < d.length; i += 4) { const n = (r() + r() + r() - 1.5) * k; if (p.mono) { d[i] += n; d[i + 1] += n; d[i + 2] += n; } else { d[i] += n; d[i + 1] += (r() + r() + r() - 1.5) * k; d[i + 2] += (r() + r() + r() - 1.5) * k; } } } },
+  median: { g: 'Noise', n: 'Reduce noise (median)', ps: [P_('r', 'Radius', 1, 8, 2, 'px')], f(d, W, H, p, sc) { median(d, W, H, Math.max(1, Math.round(p.r * sc)), 0); } },
+  dust: { g: 'Noise', n: 'Dust and scratches', ps: [P_('r', 'Radius', 1, 8, 2, 'px'), P_('t', 'Threshold', 0, 128, 20)], f(d, W, H, p, sc) { median(d, W, H, Math.max(1, Math.round(p.r * sc)), p.t); } },
+  emboss: { g: 'Stylize', n: 'Emboss', ps: [P_('a', 'Angle', -180, 180, 135, '°'), P_('h', 'Height', 1, 10, 2), P_('k', 'Amount', 1, 300, 100, '%')], f(d, W, H, p) { const a = p.a * Math.PI / 180, dx = Math.round(Math.cos(a) * p.h), dy = Math.round(-Math.sin(a) * p.h), s = d.slice(), k = p.k / 100; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4, j = (clamp(y + dy, 0, H - 1) * W + clamp(x + dx, 0, W - 1)) * 4, jj = (clamp(y - dy, 0, H - 1) * W + clamp(x - dx, 0, W - 1)) * 4; const v = 128 + (lumN(s[j], s[j + 1], s[j + 2]) - lumN(s[jj], s[jj + 1], s[jj + 2])) * k; d[i] = d[i + 1] = d[i + 2] = v; } } },
+  edges: { g: 'Stylize', n: 'Find edges', ps: [], f(d, W, H) { const s = d.slice(); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; for (let c = 0; c < 3; c++) { const g = (xx, yy) => s[(clamp(yy, 0, H - 1) * W + clamp(xx, 0, W - 1)) * 4 + c]; const gx = g(x + 1, y - 1) + 2 * g(x + 1, y) + g(x + 1, y + 1) - g(x - 1, y - 1) - 2 * g(x - 1, y) - g(x - 1, y + 1), gy = g(x - 1, y + 1) + 2 * g(x, y + 1) + g(x + 1, y + 1) - g(x - 1, y - 1) - 2 * g(x, y - 1) - g(x + 1, y - 1); d[i + c] = 255 - Math.min(255, Math.hypot(gx, gy) * .5); } } } },
+  glowedges: { g: 'Stylize', n: 'Glowing edges', ps: [P_('b', 'Brightness', 1, 30, 10)], f(d, W, H, p) { FILT.edges.f(d, W, H); for (let i = 0; i < d.length; i += 4) for (let c = 0; c < 3; c++) d[i + c] = Math.min(255, (255 - d[i + c]) * p.b / 5); } },
+  oil: { g: 'Stylize', n: 'Oil paint', ps: [P_('r', 'Brush size', 1, 16, 4, 'px')], f(d, W, H, p, sc) { kuwahara(d, W, H, Math.max(1, Math.round(p.r * sc))); } },
+  solarize: { g: 'Stylize', n: 'Solarize', ps: [], f(d) { for (let i = 0; i < d.length; i += 4) for (let c = 0; c < 3; c++) if (d[i + c] > 127) d[i + c] = 255 - d[i + c]; } },
+  cartoon: { g: 'Stylize', n: 'Cartoon', ps: [P_('n', 'Color levels', 2, 16, 6), P_('e', 'Line strength', 0, 100, 60, '%')], f(d, W, H, p, sc) { const e = d.slice(); FILT.edges.f(e, W, H); kuwahara(d, W, H, Math.max(1, Math.round(3 * sc))); const n = p.n - 1, k = p.e / 100; for (let i = 0; i < d.length; i += 4) { const ed = 1 - (1 - lumN(e[i], e[i + 1], e[i + 2]) / 255) * k * 2.2; for (let c = 0; c < 3; c++) d[i + c] = Math.round(d[i + c] / 255 * n) / n * 255 * clamp(ed, 0, 1); } } },
+  sketch: { g: 'Stylize', n: 'Pencil sketch', ps: [P_('r', 'Softness', 1, 60, 8, 'px')], f(d, W, H, p, sc) { for (let i = 0; i < d.length; i += 4) d[i] = d[i + 1] = d[i + 2] = lumN(d[i], d[i + 1], d[i + 2]); const inv = new Uint8ClampedArray(d.length); for (let i = 0; i < d.length; i += 4) { inv[i] = inv[i + 1] = inv[i + 2] = 255 - d[i]; inv[i + 3] = 255; } const b = blurData(imgCanvas(new ImageData(inv, W, H)), p.r * sc); for (let i = 0; i < d.length; i += 4) { const v = Math.min(255, d[i] * 255 / Math.max(1, 255 - b[i])); d[i] = d[i + 1] = d[i + 2] = v; } } },
+  halftone: { g: 'Pixelate', n: 'Halftone dots', ps: [P_('s', 'Dot size', 3, 80, 10, 'px'), PK('col', 'In color', false)], c(cv, p, sc) { const W = cv.width, H = cv.height, s = Math.max(2, p.s * sc), sm = newLayerCanvas(Math.ceil(W / s), Math.ceil(H / s)); sm.getContext('2d').drawImage(cv, 0, 0, sm.width, sm.height); const sd = sm.getContext('2d').getImageData(0, 0, sm.width, sm.height).data, o = newLayerCanvas(W, H), x = o.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, W, H); for (let y = 0; y < sm.height; y++) for (let xx = 0; xx < sm.width; xx++) { const i = (y * sm.width + xx) * 4, l = lumN(sd[i], sd[i + 1], sd[i + 2]) / 255, r = s / 2 * Math.sqrt(1 - l) * 1.25; if (r < .3) continue; x.fillStyle = p.col ? `rgb(${sd[i]},${sd[i + 1]},${sd[i + 2]})` : '#111'; x.beginPath(); x.arc(xx * s + s / 2, y * s + s / 2, r, 0, 7); x.fill(); } x.globalCompositeOperation = 'destination-in'; x.drawImage(cv, 0, 0); return o; } },
+  mosaic: { g: 'Pixelate', n: 'Mosaic', ps: [P_('s', 'Cell size', 2, 200, 16, 'px')], c(cv, p, sc) { const s = Math.max(1, p.s * sc), W = cv.width, H = cv.height, t = newLayerCanvas(Math.ceil(W / s), Math.ceil(H / s)); t.getContext('2d').drawImage(cv, 0, 0, t.width, t.height); const o = newLayerCanvas(W, H), x = o.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(t, 0, 0, t.width * s, t.height * s); return o; } },
+  crystal: { g: 'Pixelate', n: 'Crystallize', ps: [P_('s', 'Cell size', 4, 200, 24, 'px')], f(d, W, H, p, sc) { const s = Math.max(3, p.s * sc), gw = Math.ceil(W / s) + 1, gh = Math.ceil(H / s) + 1, seeds = []; for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) { const x = Math.min(W - 1, (i + noise2(i, j, 1)) * s), y = Math.min(H - 1, (j + noise2(i, j, 2)) * s); const k = ((y | 0) * W + (x | 0)) * 4; seeds.push([x, y, d[k], d[k + 1], d[k + 2], d[k + 3]]); } for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const gi = Math.floor(x / s), gj = Math.floor(y / s); let best = 1e18, b = null; for (let j = gj - 1; j <= gj + 1; j++) for (let i = gi - 1; i <= gi + 1; i++) { if (i < 0 || j < 0 || i >= gw || j >= gh) continue; const q = seeds[j * gw + i], dd = (q[0] - x) ** 2 + (q[1] - y) ** 2; if (dd < best) { best = dd; b = q; } } const k = (y * W + x) * 4; d[k] = b[2]; d[k + 1] = b[3]; d[k + 2] = b[4]; d[k + 3] = b[5]; } } },
+  twirl: { g: 'Distort', n: 'Twirl', ps: [P_('a', 'Angle', -999, 999, 120, '°')], f(d, W, H, p) { const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2; remap(d, W, H, (x, y) => { const dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy); if (r >= R) return [x, y]; const a = p.a * Math.PI / 180 * Math.pow(1 - r / R, 2), c = Math.cos(a), s = Math.sin(a); return [cx + dx * c - dy * s, cy + dx * s + dy * c]; }); } },
+  pinch: { g: 'Distort', n: 'Pinch / bulge', ps: [P_('a', 'Amount', -100, 100, 50, '%')], f(d, W, H, p) { const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2, k = p.a / 100; remap(d, W, H, (x, y) => { const dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy) / R; if (r >= 1 || !r) return [x, y]; const f = Math.pow(r, k > 0 ? 1 + k : 1 / (1 - k)) / r; return [cx + dx * f, cy + dy * f]; }); } },
+  spherize: { g: 'Distort', n: 'Spherize', ps: [P_('a', 'Amount', -100, 100, 60, '%')], f(d, W, H, p) { const cx = W / 2, cy = H / 2, rx = W / 2, ry = H / 2, k = p.a / 100; remap(d, W, H, (x, y) => { const nx = (x - cx) / rx, ny = (y - cy) / ry, r = Math.hypot(nx, ny); if (r >= 1 || !r) return [x, y]; const sr = Math.asin(r) / (Math.PI / 2), f = (r + (sr - r) * k) / r; return [cx + nx * f * rx, cy + ny * f * ry]; }); } },
+  wave: { g: 'Distort', n: 'Wave', ps: [P_('a', 'Height', 0, 200, 12, 'px'), P_('l', 'Length', 4, 800, 120, 'px'), PS('dir', 'Direction', 'h', [['h', 'Side to side'], ['v', 'Up and down'], ['b', 'Both']])], f(d, W, H, p, sc) { const a = p.a * sc, l = p.l * sc; remap(d, W, H, (x, y) => [x + (p.dir !== 'v' ? Math.sin(y / l * Math.PI * 2) * a : 0), y + (p.dir !== 'h' ? Math.sin(x / l * Math.PI * 2) * a : 0)]); } },
+  ripple: { g: 'Distort', n: 'Ripple', ps: [P_('a', 'Amount', 0, 100, 30), P_('s', 'Size', 2, 200, 30, 'px')], f(d, W, H, p, sc) { const cx = W / 2, cy = H / 2, s = p.s * sc, a = p.a / 100 * s * .4; remap(d, W, H, (x, y) => { const dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy) || 1, o = Math.sin(r / s * Math.PI * 2) * a; return [x + dx / r * o, y + dy / r * o]; }); } },
+  polar: { g: 'Distort', n: 'Polar coordinates', ps: [PS('m', 'Turn', 'to', [['to', 'Straight to round'], ['from', 'Round to straight']])], f(d, W, H, p) { const cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2; if (p.m === 'to') remap(d, W, H, (x, y) => { const dx = (x - cx) / R * (W / 2) / (W / 2), dy = (y - cy), r = Math.hypot(x - cx, dy) / R, a = (Math.atan2(dy, x - cx) + Math.PI * 1.5) % (Math.PI * 2); if (r > 1) return null; return [a / (Math.PI * 2) * (W - 1), r * (H - 1)]; }); else remap(d, W, H, (x, y) => { const a = x / W * Math.PI * 2 - Math.PI / 2, r = y / H * R; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; }); } },
+  lens: { g: 'Distort', n: 'Lens correction', ps: [P_('k', 'Barrel / pincushion', -100, 100, -20)], f(d, W, H, p) { const cx = W / 2, cy = H / 2, R = Math.hypot(cx, cy), k = p.k / 200; remap(d, W, H, (x, y) => { const dx = (x - cx) / R, dy = (y - cy) / R, r2 = dx * dx + dy * dy, f = 1 + k * r2; return [cx + dx * f * R, cy + dy * f * R]; }); } },
+  offset: { g: 'Distort', n: 'Offset (wrap around)', ps: [P_('x', 'Across', -100, 100, 50, '%'), P_('y', 'Down', -100, 100, 0, '%')], c(cv, p) { const W = cv.width, H = cv.height, o = newLayerCanvas(W, H), x = o.getContext('2d'), ox = ((Math.round(W * p.x / 100) % W) + W) % W, oy = ((Math.round(H * p.y / 100) % H) + H) % H; for (const a of [0, -W]) for (const b of [0, -H]) x.drawImage(cv, ox + a, oy + b); return o; } },
+  chroma: { g: 'Distort', n: 'Color split', ps: [P_('s', 'Shift', 0, 60, 6, 'px')], f(d, W, H, p, sc) { const s = d.slice(), o = Math.round(p.s * sc); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; d[i] = s[(y * W + clamp(x - o, 0, W - 1)) * 4]; d[i + 2] = s[(y * W + clamp(x + o, 0, W - 1)) * 4 + 2]; } } },
+  glitch: { g: 'Distort', n: 'Glitch', ps: [P_('a', 'Amount', 1, 100, 40), P_('seed', 'Variation', 1, 99, 7)], f(d, W, H, p, sc) { const r = tipRand(p.seed * 31), s = d.slice(), n = Math.round(4 + p.a / 4); for (let k = 0; k < n; k++) { const y0 = Math.floor(r() * H), hh = Math.max(1, Math.floor(r() * H * .08)), sh = Math.round((r() - .5) * W * p.a / 300); for (let y = y0; y < Math.min(H, y0 + hh); y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4, j = (y * W + clamp(x - sh, 0, W - 1)) * 4; d[i] = s[(y * W + clamp(x - sh - 6 * sc, 0, W - 1)) * 4]; d[i + 1] = s[j + 1]; d[i + 2] = s[j + 2]; } } } },
+  clouds: { g: 'Render', n: 'Clouds', ps: [P_('s', 'Size', 10, 1000, 220, 'px'), P_('seed', 'Variation', 1, 99, 3)], usesColors: true, f(d, W, H, p, sc) { const [ar, ag, ab] = hexToRgba(DW_PREF.color), [br, bg, bb] = hexToRgba(DW_PREF.bg), s = p.s * sc; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = 0, a = .5, f = 1; for (let o = 0; o < 6; o++) { v += vnoise(x / s * f, y / s * f, p.seed + o) * a; a *= .5; f *= 2; } const i = (y * W + x) * 4; d[i] = ar + (br - ar) * v; d[i + 1] = ag + (bg - ag) * v; d[i + 2] = ab + (bb - ab) * v; d[i + 3] = 255; } } },
+  flare: { g: 'Render', n: 'Lens flare', ps: [P_('x', 'Across', 0, 100, 25, '%'), P_('y', 'Down', 0, 100, 25, '%'), P_('b', 'Brightness', 10, 300, 100, '%')], c(cv, p) { const W = cv.width, H = cv.height, o = copyCv(cv), x = o.getContext('2d'), fx = W * p.x / 100, fy = H * p.y / 100, R = Math.hypot(W, H), k = p.b / 100; x.globalCompositeOperation = 'lighter'; const blob = (cx, cy, r, col, a) => { const g = x.createRadialGradient(cx, cy, 0, cx, cy, r); g.addColorStop(0, `rgba(${col},${a * k})`); g.addColorStop(1, `rgba(${col},0)`); x.fillStyle = g; x.fillRect(cx - r, cy - r, r * 2, r * 2); }; blob(fx, fy, R * .25, '255,240,210', .9); blob(fx, fy, R * .04, '255,255,255', 1); const cx = W / 2, cy = H / 2; [[.4, .03, '120,200,255', .25], [.7, .06, '255,160,90', .2], [1.2, .02, '200,255,180', .3], [1.5, .09, '150,120,255', .15], [1.8, .04, '255,200,120', .25]].forEach(([t, r, c, a]) => blob(fx + (cx - fx) * t * 2 / 1.8, fy + (cy - fy) * t * 2 / 1.8, R * r, c, a)); x.globalAlpha = .35 * Math.min(1, k); x.strokeStyle = 'rgba(255,240,220,1)'; x.lineWidth = 1.2; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; x.beginPath(); x.moveTo(fx, fy); x.lineTo(fx + Math.cos(a) * R * .12, fy + Math.sin(a) * R * .12); x.stroke(); } return o; } },
+  vignette: { g: 'Render', n: 'Vignette', ps: [P_('a', 'Amount', -100, 100, 50), P_('m', 'Middle size', 0, 100, 50, '%'), P_('f', 'Softness', 1, 100, 50, '%')], f(d, W, H, p) { const cx = W / 2, cy = H / 2, R = Math.hypot(cx, cy), m = p.m / 100 * .8, f = p.f / 100 + .05; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const r = Math.hypot((x - cx) / cx, (y - cy) / cy) / Math.SQRT2, t = clamp((r - m) / f, 0, 1), k = t * t * (3 - 2 * t) * p.a / 100, i = (y * W + x) * 4; for (let c = 0; c < 3; c++) d[i + c] = k > 0 ? d[i + c] * (1 - k) : d[i + c] + (255 - d[i + c]) * -k; } } },
+  minimum: { g: 'Other', n: 'Minimum (spread dark)', ps: [P_('r', 'Radius', 1, 40, 2, 'px')], f(d, W, H, p, sc) { minmax(d, W, H, Math.max(1, Math.round(p.r * sc)), false); } },
+  maximum: { g: 'Other', n: 'Maximum (spread light)', ps: [P_('r', 'Radius', 1, 40, 2, 'px')], f(d, W, H, p, sc) { minmax(d, W, H, Math.max(1, Math.round(p.r * sc)), true); } }
+};
+function blurCv(cv, r) { if (r <= 0) return copyCv(cv); const w = cv.width, hh = cv.height, p = Math.ceil(r * 2.5), t = newLayerCanvas(w + p * 2, hh + p * 2), x = t.getContext('2d'); x.drawImage(cv, p, p); const o = newLayerCanvas(w, hh), ox = o.getContext('2d'); ox.filter = `blur(${r}px)`; ox.drawImage(t, -p, -p); return o; }
+
+/* ---------- the adjustment / filter panel with live preview ---------- */
+function runOp(def, src, p, sc) {
+  if (def.c) return def.c(src, p, sc);
+  const W = src.width, H = src.height, out = copyCv(src), x = out.getContext('2d'), img = x.getImageData(0, 0, W, H);
+  def.f(img.data, W, H, p, sc); x.putImageData(img, 0, 0); return out;
+}
+function histOf(cv) { const s = Math.max(1, Math.ceil(Math.max(cv.width, cv.height) / 400)), t = newLayerCanvas(Math.ceil(cv.width / s), Math.ceil(cv.height / s)), x = t.getContext('2d'); x.drawImage(cv, 0, 0, t.width, t.height); const d = x.getImageData(0, 0, t.width, t.height).data, hs = new Float64Array(256); for (let i = 0; i < d.length; i += 4) if (d[i + 3]) hs[Math.round(lumN(d[i], d[i + 1], d[i + 2]))]++; return hs; }
+function drawHist(cv, hs) { const x = cv.getContext('2d'), W = cv.width, H = cv.height, mx = Math.max(...hs.slice(2, 254)) || 1; x.fillStyle = '#1b1d22'; x.fillRect(0, 0, W, H); x.fillStyle = '#6a6e78'; for (let v = 0; v < 256; v++) { const hh = Math.min(1, hs[v] / mx) * H; x.fillRect(v / 256 * W, H - hh, W / 256 + .5, hh); } }
+function curvesWidget(p, onChange, hs) {
+  const wrap = h('div', { class: 'curvesw' }), cv = h('canvas', { class: 'curves' }); cv.width = 512; cv.height = 512;
+  let ch = 'rgb';
+  const seg = segBox({ options: [{ v: 'rgb', l: 'All' }, { v: 'r', l: 'Red' }, { v: 'g', l: 'Green' }, { v: 'b', l: 'Blue' }], value: ch, onChange: v => { ch = v; draw(); } });
+  const col = { rgb: '#e4e5e8', r: '#ff5a52', g: '#4cd964', b: '#4aa3ff' };
+  const draw = () => { const x = cv.getContext('2d'); if (hs) drawHist(cv, hs); else { x.fillStyle = '#1b1d22'; x.fillRect(0, 0, 512, 512); } x.strokeStyle = '#33363d'; x.lineWidth = 1; for (let i = 1; i < 4; i++) { x.beginPath(); x.moveTo(i * 128, 0); x.lineTo(i * 128, 512); x.moveTo(0, i * 128); x.lineTo(512, i * 128); x.stroke(); } x.beginPath(); x.moveTo(0, 512); x.lineTo(512, 0); x.stroke(); const l = curveLut(p.pts[ch]); x.strokeStyle = col[ch]; x.lineWidth = 3; x.beginPath(); for (let v = 0; v < 256; v++) { const X = v * 2, Y = 512 - l[v] * 2; v ? x.lineTo(X, Y) : x.moveTo(X, Y); } x.stroke(); for (const [a, b] of p.pts[ch]) { x.fillStyle = '#fff'; x.beginPath(); x.arc(a * 2, 512 - b * 2, 9, 0, 7); x.fill(); } };
+  let drag = -1;
+  const pos = e => { const r = cv.getBoundingClientRect(); return [clamp((e.clientX - r.left) / r.width * 255, 0, 255), clamp(255 - (e.clientY - r.top) / r.height * 255, 0, 255)]; };
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); const [a, b] = pos(e), pts = p.pts[ch], r = cv.getBoundingClientRect(), tol = 18 / r.width * 255; drag = pts.findIndex(q => Math.hypot(q[0] - a, q[1] - b) < tol); if (drag < 0) { pts.push([a, b]); pts.sort((m, n) => m[0] - n[0]); drag = pts.findIndex(q => q[0] === a && q[1] === b); } draw(); onChange(); });
+  cv.addEventListener('pointermove', e => { if (drag < 0) return; const [a, b] = pos(e), pts = p.pts[ch]; const lo = drag > 0 ? pts[drag - 1][0] + 1 : 0, hi = drag < pts.length - 1 ? pts[drag + 1][0] - 1 : 255; const out = (drag > 0 && drag < pts.length - 1) && (b < -0 || e.clientY > cv.getBoundingClientRect().bottom + 30); if (out) { pts.splice(drag, 1); drag = -1; } else pts[drag] = [drag === 0 ? (pts.length > 1 ? Math.min(a, hi) : a) : drag === pts.length - 1 ? Math.max(a, lo) : clamp(a, lo, hi), b]; draw(); onChange(); });
+  const up = () => { drag = -1; }; cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  wrap.append(seg, cv, h('div', { class: 'hint' }, 'Tap the line to add a point and drag it. Drag a middle point off the bottom to remove it.'), h('button', { class: 'btn sm', onclick: () => { p.pts[ch] = [[0, 0], [255, 255]]; draw(); onChange(); } }, 'Straighten this curve'));
+  draw(); return wrap;
+}
+// opens a panel for an adjustment or filter; with opts.layer it edits an adjustment layer live
+function phOpenOp(kind, id, opts = {}) {
+  const def = kind === 'adj' ? ADJ[id] : FILT[id]; if (!def) return;
+  const editL = opts.layer || null;
+  const L = editL || DW.layers[DW.cur];
+  if (!editL && !needPixels(L)) return;
+  const p = editL ? editL.adj.p : {}; if (!editL) for (const q of def.ps) p[q.k] = deep(q.v);
+  if (def.instant && !editL) { phApplyOp(def, L, p); return; }
+  if (editL) phSnapDoc();
+  const big = Math.max(L.cv.width, L.cv.height), sc = big > 1600 ? 1600 / big : 1;
+  let small = null; if (!editL) { small = sc < 1 ? newLayerCanvas(Math.round(L.cv.width * sc), Math.round(L.cv.height * sc)) : L.cv; if (sc < 1) small.getContext('2d').drawImage(L.cv, 0, 0, small.width, small.height); }
+  let key = '', cache = null, raf = 0;
+  const preview = () => {
+    if (editL) { dirty(editL); dwRender(); return; }
+    if (raf) return; raf = requestAnimationFrame(() => { raf = 0; key = JSON.stringify(p); const pr = runOp(def, small, p, sc); const up = sc < 1 ? (() => { const u = tmpCv('opup'), ux = u.getContext('2d'); ux.drawImage(pr, 0, 0, L.cv.width, L.cv.height); return u; })() : pr; cache = phMix(L.cv, up, DW.sel, cache && cache.width === L.cv.width ? cache : null); DW.live = LL => LL === L ? cache : LL.cv; dwRender(); });
+  };
+  const hs = def.hist ? histOf(L.kind === 'adj' ? docFlat() : L.cv) : null;
+  DW.panel = {
+    title: (editL ? 'Adjustment layer: ' : '') + def.n,
+    build(o) {
+      if (def.hist && id !== 'curves') { const hc = h('canvas', { class: 'hist' }); hc.width = 512; hc.height = 120; drawHist(hc, hs); o.append(hc); }
+      for (const q of def.ps) {
+        if (q.type === 'curves') o.append(curvesWidget(p, preview, hs));
+        else if (q.type === 'color') o.append(h('div', { class: 'dwo' }, h('label', null, q.l), colorBtn({ value: p[q.k], onInput: v => { p[q.k] = v; preview(); } })));
+        else if (q.type === 'seg') o.append(h('div', { class: 'dwo' }, h('label', null, q.l), segBox({ options: q.options.map(([v, l]) => ({ v, l })), value: p[q.k], onChange: v => { p[q.k] = v; preview(); } })));
+        else if (q.type === 'check') o.append(h('div', { class: 'dwo' }, h('label', null, ''), checkBox(q.l, p[q.k], v => { p[q.k] = v; preview(); })));
+        else o.append(rangeRow(q.l, { min: q.min, max: q.max, step: q.step || 1, value: p[q.k], suf: q.suf, onInput: v => { p[q.k] = v; preview(); } }));
+      }
+      if (def.usesColors) fgbgRow(o);
+      const close = () => { DW.panel = null; DW.live = null; dwToolUI(); dwRender(); };
+      const btns = h('div', { class: 'dwo' }, h('label', null, ''));
+      if (editL) btns.append(h('button', { class: 'btn pri sm', onclick: close }, 'Done'), h('button', { class: 'btn sm', onclick: () => { dwUndo(); DW.redo = []; dwUndoUI(); close(); } }, 'Cancel'));
+      else {
+        btns.append(h('button', { class: 'btn pri sm', onclick: () => { close(); phApplyOp(def, L, p); } }, 'Apply'));
+        if (kind === 'adj') btns.append(h('button', { class: 'btn sm', title: 'Keep it changeable: adds an adjustment layer above', onclick: () => { close(); phAddAdjLayer(id, p); } }, 'As a layer'));
+        btns.append(h('button', { class: 'btn sm', onclick: close }, 'Cancel'));
+      }
+      o.append(btns);
+      o.append(h('div', { class: 'hint' }, editL ? 'Changes everything below this layer. Paint on its mask to limit where.' : (DW.sel ? 'Only the selected part changes. ' : '') + (kind === 'adj' ? 'As a layer keeps it changeable later.' : 'The picture shows a preview. Apply makes it final.')));
+    }
+  };
+  dwToolUI(); preview();
+}
+function phOpenAdj(id, opts) { phOpenOp('adj', id, opts); }
+function phApplyOp(def, L, p) {
+  toast('Working…', 20000);
+  setTimeout(() => {
+    try { const r = runOp(def, L.cv, p, 1); dwSnap(L); const m = phMix(L.cv, r, DW.sel), x = ctxReset(L.cv.getContext('2d')); x.clearRect(0, 0, L.cv.width, L.cv.height); x.drawImage(m, 0, 0); dirty(L); toast(def.n + ' done'); }
+    catch (e) { console.error(e); toast('That did not work: ' + e.message); }
+    DW.live = null; dwRender();
+  }, 30);
+}
+function phAddAdjLayer(id, p) {
+  phSnapDoc();
+  const L = dwLayer(ADJ[id].n); L.kind = 'adj'; L.adj = { op: id, p: deep(p || Object.fromEntries(ADJ[id].ps.map(q => [q.k, deep(q.v)]))) };
+  L.mask = newLayerCanvas(DW.w, DW.h); const mx = L.mask.getContext('2d'); if (DW.sel) mx.drawImage(DW.sel, 0, 0); else { mx.fillStyle = '#fff'; mx.fillRect(0, 0, DW.w, DW.h); }
+  DW.layers.splice(DW.cur + 1, 0, L); DW.cur++; DW.editMask = false; dwRender(); toast(ADJ[id].n + ' layer added');
+  return L;
+}
+
+/* ================= Photo editor: menus, file handling, PSD, the editor switch ================= */
+const PH_MENUS = [['file', 'File'], ['edit', 'Edit'], ['image', 'Image'], ['layer', 'Layer'], ['select', 'Select'], ['adjust', 'Adjust'], ['filter', 'Filter'], ['view', 'View']];
+function curPixels() { const L = DW.layers[DW.cur]; return needPixels(L) ? L : null; }
+function phDialog(title, rows, onOk, okLabel = 'OK') { const body = h('div'); rows.forEach(r => body.append(r)); return modal(title, body, [{ l: 'Cancel' }, { l: okLabel, pri: 1, onClick: onOk }], { width: 420 }); }
+function numRow(label, value, o = {}) { let v = value; const f = numField({ value, min: o.min ?? 1, max: o.max ?? 30000, step: 1, dec: o.dec || 0, suf: o.suf || 'px', onInput: x => { v = x; o.onInput && o.onInput(x); } }); const r = row(label, f); r.get = () => v; r.set = x => { v = x; f.set(x); }; return r; }
+
+function phMenuItems(id) {
+  const L = DW.layers[DW.cur], S = DW.sel, it = (l, f, dis) => ({ l, f, dis }), sep = { sep: 1 };
+  if (id === 'file') return [it('Open a photo (replaces this one)', () => phPickFile(f => phOpenFile(f, true))), it('Place a photo as a new layer', () => phPickFile(f => phOpenFile(f, false))), sep,
+    it('Save picture to device (PNG, JPG, WebP)', phSavePicture), it('Save Photoshop file (.psd)', phSavePSD), it('Open Photoshop file (.psd)', () => phPickFile(f => phOpenFile(f, true), '.psd')), sep,
+    it('New blank picture', () => editorNewBlank('photo')), it('Send to Animate (put it on the video)', () => closeDraw(true))];
+  if (id === 'edit') return [it('Undo', dwUndo, !DW.undo.length), it('Redo', dwRedo, !DW.redo.length), sep,
+    it('Cut', () => phCopy(true)), it('Copy', () => phCopy(false)), it('Copy everything you see', () => phCopy(false, true)), it('Paste as a new layer', phPaste, !DW.clipb), sep,
+    it('Fill…', phFillDialog), it('Outline the selection…', phStrokeDialog, !S), it('Delete what is selected', phClearSel, !S), it('Fill in from around it (remove object)', phContentFill, !S), sep,
+    it('Free transform', () => { DW_PREF.tool = 'tf'; dwToolUI(); })];
+  if (id === 'image') return [it('Picture size…', phImageSize), it('Canvas size…', phCanvasSize), sep,
+    it('Turn 90° right', () => phRotateDoc(90)), it('Turn 90° left', () => phRotateDoc(-90)), it('Turn 180°', () => phRotateDoc(180)), it('Turn by any angle…', phRotateAny), it('Mirror the whole picture', () => phFlipDoc(true)), it('Flip the whole picture upside down', () => phFlipDoc(false)), sep,
+    it('Crop to the selection', () => { const b = DW.selBox; phCropTo(b.x, b.y, b.w, b.h); }, !S), it('Trim see-through edges', phTrim), sep,
+    it('Auto tone', () => phOpenAdj('autotone')), it('Auto contrast', () => phOpenAdj('autocon')), it('Auto color', () => phOpenAdj('autocol'))];
+  if (id === 'layer') return [it('New layer', () => { phSnapDoc(); DW.layers.splice(DW.cur + 1, 0, dwLayer('Layer ' + (DW.layers.length + 1))); DW.cur++; DW.editMask = false; dwToolUI(); }), it('New adjustment layer…', phAdjLayerMenu), it('New fill layer (solid color)', () => { phSnapDoc(); const n = dwLayer('Color fill'), x = n.cv.getContext('2d'); x.fillStyle = css(DW_PREF.color); x.fillRect(0, 0, DW.w, DW.h); DW.layers.splice(DW.cur + 1, 0, n); DW.cur++; if (DW.sel) { n.mask = copyCv(DW.sel); } dwToolUI(); }), sep,
+    it('Duplicate layer', () => { phSnapDoc(); phDupLayer(); dwToolUI(); }), it('Delete layer', () => { if (DW.layers.length < 2) return toast('A picture needs at least one layer'); phSnapDoc(); DW.layers.splice(DW.cur, 1); DW.cur = Math.max(0, DW.cur - 1); DW.editMask = false; dwToolUI(); }), it('Copy selection to a new layer', () => phViaCopy(false), !S), it('Cut selection to a new layer', () => phViaCopy(true), !S), sep,
+    it('Merge down', () => { phSnapDoc(); phMergeDown(); dwToolUI(); }, DW.cur < 1), it('Merge all visible', phMergeVisible), it('Flatten picture', phFlatten), sep,
+    it(L.mask ? 'Delete mask' : 'Add mask (shows all)', () => { phSnapDoc(); if (L.mask) { L.mask = null; DW.editMask = false; } else phAddMask('reveal'); dwToolUI(); }), it('Add mask from selection', () => { phSnapDoc(); phAddMask('sel'); dwToolUI(); }, !S), it('Add mask (hides all)', () => { phSnapDoc(); phAddMask('hide'); dwToolUI(); }),
+    it(DW.editMask ? 'Paint the layer, not the mask' : 'Paint on the mask', () => { DW.editMask = !DW.editMask; dwToolUI(); }, !L.mask), it('Flip the mask (invert)', () => { const x = ctxReset(L.mask.getContext('2d')); dwSnap(dwTarget()); const inv = phSelInvert(L.mask); x.clearRect(0, 0, DW.w, DW.h); x.drawImage(inv, 0, 0); dirty(L); }, !L.mask), it('Apply mask', () => { phSnapDoc(); phApplyMask(); }, !L.mask || L.kind === 'adj'), sep,
+    it(L.clip ? 'Stop clipping to the layer below' : 'Clip to the layer below', () => { L.clip = !L.clip; dirty(L); }, DW.cur < 1 || L.kind === 'adj'), it('Layer styles (shadow, glow, outline…)', phStylesPanel, L.kind === 'adj'), it('Text to pixels', () => { phSnapDoc(); L.kind = undefined; delete L.text; dwToolUI(); }, L.kind !== 'text'), it('Edit adjustment', () => phOpenAdj(L.adj.op, { layer: L }), L.kind !== 'adj'), sep, it('Layers panel…', phLayersSheet)];
+  if (id === 'select') return [it('Everything', () => phSetSel(phSelInvert(null), 'new')), it('Nothing', phDeselect, !S), it('Bring back the last selection', () => { if (DW.lastSel) { DW.sel = DW.lastSel; phSelChanged(); } }, !DW.lastSel || DW.lastSel.width !== DW.w), it('Flip the selection (inverse)', () => { DW.sel = phSelInvert(S); phSelChanged(); }, !S), sep,
+    it('The main subject', phSelectSubject), it('A color everywhere…', phColorRange), it('This layer’s pixels', () => { const c = selCv(), x = c.getContext('2d'); x.drawImage(L.cv, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#fff'; x.fillRect(0, 0, DW.w, DW.h); phSetSel(c); }), sep,
+    it('Grow…', () => phSelAmount('Grow the selection', r => phSelGrow(S, r)), !S), it('Shrink…', () => phSelAmount('Shrink the selection', r => phSelInvert(phSelGrow(phSelInvert(S), r))), !S), it('Soften the edge…', () => phSelAmount('Soften the edge', r => blurCv(S, r)), !S), it('Border only…', () => phSelAmount('Border width', r => { const g = phSelGrow(S, r / 2), x = g.getContext('2d'); x.globalCompositeOperation = 'destination-out'; x.drawImage(phSelInvert(phSelGrow(phSelInvert(S), r / 2)), 0, 0); return g; }), !S), it('Smooth the corners…', () => phSelAmount('Smooth the corners', r => phSelThreshold(blurCv(S, r))), !S), sep,
+    it('Remove the background', phRemoveBg)];
+  if (id === 'adjust') return Object.keys(ADJ).filter(k => !['autotone', 'autocon', 'autocol'].includes(k)).map(k => it(ADJ[k].n + (ADJ[k].instant ? '' : '…'), () => phOpenAdj(k)));
+  if (id === 'filter') { const out = []; let g = null; for (const k of Object.keys(FILT)) { if (FILT[k].g !== g) { g = FILT[k].g; out.push({ head: g }); } out.push(it(FILT[k].n + (FILT[k].ps.length ? '…' : ''), () => FILT[k].ps.length || FILT[k].usesColors ? phOpenOp('filter', k) : (() => { const L2 = curPixels(); if (L2) phApplyOp(FILT[k], L2, {}); })())); } return out; }
+  if (id === 'view') return [it('Fit on screen', () => { DW.view.fit = true; dwFit(); dwRender(); }), it('Real size (100%)', () => { const r = DW.stageEl.getBoundingClientRect(); DW.view = { z: 1 / (DW.dpr || 1), x: (r.width - DW.w / (DW.dpr || 1)) / 2, y: (r.height - DW.h / (DW.dpr || 1)) / 2, fit: false }; dwRender(); }), it('Zoom in', () => phZoom(1.5)), it('Zoom out', () => phZoom(1 / 1.5))];
+  return [];
+}
+function phZoom(f) { const r = DW.stageEl.getBoundingClientRect(), mx = r.width / 2, my = r.height / 2, z0 = DW.view.z, z = clamp(z0 * f, .05, 40); DW.view = { z, x: mx - (mx - DW.view.x) * z / z0, y: my - (my - DW.view.y) * z / z0, fit: false }; dwRender(); }
+function phOpenMenu(id, anchor) {
+  if (curPop && curPop.anchor === anchor) { closePop(); return; }
+  const list = h('div', { class: 'phmenu' });
+  for (const m of phMenuItems(id)) {
+    if (m.sep) { list.append(h('div', { class: 'msep' })); continue; }
+    if (m.head) { list.append(h('div', { class: 'gh' }, m.head)); continue; }
+    list.append(h('div', { class: 'opt' + (m.dis ? ' dis' : ''), onclick: () => { if (m.dis) return; closePop(); if (DW.tf && id !== 'view') phTfApply(); m.f(); dwRender(); } }, m.l));
+  }
+  openPop(anchor, list);
+}
+function phAdjLayerMenu() {
+  const g = h('div', { class: 'grid2' });
+  const m = modal('New adjustment layer', g, [{ l: 'Close' }], { width: 460 });
+  for (const k of Object.keys(ADJ)) { if (ADJ[k].instant) continue; g.append(h('button', { class: 'btn', onclick: () => { m.close(); const L = phAddAdjLayer(k); phOpenAdj(k, { layer: L }); } }, ADJ[k].n)); }
+}
+
+/* ---------- edit ---------- */
+function phCopy(cut, merged) {
+  const L = DW.layers[DW.cur]; if (!merged && !needPixels(L)) return;
+  const src = merged ? docFlat() : L.cv, c = copyCv(src);
+  if (DW.sel) { const x = c.getContext('2d'); x.globalCompositeOperation = 'destination-in'; x.drawImage(DW.sel, 0, 0); }
+  DW.clipb = c;
+  try { if (navigator.clipboard && window.ClipboardItem) c.toBlob(b => navigator.clipboard.write([new ClipboardItem({ 'image/png': b })]).catch(() => { })); } catch (e) { }
+  if (cut && !merged) phClearSel(true);
+  toast(cut ? 'Cut' : 'Copied');
+}
+function phPaste() {
+  if (!DW.clipb) return; phSnapDoc();
+  const n = dwLayer('Pasted'); const c = DW.clipb; n.cv.getContext('2d').drawImage(c, c.width === DW.w && c.height === DW.h ? 0 : (DW.w - c.width) / 2, c.width === DW.w && c.height === DW.h ? 0 : (DW.h - c.height) / 2);
+  DW.layers.splice(DW.cur + 1, 0, n); DW.cur++; DW.editMask = false; dwToolUI(); toast('Pasted as a new layer');
+}
+function phClearSel(quiet) {
+  const L = dwTarget(); if (!DW.sel || !needPixels(L)) return; dwSnap(L);
+  const x = ctxReset(L.cv.getContext('2d')); x.globalCompositeOperation = 'destination-out'; x.drawImage(DW.sel, 0, 0); ctxReset(x); dirty(L); dwRender(); if (!quiet) toast('Deleted');
+}
+function phViaCopy(cut) {
+  const L = DW.layers[DW.cur]; if (!needPixels(L) || !DW.sel) return; phSnapDoc();
+  const n = dwLayer(L.name + (cut ? ' cut' : ' copy')), x = n.cv.getContext('2d'); x.drawImage(L.cv, 0, 0); x.globalCompositeOperation = 'destination-in'; x.drawImage(DW.sel, 0, 0);
+  if (cut) { const lx = ctxReset(L.cv.getContext('2d')); lx.globalCompositeOperation = 'destination-out'; lx.drawImage(DW.sel, 0, 0); ctxReset(lx); dirty(L); }
+  DW.layers.splice(DW.cur + 1, 0, n); DW.cur++; dwToolUI();
+}
+function phFillDialog() {
+  const L = dwTarget(); if (!needPixels(L)) return;
+  let what = 'front', op = 100;
+  const rows = [row('Use', selectBox({ options: [{ v: 'front', l: 'Front color' }, { v: 'back', l: 'Back color' }, { v: 'black', l: 'Black' }, { v: 'white', l: 'White' }, { v: 'gray', l: 'Middle gray' }, { v: 'aware', l: 'Fill in from around it' }], value: what, onChange: v => what = v })), rangeRow('Opacity', { min: 1, max: 100, step: 1, value: op, suf: '%', onInput: v => op = v })];
+  phDialog('Fill', rows, () => {
+    if (what === 'aware') { phContentFill(); return; }
+    dwSnap(L); const t = tmpCv('fill'), tx = t.getContext('2d'); tx.fillStyle = css({ front: DW_PREF.color, back: DW_PREF.bg, black: '#000000ff', white: '#ffffffff', gray: '#808080ff' }[what]); tx.fillRect(0, 0, DW.w, DW.h);
+    const x = ctxReset(L.cv.getContext('2d')); x.globalAlpha = op / 100; if (L.lock) x.globalCompositeOperation = 'source-atop'; x.drawImage(phClipSel(t), 0, 0); ctxReset(x); dirty(L); dwRender();
+  });
+}
+function phStrokeDialog() {
+  const L = dwTarget(); if (!needPixels(L) || !DW.sel) return;
+  let w = 4, col = DW_PREF.color, pos = 'center';
+  phDialog('Outline the selection', [row('Width', numField({ value: w, min: 1, max: 500, step: 1, suf: 'px', onInput: v => w = v })), row('Color', colorBtn({ value: col, onInput: v => col = v })), row('Where', segBox({ options: [{ v: 'in', l: 'Inside' }, { v: 'center', l: 'Middle' }, { v: 'out', l: 'Outside' }], value: pos, onChange: v => pos = v }))], () => {
+    dwSnap(L); const S = DW.sel, outer = pos === 'in' ? S : phSelGrow(S, pos === 'out' ? w : w / 2), inner = pos === 'out' ? S : phSelInvert(phSelGrow(phSelInvert(S), pos === 'in' ? w : w / 2));
+    const ring = copyCv(outer), rx = ring.getContext('2d'); rx.globalCompositeOperation = 'destination-out'; rx.drawImage(inner, 0, 0); rx.globalCompositeOperation = 'source-in'; rx.fillStyle = css(col); rx.fillRect(0, 0, DW.w, DW.h);
+    L.cv.getContext('2d').drawImage(ring, 0, 0); dirty(L); dwRender();
+  });
+}
+function phContentFill() {
+  const L = dwTarget(); if (!needPixels(L) || !DW.sel) return; toast('Filling in…', 20000);
+  setTimeout(() => { dwSnap(L); fillHole(L, phSelThreshold(phSelGrow(DW.sel, 3), 40), DW.selBox); phDeselect(); toast('Filled in from around it'); dwRender(); }, 30);
+}
+
+/* ---------- image ---------- */
+function phImageSize() {
+  const r0 = DW.w / DW.h; let keep = true;
+  const wR = numRow('Width', DW.w, { onInput: v => { if (keep) hR.set(Math.max(1, Math.round(v / r0))); } }), hR = numRow('Height', DW.h, { onInput: v => { if (keep) wR.set(Math.max(1, Math.round(v * r0))); } });
+  const pct = h('div', { class: 'presets', style: { margin: 0 } }, ...[25, 50, 75, 150, 200].map(p => h('button', { onclick: () => { wR.set(Math.round(DW.w * p / 100)); hR.set(Math.round(DW.h * p / 100)); } }, p + '%')));
+  phDialog('Picture size', [wR, hR, row('', checkBox('Keep proportions', keep, v => keep = v)), row('Quick', pct), h('div', { class: 'hint' }, 'Changes the number of pixels. Everything is scaled to fit.')], () => {
+    const W2 = clamp(Math.round(wR.get()), 1, 12000), H2 = clamp(Math.round(hR.get()), 1, 12000), kx = W2 / DW.w, ky = H2 / DW.h;
+    phResizeDoc(W2, H2, (c, src) => { c.imageSmoothingQuality = 'high'; c.drawImage(src, 0, 0, W2, H2); }, { text: t => { t.x *= kx; t.y *= ky; t.size *= (kx + ky) / 2; } });
+  });
+}
+function phCanvasSize() {
+  let ax = 1, ay = 1; const wR = numRow('Width', DW.w), hR = numRow('Height', DW.h);
+  const grid = h('div', { class: 'anchor' }); const draw = () => { grid.innerHTML = ''; for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) grid.append(h('button', { class: i === ax && j === ay ? 'on' : '', onclick: () => { ax = i; ay = j; draw(); } })); }; draw();
+  let fillBg = false;
+  phDialog('Canvas size', [wR, hR, row('Keep picture at', grid), row('', checkBox('Fill new space with the back color', fillBg, v => fillBg = v))], () => {
+    const W2 = clamp(Math.round(wR.get()), 1, 12000), H2 = clamp(Math.round(hR.get()), 1, 12000), ox = Math.round((W2 - DW.w) * ax / 2), oy = Math.round((H2 - DW.h) * ay / 2);
+    const bottom = DW.layers[0];
+    phResizeDoc(W2, H2, (c, src) => { if (fillBg && src === bottom.cv) { c.fillStyle = css(DW_PREF.bg); c.fillRect(0, 0, W2, H2); } c.drawImage(src, ox, oy); }, { rect: { x: ox, y: oy, w: DW.w, h: DW.h }, text: t => { t.x += ox; t.y += oy; } });
+  });
+}
+function phRotateDoc(deg) {
+  const W = DW.w, H = DW.h, sw = deg % 180 !== 0, W2 = sw ? H : W, H2 = sw ? W : H, a = deg * Math.PI / 180;
+  phResizeDoc(W2, H2, (c, src) => { c.translate(W2 / 2, H2 / 2); c.rotate(a); c.drawImage(src, -W / 2, -H / 2); c.setTransform(1, 0, 0, 1, 0, 0); }, { text: t => { const dx = t.x - W / 2, dy = t.y - H / 2; t.x = W2 / 2 + dx * Math.cos(a) - dy * Math.sin(a); t.y = H2 / 2 + dx * Math.sin(a) + dy * Math.cos(a); t.rot = (t.rot || 0) + deg; } });
+}
+function phRotateAny() {
+  let ang = 5, grow = true;
+  phDialog('Turn the picture', [rangeRow('Angle', { min: -180, max: 180, step: .1, value: ang, suf: '°', onInput: v => ang = v }), row('', checkBox('Make the canvas bigger so nothing is cut off', grow, v => grow = v))], () => {
+    const a = ang * Math.PI / 180, W = DW.w, H = DW.h, W2 = grow ? Math.ceil(Math.abs(W * Math.cos(a)) + Math.abs(H * Math.sin(a))) : W, H2 = grow ? Math.ceil(Math.abs(W * Math.sin(a)) + Math.abs(H * Math.cos(a))) : H;
+    phResizeDoc(W2, H2, (c, src) => { c.translate(W2 / 2, H2 / 2); c.rotate(a); c.drawImage(src, -W / 2, -H / 2); c.setTransform(1, 0, 0, 1, 0, 0); }, { text: t => { const dx = t.x - W / 2, dy = t.y - H / 2; t.x = W2 / 2 + dx * Math.cos(a) - dy * Math.sin(a); t.y = H2 / 2 + dx * Math.sin(a) + dy * Math.cos(a); t.rot = (t.rot || 0) + ang; } });
+  });
+}
+function phFlipDoc(hor) { const W = DW.w, H = DW.h; phResizeDoc(W, H, (c, src) => { c.translate(hor ? W : 0, hor ? 0 : H); c.scale(hor ? -1 : 1, hor ? 1 : -1); c.drawImage(src, 0, 0); c.setTransform(1, 0, 0, 1, 0, 0); }, { text: t => { if (hor) t.x = W - t.x; else t.y = H - t.y; } }); }
+function phTrim() {
+  const f = docFlat(), d = f.getContext('2d').getImageData(0, 0, DW.w, DW.h).data; let x0 = DW.w, y0 = DW.h, x1 = -1, y1 = -1;
+  for (let y = 0; y < DW.h; y++) for (let x = 0; x < DW.w; x++) if (d[(y * DW.w + x) * 4 + 3]) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) return toast('The picture is empty'); if (x0 === 0 && y0 === 0 && x1 === DW.w - 1 && y1 === DW.h - 1) return toast('No see-through edges to trim');
+  phCropTo(x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+}
+function phMergeVisible() {
+  phSnapDoc(); const f = docFlat(), n = dwLayer('Merged'); n.cv.getContext('2d').drawImage(f, 0, 0);
+  const hidden = DW.layers.filter(L => !L.vis); DW.layers = [...hidden, n]; DW.cur = DW.layers.length - 1; DW.editMask = false; dwToolUI();
+}
+function phFlatten() { phSnapDoc(); const f = docFlat(), n = dwLayer('Background'), x = n.cv.getContext('2d'); x.fillStyle = css(DW_PREF.bg); x.fillRect(0, 0, DW.w, DW.h); x.drawImage(f, 0, 0); DW.layers = [n]; DW.cur = 0; DW.editMask = false; dwToolUI(); }
+
+/* ---------- select ---------- */
+function phSelAmount(title, fn) {
+  let r = 8; phDialog(title, [rangeRow('Pixels', { min: 1, max: 300, step: 1, value: r, suf: 'px', onInput: v => r = v })], () => { const c = fn(r); DW.sel = c; phSelChanged(); });
+}
+function phColorRange() {
+  let tol = 40; const sw = colorBtn({ value: DW_PREF.color, onInput: v => { DW_PREF.color = v; savePref(); } });
+  phDialog('Select a color everywhere', [row('Color', sw), h('div', { class: 'hint' }, 'Use the Eyedropper first to take a color from the picture.'), rangeRow('Closeness', { min: 1, max: 255, step: 1, value: tol, onInput: v => tol = v })], () => {
+    const f = docFlat(), d = f.getContext('2d').getImageData(0, 0, DW.w, DW.h).data, [r, g, b] = hexToRgba(DW_PREF.color), m = new Uint8Array(DW.w * DW.h);
+    for (let i = 0; i < m.length; i++) { const j = i * 4, dist = Math.max(Math.abs(d[j] - r), Math.abs(d[j + 1] - g), Math.abs(d[j + 2] - b)); if (d[j + 3] && dist <= tol) m[i] = dist > tol * .7 ? Math.round(255 * (tol - dist) / (tol * .3)) || 1 : 1; }
+    phSetSel(maskToCanvas(m, DW.w, DW.h));
+  });
+}
+// background = what can be reached from the picture's border without crossing a strong edge
+function subjectMask() {
+  const W = DW.w, H = DW.h, s = Math.max(1, Math.ceil(Math.max(W, H) / 700)), w = Math.ceil(W / s), hh = Math.ceil(H / s);
+  const t = newLayerCanvas(w, hh), tx = t.getContext('2d'); tx.filter = 'blur(1px)'; tx.drawImage(docFlat(), 0, 0, w, hh);
+  const d = tx.getImageData(0, 0, w, hh).data, bg = new Uint8Array(w * hh), q = [];
+  let sr = 0, sg = 0, sb = 0, n = 0; const border = []; for (let x = 0; x < w; x++) border.push(x, (hh - 1) * w + x); for (let y = 0; y < hh; y++) border.push(y * w, y * w + w - 1);
+  for (const i of border) { sr += d[i * 4]; sg += d[i * 4 + 1]; sb += d[i * 4 + 2]; n++; }
+  const dif = (a, b) => Math.abs(d[a * 4] - d[b * 4]) + Math.abs(d[a * 4 + 1] - d[b * 4 + 1]) + Math.abs(d[a * 4 + 2] - d[b * 4 + 2]);
+  for (const i of border) { if (!bg[i] && d[i * 4 + 3] < 10 || !bg[i]) { bg[i] = 1; q.push(i); } }
+  while (q.length) { const i = q.pop(), x = i % w, y = (i / w) | 0; for (const k of [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < hh - 1 ? i + w : -1]) { if (k < 0 || bg[k]) continue; if (d[k * 4 + 3] < 10 || dif(i, k) < 26) { bg[k] = 1; q.push(k); } } }
+  const m = new Uint8Array(w * hh); for (let i = 0; i < m.length; i++) m[i] = bg[i] ? 0 : 1;
+  const small = maskToCanvas(m, w, hh), out = selCv(), ox = out.getContext('2d'); ox.filter = `blur(${Math.max(1, s)}px)`; ox.drawImage(small, 0, 0, W, H);
+  return phSelThreshold(out, 120);
+}
+function phSelectSubject() { toast('Finding the subject…'); setTimeout(() => { const m = subjectMask(); phSetSel(m, 'new'); toast(DW.sel ? 'Subject selected. Use Quick select to fix any edges.' : 'Could not find a subject'); }, 30); }
+function phRemoveBg() {
+  const L = DW.layers[DW.cur]; if (!needPixels(L)) return; toast('Removing the background…');
+  setTimeout(() => { phSnapDoc(); const m = subjectMask(); L.mask = blurCv(m, 1); L.maskOff = false; dirty(L); dwToolUI(); dwRender(); toast('Background hidden with a mask. Paint the mask to fix edges.'); }, 30);
+}
+
+/* ---------- files ---------- */
+function phPickFile(cb, accept) { const inp = h('input', { type: 'file', accept: accept || 'image/*,.psd' }); inp.onchange = () => { if (inp.files[0]) cb(inp.files[0]); }; inp.click(); }
+async function loadImageFile(file) {
+  const url = URL.createObjectURL(file); try { const im = new Image(); im.src = url; await im.decode(); const s = Math.min(1, 6000 / Math.max(im.naturalWidth, im.naturalHeight)), c = newLayerCanvas(Math.round(im.naturalWidth * s), Math.round(im.naturalHeight * s)); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); return c; } finally { URL.revokeObjectURL(url); }
+}
+async function phOpenFile(file, replace) {
+  try {
+    toast('Opening…', 8000);
+    if (/\.psd$/i.test(file.name)) { const doc = await psdRead(await file.arrayBuffer()); if (replace || !DW.on) openDraw(null, { mode: 'photo', src: doc.flat, w: doc.w, h: doc.h, layers: doc.layers, name: file.name.replace(/\.psd$/i, '') }); else { phSnapDoc(); for (const L of doc.layers) { const n = dwLayer(L.name); n.cv.getContext('2d').drawImage(L.cv, 0, 0, DW.w, DW.h); Object.assign(n, { op: L.op, blend: L.blend, vis: L.vis }); DW.layers.splice(DW.cur + 1, 0, n); DW.cur++; } dwToolUI(); } toast('Opened ' + file.name); return; }
+    const c = await loadImageFile(file);
+    if (replace || !DW.on) { if (DW.on && DW.undo.length && !(await confirmBox('Open a new photo? The one you are editing is not saved.', 'Open', 'Keep this one'))) return; if (DW.on) { DW.on = false; DW.root.remove(); } openDraw(null, { mode: 'photo', src: c, name: file.name.replace(/\.[^.]+$/, '') }); }
+    else { phSnapDoc(); const n = dwLayer(file.name.replace(/\.[^.]+$/, '')), s = Math.min(1, DW.w / c.width, DW.h / c.height); n.cv.getContext('2d').drawImage(c, (DW.w - c.width * s) / 2, (DW.h - c.height * s) / 2, c.width * s, c.height * s); DW.layers.splice(DW.cur + 1, 0, n); DW.cur++; DW_PREF.tool = 'tf'; dwToolUI(); dwRender(); }
+    toast('Opened ' + file.name);
+  } catch (e) { console.error(e); toast('Could not open that file'); }
+}
+function downloadBlob(blob, name) { const url = URL.createObjectURL(blob), a = h('a', { href: url, download: name }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); }
+function phSavePicture() {
+  let fmt = 'png', q = 92, name = DW.name || 'picture';
+  const nameIn = h('input', { class: 'txt', value: name, spellcheck: 'false' }); nameIn.addEventListener('keydown', e => e.stopPropagation());
+  phDialog('Save picture', [row('File name', nameIn), row('Type', segBox({ options: [{ v: 'png', l: 'PNG' }, { v: 'jpeg', l: 'JPG' }, { v: 'webp', l: 'WebP' }], value: fmt, onChange: v => fmt = v })), rangeRow('Quality (JPG, WebP)', { min: 10, max: 100, step: 1, value: q, suf: '%', onInput: v => q = v }), h('div', { class: 'hint' }, `${DW.w} × ${DW.h}. PNG and WebP keep see-through parts. JPG gets the back color behind them.`)], () => {
+    let c = docFlat(); if (fmt === 'jpeg') { const b = newLayerCanvas(DW.w, DW.h), x = b.getContext('2d'); x.fillStyle = css(DW_PREF.bg); x.fillRect(0, 0, DW.w, DW.h); x.drawImage(c, 0, 0); c = b; }
+    c.toBlob(b => { if (!b) return toast('Could not save'); downloadBlob(b, (nameIn.value || 'picture') + '.' + (fmt === 'jpeg' ? 'jpg' : fmt)); toast('Saved'); }, 'image/' + fmt, q / 100);
+  }, 'Save');
+}
+
+/* ---------- Photoshop files ---------- */
+const PSD_BLEND = { 'source-over': 'norm', multiply: 'mul ', screen: 'scrn', overlay: 'over', darken: 'dark', lighten: 'lite', 'color-dodge': 'div ', 'color-burn': 'idiv', 'hard-light': 'hLit', 'soft-light': 'sLit', difference: 'diff', exclusion: 'smud', hue: 'hue ', saturation: 'sat ', color: 'colr', luminosity: 'lum ', lighter: 'lddg' };
+function phSavePSD() {
+  toast('Making the .psd…', 20000);
+  setTimeout(() => {
+    try {
+      const W = DW.w, H = DW.h, layers = DW.layers.filter(L => L.kind !== 'adj'), parts = [];
+      let skipped = DW.layers.length - layers.length;
+      const B = { buf: [], u8(v) { this.buf.push(v & 255); }, u16(v) { this.u8(v >> 8); this.u8(v); }, u32(v) { this.u16(v >>> 16); this.u16(v & 65535); }, s(str) { for (const c of str) this.u8(c.charCodeAt(0)); } };
+      const bytesOf = fn => { const b = Object.create(B); b.buf = []; fn(b); return Uint8Array.from(b.buf); };
+      const chans = layers.map((L, i) => { const img = layerImg(L, i, false, 'psd'), d = img.getContext('2d').getImageData(0, 0, W, H).data, n = W * H, ch = [new Uint8Array(n), new Uint8Array(n), new Uint8Array(n), new Uint8Array(n)]; for (let k = 0; k < n; k++) { ch[0][k] = d[k * 4 + 3]; ch[1][k] = d[k * 4]; ch[2][k] = d[k * 4 + 1]; ch[3][k] = d[k * 4 + 2]; } return ch; });
+      const recs = bytesOf(b => {
+        b.u16(layers.length);
+        layers.forEach((L, i) => {
+          b.u32(0); b.u32(0); b.u32(H); b.u32(W); b.u16(4);
+          for (const id of [-1, 0, 1, 2]) { b.u16(id & 65535); b.u32(2 + W * H); }
+          b.s('8BIM'); b.s(PSD_BLEND[L.blend] || 'norm'); b.u8(Math.round(L.op / 100 * 255)); b.u8(L.clip ? 1 : 0); b.u8(L.vis ? 0 : 2); b.u8(0);
+          const name = (L.name || 'Layer').replace(/[^\x20-\x7e]/g, '_').slice(0, 250), nl = 1 + name.length, pad = (4 - nl % 4) % 4;
+          b.u32(4 + 4 + nl + pad); b.u32(0); b.u32(0); b.u8(name.length); b.s(name); for (let k = 0; k < pad; k++) b.u8(0);
+        });
+      });
+      let infoLen = recs.length + layers.length * 4 * (2 + W * H); const infoPad = infoLen % 2; infoLen += infoPad;
+      parts.push(bytesOf(b => { b.s('8BPS'); b.u16(1); for (let k = 0; k < 6; k++) b.u8(0); b.u16(3); b.u32(H); b.u32(W); b.u16(8); b.u16(3); b.u32(0); b.u32(0); b.u32(4 + infoLen + 4); b.u32(infoLen); }));
+      parts.push(recs);
+      for (const ch of chans) for (const c of ch) { parts.push(new Uint8Array([0, 0])); parts.push(c); }
+      if (infoPad) parts.push(new Uint8Array(1));
+      parts.push(new Uint8Array(4));
+      const flat = newLayerCanvas(W, H), fx = flat.getContext('2d'); fx.fillStyle = '#fff'; fx.fillRect(0, 0, W, H); fx.drawImage(docFlat(), 0, 0); const fd = fx.getImageData(0, 0, W, H).data;
+      parts.push(new Uint8Array([0, 0])); for (let c = 0; c < 3; c++) { const pl = new Uint8Array(W * H); for (let k = 0; k < W * H; k++) pl[k] = fd[k * 4 + c]; parts.push(pl); }
+      downloadBlob(new Blob(parts, { type: 'image/vnd.adobe.photoshop' }), (DW.name || 'picture') + '.psd');
+      toast(skipped ? 'Saved .psd (adjustment layers are not included, the rest is)' : 'Saved .psd with ' + layers.length + ' layers');
+    } catch (e) { console.error(e); toast('Could not make the .psd'); }
+  }, 30);
+}
+async function psdRead(ab) {
+  const v = new DataView(ab), u8 = new Uint8Array(ab); let o = 0;
+  const r8 = () => u8[o++], r16 = () => { const x = v.getUint16(o); o += 2; return x; }, s16 = () => { const x = v.getInt16(o); o += 2; return x; }, r32 = () => { const x = v.getUint32(o); o += 4; return x; }, s32 = () => { const x = v.getInt32(o); o += 4; return x; }, str = n => { let s = ''; for (let i = 0; i < n; i++) s += String.fromCharCode(u8[o + i]); o += n; return s; };
+  const skip = () => { const n = r32(); o += n; };
+  if (str(4) !== '8BPS') throw new Error('Not a Photoshop file');
+  const ver = r16(); o += 6; const nch = r16(), H = r32(), W = r32(), depth = r16(), mode = r16();
+  if (ver !== 1 || depth !== 8 || mode !== 3) throw new Error('Only 8-bit RGB .psd files can be opened');
+  skip(); skip(); // color mode data, image resources
+  const lmLen = r32(), lmEnd = o + lmLen, layers = [];
+  const unpack = (dst, len, comp, w, hh) => {
+    if (comp === 0) { dst.set(u8.subarray(o, o + w * hh)); o += w * hh; return; }
+    if (comp !== 1) throw new Error('This .psd uses a compression that is not supported');
+    const counts = []; for (let y = 0; y < hh; y++) counts.push(r16());
+    let k = 0; for (let y = 0; y < hh; y++) { const end = o + counts[y]; let x = 0; while (o < end) { const n = v.getInt8(o++); if (n >= 0) { for (let i = 0; i <= n; i++) { if (x < w) dst[y * w + x] = u8[o]; o++; x++; } } else if (n !== -128) { const b = u8[o++]; for (let i = 0; i < 1 - n; i++) { if (x < w) dst[y * w + x] = b; x++; } } } k++; }
+  };
+  if (lmLen) {
+    const liLen = r32(), liEnd = o + liLen;
+    if (liLen) {
+      let n = Math.abs(s16()); const recs = [];
+      for (let i = 0; i < n; i++) {
+        const top = s32(), left = s32(), bottom = s32(), right = s32(), cn = r16(), ch = []; for (let c = 0; c < cn; c++) ch.push({ id: s16(), len: r32() });
+        str(4); const blend = str(4), op = r8(), clip = r8(), flags = r8(); r8();
+        const extra = r32(), exEnd = o + extra; skip(); skip(); const nl = r8(); let name = str(nl); o = exEnd;
+        recs.push({ top, left, bottom, right, ch, blend, op, clip, flags, name });
+      }
+      for (const R of recs) {
+        const w = R.right - R.left, hh = R.bottom - R.top, planes = {};
+        for (const c of R.ch) { const st = o, comp = r16(); if (c.id < -1 || w <= 0 || hh <= 0) { o = st + c.len; continue; } const pl = new Uint8Array(w * hh); try { unpack(pl, c.len, comp, w, hh); } catch (e) { throw e; } planes[c.id] = pl; o = st + c.len; }
+        if (w <= 0 || hh <= 0 || /<\/Layer group>|<\/Layer set>/i.test(R.name)) continue;
+        const cv = newLayerCanvas(W, H), part = newLayerCanvas(w, hh), px = part.getContext('2d'), img = px.createImageData(w, hh), d = img.data;
+        for (let k = 0; k < w * hh; k++) { d[k * 4] = planes[0] ? planes[0][k] : 0; d[k * 4 + 1] = planes[1] ? planes[1][k] : 0; d[k * 4 + 2] = planes[2] ? planes[2][k] : 0; d[k * 4 + 3] = planes[-1] ? planes[-1][k] : 255; }
+        px.putImageData(img, 0, 0); cv.getContext('2d').drawImage(part, R.left, R.top);
+        const bl = Object.keys(PSD_BLEND).find(k => PSD_BLEND[k] === R.blend) || 'source-over';
+        layers.push({ id: uid(), name: R.name || 'Layer', vis: !(R.flags & 2), op: Math.round(R.op / 255 * 100), blend: bl, lock: false, clip: !!R.clip, cv });
+      }
+    }
+    o = lmEnd;
+  }
+  // merged picture (used when there are no layers)
+  let flat = null;
+  try { const comp = r16(), planes = []; if (comp === 1) { const counts = []; for (let c = 0; c < nch; c++) for (let y = 0; y < H; y++) counts.push(r16()); for (let c = 0; c < Math.min(nch, 4); c++) { const pl = new Uint8Array(W * H); let y0 = 0; for (let y = 0; y < H; y++) { const end = o + counts[c * H + y]; let x = 0; while (o < end) { const n = v.getInt8(o++); if (n >= 0) { for (let i = 0; i <= n; i++) { if (x < W) pl[y * W + x] = u8[o]; o++; x++; } } else if (n !== -128) { const b = u8[o++]; for (let i = 0; i < 1 - n; i++) { if (x < W) pl[y * W + x] = b; x++; } } } } planes.push(pl); } } else { for (let c = 0; c < Math.min(nch, 4); c++) { planes.push(u8.subarray(o, o + W * H)); o += W * H; } }
+    flat = newLayerCanvas(W, H); const fx = flat.getContext('2d'), img = fx.createImageData(W, H); for (let k = 0; k < W * H; k++) { img.data[k * 4] = planes[0][k]; img.data[k * 4 + 1] = planes[1][k]; img.data[k * 4 + 2] = planes[2][k]; img.data[k * 4 + 3] = planes[3] && nch > 3 && !layers.length ? planes[3][k] : 255; } fx.putImageData(img, 0, 0);
+  } catch (e) { }
+  if (!layers.length) { if (!flat) throw new Error('Nothing readable in this .psd'); layers.push({ id: uid(), name: 'Background', vis: true, op: 100, blend: 'source-over', lock: false, cv: flat }); }
+  return { w: W, h: H, layers, flat: flat || layers[0].cv };
+}
+
+/* ---------- starting the editors from the main screen ---------- */
+async function editorNewBlank(mode) {
+  const sizes = [['video', `Video size (${P.w} × ${P.h})`, P.w, P.h], ['sq', 'Square (2048 × 2048)', 2048, 2048], ['story', 'Phone story (1080 × 1920)', 1080, 1920], ['hd', 'Wide HD (1920 × 1080)', 1920, 1080], ['a4', 'A4 paper (2480 × 3508)', 2480, 3508], ['icon', 'App icon (1024 × 1024)', 1024, 1024]];
+  let pick = 'video', bg = 'white';
+  const wR = numRow('Width', P.w), hR = numRow('Height', P.h);
+  phDialog('New blank picture', [row('Size', selectBox({ options: sizes.map(([v, l]) => ({ v, l })), value: pick, onChange: v => { const s = sizes.find(z => z[0] === v); wR.set(s[2]); hR.set(s[3]); } })), wR, hR, row('Background', segBox({ options: [{ v: 'white', l: 'White' }, { v: 'clear', l: 'See-through' }, { v: 'back', l: 'Back color' }], value: bg, onChange: v => bg = v }))], () => {
+    const W = clamp(Math.round(wR.get()), 1, 8000), H = clamp(Math.round(hR.get()), 1, 8000);
+    if (DW.on) { DW.on = false; DW.root.remove(); }
+    openDraw(null, { mode, blank: true, w: W, h: H, fill: bg === 'white' ? '#ffffffff' : bg === 'back' ? DW_PREF.bg : null, name: 'Untitled' });
+  }, 'Make');
+}
+function editorFrame(mode) { const c = newLayerCanvas(P.w, P.h); try { renderFrame(c.getContext('2d'), T, P.w, P.h); } catch (e) { } openDraw(null, { mode, src: c, name: 'Frame at ' + fmtDur(T) }); }
+function editorStart(mode) {
+  const body = h('div', { class: 'estart' }), sc = selClip(), works = allClips().filter(c => c.draw);
+  let m_;
+  const go = f => () => { m_.close(); closeSheets(); f(); };
+  const big = (ic, l, sub, f) => h('button', { class: 'ebig', onclick: go(f) }, h('span', { html: icon(ic) }), h('b', null, l), h('small', null, sub));
+  body.append(h('div', { class: 'ebigs' },
+    big('plus', 'New blank picture', 'Pick a size', () => editorNewBlank(mode)),
+    big('folder', mode === 'photo' ? 'Open a photo' : 'Draw on a photo', 'From your device (also .psd)', () => phPickFile(f => phOpenFile(f, true).then(() => { if (DW.on && DW.mode !== mode) phSetMode(mode); }))),
+    sc && sc.type === 'image' ? big('image', sc.draw ? 'Keep working on the picked clip' : 'Use the picked picture', clipLabel(sc), () => openDraw(sc, { mode })) : '',
+    big('camera', 'Use this video frame', 'The picture at ' + fmtDur(T), () => editorFrame(mode))));
+  if (works.length) {
+    body.append(h('div', { class: 'sect' }, 'Your drawings and photos in this project'));
+    const g = h('div', { class: 'grid' });
+    for (const c of works) { const m = MEDIA[c.media]; if (!m) continue; g.append(h('div', { class: 'tile media', onclick: go(() => openDraw(c, { mode })) }, h('img', { src: m.url, alt: '' }), h('div', { class: 'nm' }, (c.name || 'Drawing') + ' · ' + (c.draw.mode === 'photo' ? 'Photo' : 'Draw')))); }
+    body.append(g);
+  }
+  body.append(h('div', { class: 'hint', style: { marginTop: '10px' } }, 'Draw, Photo and Animate share your work: switch at the top of the editor any time, and your layers come along. Done sends the picture to the video.'));
+  m_ = modal(mode === 'photo' ? 'Photo editor' : 'Draw', body, [{ l: 'Close' }], { width: 560 });
+}
+// Animate / Draw / Photo switch in the main header
+(function addEditorSwitch() {
+  const go = () => {
+    const brand = $('#top .brand'); if (!brand || $('#edsw')) return;
+    const sw = h('div', { id: 'edsw', class: 'seg edsw' },
+      h('button', { class: 'on', type: 'button' }, 'Animate'),
+      h('button', { type: 'button', onclick: () => editorStart('draw') }, 'Draw'),
+      h('button', { type: 'button', onclick: () => editorStart('photo') }, 'Photo'));
+    brand.after(sw);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go); else go();
+})();
 
 </script></body></html>
