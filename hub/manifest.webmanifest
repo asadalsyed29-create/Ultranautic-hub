@@ -1,7 +1,7 @@
 {
   "name": "UltraNautic Hub",
-  "short_name": "UltraNautic",
-  "description": "Free apps with no paywalls: Nautic Editor, BuildX and Funz Online.",
+  "short_name": "UltraNautic Hub",
+  "description": "Free apps and games with no paywalls: Nautic Editor, BuildX and Funz Online.",
   "id": "./",
   "start_url": "./",
   "scope": "./",

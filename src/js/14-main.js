@@ -1,4 +1,4 @@
-const APP_VER = 37;
+const APP_VER = 38;
 /* ================= wiring ================= */
 let zoomSlider = null, EXPORTING = false;
 function refreshAll() {
@@ -48,7 +48,7 @@ function bindUI() {
   $('#bFile').onclick = () => {
     const list = h('div');
     const it = (l, f) => list.append(h('div', { class: 'opt', onclick: () => { closePop(); f(); } }, l));
-    it('New project', newProjectAsk); it('Open project file (.fwproj)', () => $('#projIn').click()); it('Save project file (.fwproj)', saveProjectFile); it('Import media', () => { $('#fileIn').accept = 'video/*,image/*,audio/*,.svg,.gif,.webp'; $('#fileIn').click(); }); it('Export video', openExport); it('Install app', installApp); list.append(h('div', { class: 'note', style: { padding: '8px 12px' } }, 'Version ' + APP_VER));
+    it('New project', newProjectAsk); it('Open project file (.fwproj)', () => $('#projIn').click()); it('Save project file (.fwproj)', saveProjectFile); it('Import media', () => { $('#fileIn').accept = 'video/*,image/*,audio/*,.svg,.gif,.webp'; $('#fileIn').click(); }); it('Export video', openExport); list.append(h('div', { class: 'note', style: { padding: '8px 12px' } }, 'Version ' + APP_VER));
     openPop($('#bFile'), list);
   };
   $('#pname').addEventListener('change', () => { P.name = $('#pname').value; commit(); });
