@@ -120,6 +120,8 @@ $('hubInstall').onclick = async () => {
   if (ios) show('Download UltraNautic Hub', 'In Safari, tap the Share button, then “Add to Home Screen”.');
   else show('Download UltraNautic Hub', 'Open your browser menu (the ⋮ button in Chrome) and tap “Install app” or “Add to Home screen”.');
 };
+// when a new version of the hub has downloaded, reload once so new apps show right away
+if ('serviceWorker' in navigator && navigator.serviceWorker.controller) { let done = false; navigator.serviceWorker.addEventListener('controllerchange', () => { if (!done && !$('run').classList.contains('on')) { done = true; location.reload(); } }); }
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { }));
 </script>
 </body>
