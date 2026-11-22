@@ -1,0 +1,36 @@
+<div id="app">
+  <div id="top">
+    <button class="tb" id="bMenu" title="File" data-i="menu"></button>
+    <div class="brand hidem">Nautic Music</div>
+    <input id="pname" spellcheck="false" autocomplete="off">
+    <button class="tb" id="bUndo" title="Undo" data-i="undo"></button>
+    <button class="tb" id="bRedo" title="Redo" data-i="redo"></button>
+    <div class="sp"></div>
+    <div id="transport">
+      <button class="tb" id="bStart" title="Back to start" data-i="start"></button>
+      <button class="tb" id="bPlay" title="Play / Stop (Space)" data-i="play"></button>
+      <button class="tb rec" id="bRec" title="Record" data-i="rec"></button>
+      <button class="tb" id="bLoop" title="Loop" data-i="loop"></button>
+      <button class="tb" id="bMetro" title="Metronome" data-i="metro"></button>
+      <div id="clock">1.1.1</div>
+      <div class="bpmw"><span>BPM</span><span id="bpmBox"></span></div>
+    </div>
+    <div class="sp"></div>
+    <button class="btn pri" id="bExport" title="Export" data-i="export"><span class="lbl">Export</span></button>
+  </div>
+  <div id="arr">
+    <div class="tools" id="arrTools"></div>
+    <div id="arrBody">
+      <div id="heads"><div id="rulerPad"></div><div id="headsIn"></div></div>
+      <div id="tlWrap"><canvas id="tl"></canvas></div>
+    </div>
+  </div>
+  <div id="split"><i></i></div>
+  <div id="panel">
+    <div id="ptabs"></div>
+    <div id="pbody"></div>
+  </div>
+</div>
+<div id="toast"></div>
+<input type="file" id="fileIn" accept="audio/*,video/*,.wav,.mp3,.ogg,.m4a,.flac,.aac,.opus,.webm" multiple style="display:none">
+<input type="file" id="projIn" accept=".nmusic,application/octet-stream" style="display:none">

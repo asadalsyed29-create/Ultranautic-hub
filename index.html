@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>UltraNautic Hub</title>
-<meta name="description" content="Free apps with no paywalls: Nautic Editor, NauticX and Nautic Online. Install them to your home screen.">
+<meta name="description" content="Free apps with no paywalls: Nautic Editor, Nautic Music, NauticX and Nautic Online. Install them to your home screen.">
 <meta name="theme-color" content="#071a33">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/hub1-64.png">
@@ -67,6 +67,11 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
       <div class="row"><button class="pri" data-open="nautic/" data-name="Nautic Editor">Open</button></div>
     </section>
     <section class="app">
+      <div class="top"><img src="icons/nautic-music.png" alt=""><div><div class="kind">Music maker</div><h2>Nautic Music</h2></div></div>
+      <p>Make songs with 500 instrument sounds in 20 kinds, drum kits, a piano roll, and your own sounds. Cut audio, mix and export.</p>
+      <div class="row"><button class="pri" data-open="music/" data-name="Nautic Music">Open</button></div>
+    </section>
+    <section class="app">
       <div class="top"><img src="icons/nauticx.png" alt=""><div><div class="kind">Game maker</div><h2>NauticX</h2></div></div>
       <p>Build and play your own 3D games: parts, bots, code, models and more.</p>
       <div class="row"><button class="pri" data-open="nauticx/index.html" data-name="NauticX">Play</button></div>
@@ -89,7 +94,7 @@ const $ = id => document.getElementById(id);
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 if (standalone) $('hubInstall').style.display = 'none';
-const APPS = [['nautic/sw.js', 'nautic/'], ['nauticx/sw.js', 'nauticx/'], ['/Funz-online/sw.js', '/Funz-online/']];
+const APPS = [['nautic/sw.js', 'nautic/'], ['music/sw.js', 'music/'], ['nauticx/sw.js', 'nauticx/'], ['/Funz-online/sw.js', '/Funz-online/']];
 // opening an app: it runs inside the hub, full screen; the phone's back button (or the Hub tab) comes back here
 function openApp(u) { const f = document.createElement('iframe'); f.src = u; f.allow = 'fullscreen; autoplay; clipboard-read; clipboard-write; gamepad; camera; microphone; screen-wake-lock'; f.setAttribute('allowfullscreen', ''); $('run').appendChild(f); $('run').classList.add('on'); history.pushState({ app: u }, ''); }
 function closeApp() { const r = $('run'); r.querySelectorAll('iframe').forEach(f => f.remove()); r.classList.remove('on'); }
