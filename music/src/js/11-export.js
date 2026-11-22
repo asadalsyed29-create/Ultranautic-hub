@@ -1,15 +1,30 @@
 /* ================= export (WAV), song files ================= */
-const Exp = { range: 'song', bits: 16, sr: 48000, tail: 2.5, stems: false };
+const Exp = { range: 'song', fmt: 'wav', bits: 16, sr: 48000, kbps: 256, tail: 2.5, stems: false };
+const FORMATS = { wav: ['WAV', 'Best quality, works everywhere'], flac: ['FLAC', 'Same quality as WAV, about half the size'], mp3: ['MP3', 'Small file, plays everywhere'], mp4: ['MP4', 'Small file (AAC sound), plays on phones and video sites'], m4a: ['M4A', 'Small file (AAC sound), for music players'], ogg: ['OGG', 'Small file (Opus sound)'], aiff: ['AIFF', 'Best quality, for Apple apps'] };
 function exportDialog() {
   const end = songEnd();
   if (end <= 0) { msgBox('Nothing to export', 'Add some notes or sounds first.'); return; }
   const b = h('div');
   b.append(row('Part', segBox({ value: Exp.range, options: [{ v: 'song', l: 'Whole song' }, { v: 'loop', l: 'Loop part' }], onChange: v => Exp.range = v })));
-  b.append(row('Quality', segBox({ value: Exp.bits, options: [{ v: 16, l: '16-bit' }, { v: 24, l: '24-bit' }, { v: 32, l: '32-bit float' }], onChange: v => Exp.bits = v })));
-  b.append(row('Sample rate', segBox({ value: Exp.sr, options: [{ v: 44100, l: '44.1 kHz' }, { v: 48000, l: '48 kHz' }, { v: 96000, l: '96 kHz' }], onChange: v => Exp.sr = v })));
+  const fmtNote = h('div', { class: 'note', style: { margin: '2px 0 6px 104px' } });
+  const opts = h('div');
+  const lossy = f => f === 'mp3' || f === 'mp4' || f === 'm4a' || f === 'ogg';
+  const showOpts = () => {
+    fmtNote.textContent = FORMATS[Exp.fmt][1]; opts.innerHTML = '';
+    if (lossy(Exp.fmt)) opts.append(row('Quality', segBox({ value: Exp.kbps, options: [128, 192, 256, 320].map(v => ({ v, l: v + ' kbps' })), onChange: v => Exp.kbps = v })));
+    else {
+      const bitsOpts = [{ v: 16, l: '16-bit' }, { v: 24, l: '24-bit' }].concat(Exp.fmt === 'wav' ? [{ v: 32, l: '32-bit float' }] : []);
+      if (!bitsOpts.some(o => o.v === Exp.bits)) Exp.bits = 24;
+      opts.append(row('Quality', segBox({ value: Exp.bits, options: bitsOpts, onChange: v => Exp.bits = v })));
+      opts.append(row('Sample rate', segBox({ value: Exp.sr, options: [{ v: 44100, l: '44.1 kHz' }, { v: 48000, l: '48 kHz' }, { v: 96000, l: '96 kHz' }], onChange: v => Exp.sr = v })));
+    }
+  };
+  const fsg = segBox({ value: Exp.fmt, options: Object.keys(FORMATS).map(k => ({ v: k, l: FORMATS[k][0] })), onChange: v => { Exp.fmt = v; showOpts(); } }); fsg.classList.add('wrap');
+  b.append(row('Format', fsg), fmtNote, opts);
+  showOpts();
   b.append(rangeRow('Ending', { value: Exp.tail, min: 0, max: 10, step: 0.5, suf: 's', onInput: v => Exp.tail = v }));
   b.append(row('', checkBox('Each track as its own file too', Exp.stems, v => Exp.stems = v)));
-  b.append(h('div', { class: 'note', style: { marginTop: '6px' } }, 'Saves a WAV file. Ending adds time after the last note so the reverb can fade out.'));
+  b.append(h('div', { class: 'note', style: { marginTop: '6px' } }, 'Ending adds time after the last note so the reverb can fade out.'));
   modal('Export audio', b, [{ l: 'Cancel' }, { l: 'Export', pri: 1, onClick: () => { runExport(); } }]);
 }
 async function runExport() {
@@ -21,20 +36,31 @@ async function runExport() {
   const m = modal('Exporting', h('div', null, lab, h('div', { class: 'prog' }, bar)), [], { noX: true });
   try {
     await Promise.all(song.tracks.filter(t => t.kind !== 'audio').map(tr => { const pr = getPreset(tr.preset), ms = new Set(); for (const c of song.clips) if (c.tr === tr.id && c.notes) for (const n of c.notes) ms.add(n.m + (pr.e === 'drum' ? 0 : tr.oct * 12)); return preload(pr, ms); }));
-    const name = (song.name || 'song').replace(/[\\/:*?"<>|]+/g, '').trim() || 'song';
-    const jobs = [{ label: song.name, only: null, file: name + '.wav' }];
-    if (Exp.stems) for (const tr of song.tracks) jobs.push({ label: tr.name, only: tr.id, file: name + ' - ' + tr.name.replace(/[\\/:*?"<>|]+/g, '') + '.wav' });
+    const name = (song.name || 'song').replace(/[\\/:*?"<>|]+/g, '').trim() || 'song', ext = '.' + Exp.fmt;
+    const lossy = ['mp3', 'mp4', 'm4a', 'ogg'].includes(Exp.fmt);
+    let codec = null;
+    if (Exp.fmt === 'mp3') await loadLame();
+    else if (lossy) { codec = await lossyCodec(Exp.fmt === 'ogg' ? 'opus' : 'aac'); if (!codec) throw new Error('This browser cannot make ' + FORMATS[Exp.fmt][0] + ' files. Pick WAV or FLAC instead.'); }
+    const jobs = [{ label: song.name, only: null, file: name + ext }];
+    if (Exp.stems) for (const tr of song.tracks) jobs.push({ label: tr.name, only: tr.id, file: name + ' - ' + tr.name.replace(/[\\/:*?"<>|]+/g, '') + ext });
     for (let j = 0; j < jobs.length; j++) {
       lab.textContent = 'Rendering ' + jobs[j].label + (jobs.length > 1 ? ' (' + (j + 1) + ' of ' + jobs.length + ')' : '') + '…';
-      const buf = await renderOffline(fromB, toB, jobs[j].only, p => bar.style.width = ((j + p) / jobs.length * 100) + '%');
-      download(new Blob([wavBytes(buf, Exp.bits)], { type: 'audio/wav' }), jobs[j].file);
+      const buf = await renderOffline(fromB, toB, jobs[j].only, p => bar.style.width = ((j + p * 0.85) / jobs.length * 100) + '%', lossy ? 48000 : Exp.sr);
+      lab.textContent = 'Saving ' + jobs[j].file + '…'; await sleep(30);
+      let blob;
+      if (Exp.fmt === 'wav') blob = new Blob([wavBytes(buf, Exp.bits)], { type: 'audio/wav' });
+      else if (Exp.fmt === 'flac') blob = new Blob([flacBytes(buf, Exp.bits)], { type: 'audio/flac' });
+      else if (Exp.fmt === 'aiff') blob = new Blob([aiffBytes(buf, Exp.bits)], { type: 'audio/aiff' });
+      else if (Exp.fmt === 'mp3') blob = mp3Blob(buf, Exp.kbps);
+      else { const e = await encodeAudio(buf, codec, Exp.kbps); blob = Exp.fmt === 'ogg' ? oggBlob(e) : mp4Blob(e, Exp.fmt === 'm4a'); }
+      download(blob, jobs[j].file);
       await sleep(400);
     }
     m.close(); toast('Exported');
   } catch (e) { m.close(); msgBox('Export failed', String(e && e.message || e)); }
 }
-async function renderOffline(fromB, toB, only, prog) {
-  const sp = 60 / song.bpm, len = (toB - fromB) * sp + Exp.tail, sr = Exp.sr;
+async function renderOffline(fromB, toB, only, prog, sr = Exp.sr) {
+  const sp = 60 / song.bpm, len = (toB - fromB) * sp + Exp.tail;
   const ctx = new OfflineAudioContext(2, Math.ceil(len * sr), sr);
   makeBus(ctx, song);
   const solo = song.tracks.some(t => t.solo);
