@@ -84,6 +84,22 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
 .lines .line{flex-direction:column;align-items:flex-start;gap:0;min-height:0;padding:7px 10px;text-align:left}
 .lines .line b{font:600 13px ui-monospace,Consolas,monospace;color:#cfe3f5}.lines .line span{font-weight:400;font-size:12.5px;color:var(--dim)}
 #dlgCode{margin:0 0 14px;background:#061428;border:1px solid var(--line);padding:8px;font:12px ui-monospace,monospace;word-break:break-all;white-space:pre-wrap;max-height:120px;overflow:auto;display:none}
+#acct{position:fixed;inset:0;z-index:30;background:var(--bg) linear-gradient(180deg,#071a33 0%,#0b3558 45%,#12506f 100%);display:none;overflow:auto}
+#acct.on{display:block}
+#acct .box{max-width:400px;margin:0 auto;padding:28px 16px 40px}
+#acct .head{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+#acct .head img{width:56px;height:56px;border-radius:12px}
+#acct h2{margin:0;font-size:22px}#acct .head p{margin:0;color:var(--dim);font-size:13.5px}
+#acct label{display:block;color:var(--dim);font-size:13px;font-weight:600;margin:12px 0 4px}
+#acct input{width:100%;font:16px system-ui,sans-serif;background:#061428;color:var(--tx);border:1px solid var(--line);padding:10px}
+#acct .two{display:flex;gap:8px;margin-top:16px}#acct .two button{flex:1}
+#acct .or{display:flex;align-items:center;gap:10px;color:var(--dim);font-size:13px;margin:18px 0}
+#acct .or:before,#acct .or:after{content:"";flex:1;border-top:1px solid var(--line)}
+#acGoogle{width:100%;background:#fff;color:#1f1f1f;border-color:#dadce0}
+#acGoogle svg{width:18px;height:18px}
+#acct .fine{color:var(--dim);font-size:12.5px;margin-top:16px}
+#acBar{display:flex;align-items:center;gap:8px;color:var(--dim);font-size:13.5px}
+#acBar b{color:var(--tx)}#acBar button{min-height:36px;padding:6px 12px;font-size:13.5px}
 </style>
 </head>
 <body>
@@ -96,6 +112,7 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
     </div>
     <button id="hubInstall" class="pri">Download</button>
   </header>
+  <div id="acBar" style="display:none;margin-top:10px">Signed in as <b id="acWho"></b><button id="acOut">Sign out</button></div>
   <div id="dlState"></div>
   <nav id="tabs"><button data-tab="apps" class="on">Apps</button><button data-tab="mods">Mods</button><button data-tab="updates">Updates</button><button data-tab="help">Help</button></nav>
 
@@ -133,6 +150,10 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
   </div>
 
   <div class="page" id="p-updates"><div class="log">
+    <section><div class="d">22 November 2026</div><h3>Accounts</h3><ul>
+      <li>Make an account the first time you open the hub: pick a <b>username</b> nobody else has and a <b>password</b>, or <b>sign in with Google</b>.</li>
+      <li>After that the whole hub opens right away, even offline.</li>
+    </ul></section>
     <section><div class="d">22 November 2026</div><h3>Mods, servers and new hub tabs</h3><ul>
       <li><b>Mods tab</b> in the hub. Mods add new things to Nautic Online: blocks, gadgets, ball skins, items and creatures, sorted by what they add.</li>
       <li>5 mods to start with: Lava and Ice, Rocket Boots, Space Skins, Power Finds and Wild Creatures. <b>Make your own</b> with NauticX-style code, like <code>#block = Lava Block</code> … <code>#end</code>.</li>
@@ -158,6 +179,7 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
   </div></div>
 
   <div class="page" id="p-help"><div class="log">
+    <section><h3>Your account</h3><ul><li>Type a username and a password, then tap Make account. Next time, tap Log in with the same username and password.</li><li>Or tap Sign in with Google, then pick a username.</li><li>Nobody else can take your username. To change account, tap Sign out at the top.</li></ul></section>
     <section><h3>Download the hub</h3><ul><li>Tap Download at the top. On iPhone use Safari, tap Share, then “Add to Home Screen”.</li><li>After that every app opens from the hub, even with no internet.</li></ul></section>
     <section><h3>Go back to the hub</h3><ul><li>Use your phone's back button, or tap the small “Hub” tab at the top of the screen.</li></ul></section>
     <section><h3>Install a mod</h3><ul><li>Open the Mods tab and tap Install.</li><li>In Nautic Online, tap Servers, then Make a server, and tick the mods you want. Everyone who joins that server gets them.</li><li>New blocks are in the Mods tab of the build bar, new gadgets and skins are in the wardrobe, new items lie around the world, and new creatures live in the world.</li></ul></section>
@@ -179,9 +201,28 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
   <label for="impText">Paste the mod code</label><textarea id="impText" spellcheck="false" autocapitalize="off" style="min-height:120px"></textarea><div class="check bad" id="impMsg"></div>
 </div></div>
 
+<div id="acct"><div class="box">
+  <div class="head"><img src="icons/hub1-192.png" alt=""><div><h2>UltraNautic Hub</h2><p>Make an account to play everything in the hub.</p></div></div>
+  <div id="acMain">
+    <label for="acName">Username</label><input id="acName" maxlength="20" autocomplete="username" autocapitalize="off" spellcheck="false">
+    <label for="acPass">Password</label><input id="acPass" type="password" maxlength="100" autocomplete="current-password">
+    <div class="two"><button class="pri" id="acSignUp">Make account</button><button id="acLogIn">Log in</button></div>
+    <div class="or">or</div>
+    <button id="acGoogle"><svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Sign in with Google</button>
+  </div>
+  <div id="acPick" style="display:none">
+    <p style="margin:0;color:var(--dim)">Pick a username. Other players see this name, and nobody else can have it.</p>
+    <label for="acPickName">Username</label><input id="acPickName" maxlength="20" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="two"><button id="acPickBack">Back</button><button class="pri" id="acPickOk">Done</button></div>
+  </div>
+  <div class="check bad" id="acMsg"></div>
+  <p class="fine">Usernames can use letters, numbers and _. Your password is only for you.</p>
+</div></div>
+
 <div id="run"><button id="back">Hub</button></div>
 <div id="dlg"><div class="box"><h3 id="dlgT"></h3><p id="dlgP"></p><pre id="dlgCode"></pre><div class="row"><button id="dlgOk" class="pri">OK</button></div></div></div>
 
+<script src="hub/accounts.js"></script>
 <script src="hub/online-lang.js"></script>
 <script src="hub/mods.js"></script>
 <script>
@@ -222,7 +263,7 @@ document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { tab(b
 HubMods.init();
 // a Nautic Online server link (…/Ultranautic-hub/#online=abc123.xyz) opens that server
 function fromHash() { const h = location.hash.slice(1); const m = h.match(/^online=([a-z0-9]{6,16}(?:\.[A-Za-z0-9_-]+)?)$/); if (m) { history.replaceState(null, '', location.pathname); openApp('/Funz-online/?app=1&server=' + m[1]); } else tab(h); }
-fromHash(); addEventListener('hashchange', fromHash);
+HubAccount.init(() => { fromHash(); addEventListener('hashchange', fromHash); });
 // an app asks for the hub's Mods tab (NauticX's "Get more mods")
 addEventListener('message', e => { if (e.origin !== location.origin || !e.data || e.data.t !== 'ultranautic') return; if ($('run').classList.contains('on')) history.back(); if (e.data.tab) { tab(e.data.tab); if (e.data.game) HubMods.setGame(e.data.game); } });
 // when a new version of the hub has downloaded, reload once so new apps show right away
