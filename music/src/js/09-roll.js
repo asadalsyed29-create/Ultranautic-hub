@@ -19,14 +19,14 @@ function noteEditor(pb, c) {
   const lenF = numField({ value: c.len / song.sig, min: 0.25, max: 256, step: 0.25, dec: 2, onInput: (v, f) => { c.len = v * song.sig; draw(); drawTimeline(); if (f) commit(); } });
   lenF.style.width = '64px'; lenF.style.flex = 'none';
   if (!drum) {
-    const toolSeg = segBox({ value: Ed.tool, options: [{ v: 'draw', i: 'pen', l: 'Draw', t: 'Draw notes' }, { v: 'erase', i: 'erase', l: 'Erase', t: 'Tap or swipe over notes to delete them' }, { v: 'select', i: 'sel', l: 'Pick', t: 'Pick notes by dragging a box' }, { v: 'pan', i: 'hand', l: 'Scroll', t: 'Drag to scroll the notes' }], onChange: v => Ed.tool = v });
-    toolSeg.style.flex = 'none';
+    const toolSeg = segBox({ value: Ed.tool, options: [{ v: 'draw', i: 'pen', l: 'Draw', t: 'Draw notes' }, { v: 'erase', i: 'erase', l: 'Delete', t: 'Tap or swipe over notes to delete them' }, { v: 'select', i: 'sel', l: 'Pick', t: 'Pick notes by dragging a box' }, { v: 'pan', i: 'hand', l: 'Scroll', t: 'Drag to scroll the notes' }], onChange: v => { const was = Ed.tool; Ed.tool = v; if (v === 'erase' && was === 'select' && Sel.notes.size) delNotes(); } });
+    toolSeg.style.flex = 'none'; toolSeg.classList.add('pin');
     tools.append(toolSeg, h('span', { class: 'sep' }),
       h('span', { class: 'lab' }, 'Snap'), selectBox({ value: Ed.snap, options: SNAPS, onChange: v => { Ed.snap = v; draw(); } }),
       h('span', { class: 'lab' }, 'Length'), selectBox({ value: Ed.len, options: LENS, onChange: v => Ed.len = v }),
       h('span', { class: 'lab' }, 'Chord'), selectBox({ value: Ed.chord, options: Object.keys(CHORDS).map(k => ({ v: k, l: CHORDS[k][0] })), onChange: v => Ed.chord = v }),
       h('span', { class: 'sep' }),
-      tbtn('copy', 'Copy notes', copyNotes), tbtn('paste', 'Paste notes at the playhead', pasteNotes), tbtn('dup', 'Repeat the picked notes after themselves', dupNotes), tbtn('trash', 'Delete the picked notes', delNotes, 'Delete'),
+      tbtn('copy', 'Copy notes', copyNotes), tbtn('paste', 'Paste notes at the playhead', pasteNotes), tbtn('dup', 'Repeat the picked notes after themselves', dupNotes),
       tbtn('quant', 'Snap notes to the grid', quantize, 'Snap'), tbtn('up', 'Up a semitone', () => transp(1)), tbtn('down', 'Down a semitone', () => transp(-1)),
       h('button', { class: 'tb', title: 'Up an octave', onclick: () => transp(12) }, '+8'), h('button', { class: 'tb', title: 'Down an octave', onclick: () => transp(-12) }, '-8'),
       h('button', { class: 'tb', title: 'Pick all notes', onclick: () => { c.notes.forEach((n, i) => Sel.notes.add(n)); draw(); } }, 'All'),
