@@ -9,7 +9,7 @@ function newTrack(kind, preset, name) {
   return tr;
 }
 function newSong() {
-  const s = { v: 1, id: uid(), name: 'My song', bpm: 120, sig: 4, key: 0, scale: 'none', master: 0.85, fx: { revType: 'hall', revLvl: 1, delTime: '1/8.', delFb: 0.35, glue: true }, loop: { on: false, a: 0, b: 16 }, metro: false, tracks: [], clips: [], updated: Date.now() };
+  const s = { v: 1, id: uid(), name: 'My song', bpm: 120, sig: 4, key: 0, scale: 'none', master: 0.85, fx: { revType: 'hall', revLvl: 1, delTime: '1/8.', delFb: 0.35, glue: true }, loop: { on: false, a: 0, b: 16 }, tracks: [], clips: [], updated: Date.now() };
   return s;
 }
 let song = null;

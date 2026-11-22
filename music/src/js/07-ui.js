@@ -3,7 +3,7 @@ const ICONS = {
   menu: 'M4 7h16M4 12h16M4 17h16', undo: 'M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3', redo: 'M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3',
   play: '<path class="f" d="M7 4.5v15l13-7.5z"/>', stop: '<path class="f" d="M6 6h12v12H6z"/>', rec: '<circle class="f" cx="12" cy="12" r="6.5"/>',
   start: '<path class="f" d="M18 5v14L8 12zM6 5h2v14H6z"/>', loop: 'M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4',
-  metro: 'M9 3h6l4 18H5zM12 17l5-11M8 14h8', export: 'M12 3v12M7 10l5 5 5-5M4 20h16', plus: 'M12 5v14M5 12h14',
+  export: 'M12 3v12M7 10l5 5 5-5M4 20h16', plus: 'M12 5v14M5 12h14',
   cut: 'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12',
   dup: 'M8 8h12v12H8zM4 16V4h12', copy: 'M8 8h12v12H8zM4 16V4h12', paste: 'M9 4h6v3H9zM7 5H5v16h14V5h-2', trash: 'M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14',
   zin: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4M8 11h6M11 8v6', zout: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4M8 11h6',
@@ -50,7 +50,6 @@ function buildTop() {
     if (!Ed.kbd && tr) { Ed.kbd = true; if (Ed.tab !== 'edit') setTab('edit'); else renderPanel(); }
   };
   $('#bLoop').onclick = () => { song.loop.on = !song.loop.on; if (song.loop.b <= song.loop.a) song.loop.b = song.loop.a + song.sig * 4; commit(); updTransport(); drawAll(); };
-  $('#bMetro').onclick = () => { song.metro = !song.metro; commit(); updTransport(); };
   bpmField = numField({ value: 120, min: 30, max: 300, step: 1, dec: 1, onInput: (v, f) => { song.bpm = v; if (AC) updateBus(AC, song); drawAll(); if (f) commit(); } });
   $('#bpmBox').append(bpmField);
   $('#pname').addEventListener('change', e => { song.name = e.target.value.trim() || 'My song'; commit(); });
@@ -70,7 +69,6 @@ function updTransport() {
   $('#bPlay').innerHTML = icon(T.playing ? 'stop' : 'play');
   $('#bRec').classList.toggle('on', T.rec || Mic.on);
   $('#bLoop').classList.toggle('on', song.loop.on);
-  $('#bMetro').classList.toggle('on', song.metro);
 }
 function fmtPos(b) { const bar = Math.floor(b / song.sig) + 1, beat = Math.floor(b % song.sig) + 1, six = Math.floor((b % 1) * 4) + 1; return bar + '.' + beat + '.' + six; }
 let lastClock = '';
