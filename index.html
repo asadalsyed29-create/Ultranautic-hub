@@ -126,21 +126,19 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
   </div>
 
   <div class="page" id="p-mods">
-    <div class="bar"><div class="seg" id="modGame"><button data-g="nauticx" class="on">NauticX</button><button data-g="online">Nautic Online</button></div></div>
+    <p class="note" style="margin-top:18px">Mods add new things to Nautic Online: blocks to build with, gadgets, ball skins, items to find and creatures. Install a mod, then pick it when you make a server.</p>
     <div class="chips" id="modCats"></div>
     <div class="bar"><button class="pri" id="modMake">Make a mod</button><button id="modAdd">Add a mod code</button></div>
-    <p class="note" id="modWhere"></p>
     <div class="mods" id="modsList"></div>
   </div>
 
   <div class="page" id="p-updates"><div class="log">
     <section><div class="d">22 November 2026</div><h3>Mods, servers and new hub tabs</h3><ul>
-      <li><b>Mods tab</b> in the hub. Install mods for NauticX and Nautic Online, sorted by type: Movement, World, Abilities, Fun and Visual.</li>
-      <li>Each game has 5 mods to start with. <b>Make your own</b> with NauticX code (one line like <code>#gravity = 0.5</code>), or use variables, #if, #every and events for bigger mods.</li>
+      <li><b>Mods tab</b> in the hub. Mods add new things to Nautic Online: blocks, gadgets, ball skins, items and creatures, sorted by what they add.</li>
+      <li>5 mods to start with: Lava and Ice, Rocket Boots, Space Skins, Power Finds and Wild Creatures. <b>Make your own</b> with NauticX-style code, like <code>#block = Lava Block</code> … <code>#end</code>.</li>
       <li>Share a mod with a mod code. Your friend adds it with “Add a mod code”.</li>
       <li><b>Nautic Online servers</b>: make your own server and pick public, link only, or private with a password. A server pauses when everyone leaves and carries on when someone joins again.</li>
       <li>Pick which mods a Nautic Online server uses when you make it.</li>
-      <li><b>NauticX</b> has a Mods button to turn installed mods on or off.</li>
       <li>New <b>Updates</b> and <b>Help</b> tabs in the hub.</li>
     </ul></section>
     <section><div class="d">22 November 2026</div><h3>UltraNautic Hub</h3><ul>
@@ -162,21 +160,19 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
   <div class="page" id="p-help"><div class="log">
     <section><h3>Download the hub</h3><ul><li>Tap Download at the top. On iPhone use Safari, tap Share, then “Add to Home Screen”.</li><li>After that every app opens from the hub, even with no internet.</li></ul></section>
     <section><h3>Go back to the hub</h3><ul><li>Use your phone's back button, or tap the small “Hub” tab at the top of the screen.</li></ul></section>
-    <section><h3>Install a mod</h3><ul><li>Open the Mods tab, pick NauticX or Nautic Online, and tap Install.</li><li>NauticX: mods are on right away. Turn them on or off with the Mods button in NauticX.</li><li>Nautic Online: pick the mods when you make a server.</li></ul></section>
-    <section><h3>Make a mod</h3><ul><li>Tap “Make a mod”, give it a name and write the code. Tap a line under the code box to add it.</li><li>Easy: <code>#gravity = 0.5</code> on its own is a whole mod.</li><li>Bigger mods: <code>#every = 10s</code> … <code>#end</code>, <code>#if = {score} &gt; 3</code>, <code>#set = score = 0</code>, and events like <code>#on_jump</code>.</li><li>The checker under the code tells you about mistakes before you save.</li></ul></section>
+    <section><h3>Install a mod</h3><ul><li>Open the Mods tab and tap Install.</li><li>In Nautic Online, tap Servers, then Make a server, and tick the mods you want. Everyone who joins that server gets them.</li><li>New blocks are in the Mods tab of the build bar, new gadgets and skins are in the wardrobe, new items lie around the world, and new creatures live in the world.</li></ul></section>
+    <section><h3>Make a mod</h3><ul><li>Tap “Make a mod” and give it a name. Tap “New block” (or gadget, skin, item, creature) to add a thing, then change its name and lines.</li><li>Every thing starts with a line like <code>#block = Lava Block</code> and ends with <code>#end</code>. The lines in between say what it is like, for example <code>#color = #ff5a1f</code>, <code>#glow</code> and <code>#hot</code>.</li><li>One mod can add many things. The checker under the code tells you about mistakes before you save.</li></ul></section>
     <section><h3>Servers in Nautic Online</h3><ul><li>Open Nautic Online and tap Servers. Public servers show in the list for everyone. Link only servers need the link. Private servers need the link and the password.</li><li>When everyone leaves, the server pauses. It carries on from the same spot when someone joins.</li></ul></section>
   </div></div>
 </div>
 
 <div class="ov" id="modEditor"><div class="hd"><h3 id="edTitle">Make a mod</h3><button id="edCancel">Cancel</button><button class="pri" id="edSave">Save</button></div><div class="bd">
-  <label>Game</label><div class="seg" id="edGame" style="display:inline-flex"><button data-g="nauticx">NauticX</button><button data-g="online">Nautic Online</button></div>
   <label for="edName">Name</label><input id="edName" maxlength="40" autocomplete="off">
-  <label>Type</label><div class="chips" id="edCats" style="margin-top:0"></div>
   <label for="edDesc">What it does</label><input id="edDesc" maxlength="200" autocomplete="off">
   <label for="edCode">Code</label><textarea id="edCode" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
   <div class="check" id="edCheck"></div>
-  <label>Add a line</label><div class="lines" id="edHelp"></div>
-  <input id="edFind" placeholder="Find any NauticX command" autocomplete="off" style="margin-top:10px"><div class="chips" id="edFound"></div>
+  <label>Add a new thing</label><div class="lines" id="edThings"></div>
+  <label>Add a line to a thing</label><div class="lines" id="edHelp"></div>
   <div style="margin-top:22px"><button id="edDel">Delete this mod</button></div>
 </div></div>
 <div class="ov" id="modImport"><div class="hd"><h3>Add a mod code</h3><button id="impCancel">Cancel</button><button class="pri" id="impOk">Add</button></div><div class="bd">
