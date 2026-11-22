@@ -8,7 +8,7 @@ const ICONS = {
   dup: 'M8 8h12v12H8zM4 16V4h12', copy: 'M8 8h12v12H8zM4 16V4h12', paste: 'M9 4h6v3H9zM7 5H5v16h14V5h-2', trash: 'M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14',
   zin: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4M8 11h6M11 8v6', zout: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4M8 11h6',
   max: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5', min: 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5',
-  pen: 'M4 20l4-1 11-11-3-3L5 16zM14 6l3 3', sel: 'M4 4h4M12 4h4M20 4v4M20 12v4M20 20h-4M12 20H8M4 20v-4M4 12V8', hand: 'M8 13V6a1.5 1.5 0 0 1 3 0v6M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V6a1.5 1.5 0 0 1 3 0v8a7 7 0 0 1-7 7c-3 0-4.5-1.5-6-4l-2-3.5a1.5 1.5 0 0 1 2.6-1.5L8 13',
+  pen: 'M4 20l4-1 11-11-3-3L5 16zM14 6l3 3', sel: 'M4 4h4M12 4h4M20 4v4M20 12v4M20 20h-4M12 20H8M4 20v-4M4 12V8', erase: 'M15 4l5 5-10 10H6l-3-3zM9 10l5 5M11 20h9', hand: 'M8 13V6a1.5 1.5 0 0 1 3 0v6M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V6a1.5 1.5 0 0 1 3 0v8a7 7 0 0 1-7 7c-3 0-4.5-1.5-6-4l-2-3.5a1.5 1.5 0 0 1 2.6-1.5L8 13',
   keys: 'M3 5h18v14H3zM8 5v9M12 5v9M16 5v9M7 14h2M11 14h2M15 14h2', mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4M8 21h8',
   upload: 'M12 16V4M7 9l5-5 5 5M4 20h16', wave: 'M3 12h2M7 8v8M11 5v14M15 9v6M19 11v2', sliders: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4',
   music: 'M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z', drum: 'M4 8c0-2 3.6-3 8-3s8 1 8 3-3.6 3-8 3-8-1-8-3zM4 8v8c0 2 3.6 3 8 3s8-1 8-3V8M3 3l6 6M21 3l-6 6',
@@ -134,10 +134,25 @@ function buildTabs() {
   const pt = $('#ptabs'); pt.innerHTML = '';
   for (const [id, l, i] of TABS) { const b = h('button', { onclick: () => setTab(id) }); b.innerHTML = icon(i) + `<span>${l}</span>`; b.dataset.t = id; pt.append(b); }
   pt.append(h('div', { class: 'sp' }));
-  const mx = h('button', { title: 'Bigger editor', onclick: () => { Ed.max = !Ed.max; $('#app').classList.toggle('max', Ed.max); mx.innerHTML = icon(Ed.max ? 'min' : 'max'); resizeAll(); } }); mx.innerHTML = icon('max');
+  const mx = h('button', { id: 'maxBtn', title: 'Bigger editor', onclick: () => setMax(!Ed.max) }); mx.innerHTML = icon(Ed.max ? 'min' : 'max');
   pt.append(mx);
 }
 function setTab(t) { Ed.tab = t; renderPanel(); }
+function setMax(v) { Ed.max = v; $('#app').classList.toggle('max', v); const mx = $('#maxBtn'); if (mx) mx.innerHTML = icon(v ? 'min' : 'max'); resizeAll(); }
+/* on a phone the note editor turns the screen sideways and fills it, so all the keys fit */
+const isPhone = () => Math.min(innerWidth, innerHeight) <= 520 && matchMedia('(pointer:coarse)').matches;
+let landOn = false, landFs = false;
+function noteLand(on) {
+  if (on === landOn) return; landOn = on;
+  if (on) {
+    setMax(true);
+    const de = document.documentElement, fs = document.fullscreenElement ? Promise.resolve() : de.requestFullscreen ? de.requestFullscreen({ navigationUI: 'hide' }).then(() => { landFs = true; }) : Promise.reject();
+    fs.then(() => screen.orientation.lock('landscape')).catch(() => { }).then(() => setTimeout(() => { if (landOn && innerHeight > innerWidth) toast('Turn your phone sideways to see more keys'); }, 700));
+  } else {
+    setMax(false); try { screen.orientation.unlock(); } catch (e) { }
+    if (landFs && document.fullscreenElement) document.exitFullscreen().catch(() => { }); landFs = false;
+  }
+}
 function renderPanel() {
   $$('#ptabs button[data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === Ed.tab));
   const c = selClip(), tr = selTrack();
@@ -149,6 +164,7 @@ function renderPanel() {
   else if (Ed.tab === 'fx') fxPanel(pb);
   else if (Ed.tab === 'mixer') mixerPanel(pb);
   else if (Ed.tab === 'sounds') soundsPanel(pb);
+  if (isPhone()) noteLand(!!(Ed.tab === 'edit' && c && !c.sid));
 }
 let drawEditorHead = null;
 function resizeAll() { sizeTimeline(); drawAll(); if (typeof resizeEditor === 'function') resizeEditor(); }

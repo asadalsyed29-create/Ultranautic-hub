@@ -8,7 +8,7 @@ function starterSong() {
 function loadSong(s) {
   if (T.playing) stop(false);
   song = s;
-  for (const t of song.tracks) { t.fx = Object.assign(defFx(), t.fx || {}); }
+  for (const t of song.tracks) { t.fx = Object.assign(defFx(), t.fx || {}); if (t.preset && t.preset.startsWith('bass.') && t.fx.rev === 0.12) t.fx.rev = 0; }
   song.fx = Object.assign({ revType: 'hall', revLvl: 1, delTime: '1/8.', delFb: 0.35, glue: true }, song.fx || {});
   Sel.track = song.tracks[0] && song.tracks[0].id; Sel.clip = null; Sel.notes.clear();
   T.pos = 0; Ed.sx = 0; Ed.sy = 0;

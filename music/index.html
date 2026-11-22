@@ -54,6 +54,7 @@ canvas{display:block;touch-action:none}
 .tools .tb{height:30px;font-size:12px;padding:0 7px;color:var(--dim)}
 .tools .tb:hover{color:var(--tx)}
 .tools .tb.on{color:var(--acc)}
+.tools .seg.pin{position:sticky;left:-6px;z-index:2;background:var(--p1);border-left:6px solid var(--p1);margin-left:-6px}
 .tools .sep{width:1px;height:20px;background:var(--line2);margin:0 4px;flex:none}
 .tools .fsel{flex:none;width:auto;min-width:74px;height:28px;font-size:12px}
 .tools .lab{color:var(--dim);font-size:11.5px;padding:0 3px 0 6px;white-space:nowrap}
@@ -134,6 +135,9 @@ canvas{display:block;touch-action:none}
 .seg button{flex:1;height:28px;color:var(--dim);font-size:12px;border-right:1px solid var(--line);padding:0 6px;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:4px}
 .seg button:last-child{border-right:0}
 .seg button.on{background:var(--p4);color:var(--tx)}
+.seg.wrap{display:grid;grid-template-columns:repeat(4,1fr)}
+.seg.wrap button{border-bottom:1px solid var(--line)}
+.seg.wrap button:nth-child(4n){border-right:0}
 .chk{display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--tx)}
 .chk i{width:16px;height:16px;border:1px solid var(--line2);background:var(--p2);display:flex;align-items:center;justify-content:center;flex:none}
 .chk.on i{background:var(--acc);border-color:var(--acc)}
@@ -834,6 +838,7 @@ function fam(id, name, list, base) {
   list.forEach((x, i) => {
     const [nm, e, p, ex] = x;
     const pr = Object.assign({ id: id + '.' + i, name: nm, fam: id, e, p: p || {}, rel: 0.3, vf: 0.6, gain: 1 }, base && base[e] || {}, ex || {});
+    if (id === 'bass') pr.tfx = Object.assign({ rev: 0 }, pr.tfx); // bass stays clean: no hall wash under it
     PRESETS[pr.id] = pr; f.items.push(pr);
   });
   FAMILIES.push(f);
@@ -1844,7 +1849,7 @@ const ICONS = {
   dup: 'M8 8h12v12H8zM4 16V4h12', copy: 'M8 8h12v12H8zM4 16V4h12', paste: 'M9 4h6v3H9zM7 5H5v16h14V5h-2', trash: 'M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14',
   zin: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4M8 11h6M11 8v6', zout: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4M8 11h6',
   max: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5', min: 'M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5',
-  pen: 'M4 20l4-1 11-11-3-3L5 16zM14 6l3 3', sel: 'M4 4h4M12 4h4M20 4v4M20 12v4M20 20h-4M12 20H8M4 20v-4M4 12V8', hand: 'M8 13V6a1.5 1.5 0 0 1 3 0v6M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V6a1.5 1.5 0 0 1 3 0v8a7 7 0 0 1-7 7c-3 0-4.5-1.5-6-4l-2-3.5a1.5 1.5 0 0 1 2.6-1.5L8 13',
+  pen: 'M4 20l4-1 11-11-3-3L5 16zM14 6l3 3', sel: 'M4 4h4M12 4h4M20 4v4M20 12v4M20 20h-4M12 20H8M4 20v-4M4 12V8', erase: 'M15 4l5 5-10 10H6l-3-3zM9 10l5 5M11 20h9', hand: 'M8 13V6a1.5 1.5 0 0 1 3 0v6M11 11V4.5a1.5 1.5 0 0 1 3 0V11M14 11V6a1.5 1.5 0 0 1 3 0v8a7 7 0 0 1-7 7c-3 0-4.5-1.5-6-4l-2-3.5a1.5 1.5 0 0 1 2.6-1.5L8 13',
   keys: 'M3 5h18v14H3zM8 5v9M12 5v9M16 5v9M7 14h2M11 14h2M15 14h2', mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4M8 21h8',
   upload: 'M12 16V4M7 9l5-5 5 5M4 20h16', wave: 'M3 12h2M7 8v8M11 5v14M15 9v6M19 11v2', sliders: 'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4',
   music: 'M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z', drum: 'M4 8c0-2 3.6-3 8-3s8 1 8 3-3.6 3-8 3-8-1-8-3zM4 8v8c0 2 3.6 3 8 3s8-1 8-3V8M3 3l6 6M21 3l-6 6',
@@ -1970,10 +1975,25 @@ function buildTabs() {
   const pt = $('#ptabs'); pt.innerHTML = '';
   for (const [id, l, i] of TABS) { const b = h('button', { onclick: () => setTab(id) }); b.innerHTML = icon(i) + `<span>${l}</span>`; b.dataset.t = id; pt.append(b); }
   pt.append(h('div', { class: 'sp' }));
-  const mx = h('button', { title: 'Bigger editor', onclick: () => { Ed.max = !Ed.max; $('#app').classList.toggle('max', Ed.max); mx.innerHTML = icon(Ed.max ? 'min' : 'max'); resizeAll(); } }); mx.innerHTML = icon('max');
+  const mx = h('button', { id: 'maxBtn', title: 'Bigger editor', onclick: () => setMax(!Ed.max) }); mx.innerHTML = icon(Ed.max ? 'min' : 'max');
   pt.append(mx);
 }
 function setTab(t) { Ed.tab = t; renderPanel(); }
+function setMax(v) { Ed.max = v; $('#app').classList.toggle('max', v); const mx = $('#maxBtn'); if (mx) mx.innerHTML = icon(v ? 'min' : 'max'); resizeAll(); }
+/* on a phone the note editor turns the screen sideways and fills it, so all the keys fit */
+const isPhone = () => Math.min(innerWidth, innerHeight) <= 520 && matchMedia('(pointer:coarse)').matches;
+let landOn = false, landFs = false;
+function noteLand(on) {
+  if (on === landOn) return; landOn = on;
+  if (on) {
+    setMax(true);
+    const de = document.documentElement, fs = document.fullscreenElement ? Promise.resolve() : de.requestFullscreen ? de.requestFullscreen({ navigationUI: 'hide' }).then(() => { landFs = true; }) : Promise.reject();
+    fs.then(() => screen.orientation.lock('landscape')).catch(() => { }).then(() => setTimeout(() => { if (landOn && innerHeight > innerWidth) toast('Turn your phone sideways to see more keys'); }, 700));
+  } else {
+    setMax(false); try { screen.orientation.unlock(); } catch (e) { }
+    if (landFs && document.fullscreenElement) document.exitFullscreen().catch(() => { }); landFs = false;
+  }
+}
 function renderPanel() {
   $$('#ptabs button[data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === Ed.tab));
   const c = selClip(), tr = selTrack();
@@ -1985,6 +2005,7 @@ function renderPanel() {
   else if (Ed.tab === 'fx') fxPanel(pb);
   else if (Ed.tab === 'mixer') mixerPanel(pb);
   else if (Ed.tab === 'sounds') soundsPanel(pb);
+  if (isPhone()) noteLand(!!(Ed.tab === 'edit' && c && !c.sid));
 }
 let drawEditorHead = null;
 function resizeAll() { sizeTimeline(); drawAll(); if (typeof resizeEditor === 'function') resizeEditor(); }
@@ -2282,14 +2303,14 @@ function noteEditor(pb, c) {
   const lenF = numField({ value: c.len / song.sig, min: 0.25, max: 256, step: 0.25, dec: 2, onInput: (v, f) => { c.len = v * song.sig; draw(); drawTimeline(); if (f) commit(); } });
   lenF.style.width = '64px'; lenF.style.flex = 'none';
   if (!drum) {
-    const toolSeg = segBox({ value: Ed.tool, options: [{ v: 'draw', i: 'pen', t: 'Draw notes' }, { v: 'select', i: 'sel', t: 'Select notes' }, { v: 'pan', i: 'hand', t: 'Move the view' }], onChange: v => Ed.tool = v });
-    toolSeg.style.flex = 'none';
+    const toolSeg = segBox({ value: Ed.tool, options: [{ v: 'draw', i: 'pen', l: 'Draw', t: 'Draw notes' }, { v: 'erase', i: 'erase', l: 'Delete', t: 'Tap or swipe over notes to delete them' }, { v: 'select', i: 'sel', l: 'Pick', t: 'Pick notes by dragging a box' }, { v: 'pan', i: 'hand', l: 'Scroll', t: 'Drag to scroll the notes' }], onChange: v => { const was = Ed.tool; Ed.tool = v; if (v === 'erase' && was === 'select' && Sel.notes.size) delNotes(); } });
+    toolSeg.style.flex = 'none'; toolSeg.classList.add('pin');
     tools.append(toolSeg, h('span', { class: 'sep' }),
       h('span', { class: 'lab' }, 'Snap'), selectBox({ value: Ed.snap, options: SNAPS, onChange: v => { Ed.snap = v; draw(); } }),
       h('span', { class: 'lab' }, 'Length'), selectBox({ value: Ed.len, options: LENS, onChange: v => Ed.len = v }),
       h('span', { class: 'lab' }, 'Chord'), selectBox({ value: Ed.chord, options: Object.keys(CHORDS).map(k => ({ v: k, l: CHORDS[k][0] })), onChange: v => Ed.chord = v }),
       h('span', { class: 'sep' }),
-      tbtn('copy', 'Copy notes', copyNotes), tbtn('paste', 'Paste notes at the playhead', pasteNotes), tbtn('dup', 'Repeat the picked notes after themselves', dupNotes), tbtn('trash', 'Delete picked notes', delNotes),
+      tbtn('copy', 'Copy notes', copyNotes), tbtn('paste', 'Paste notes at the playhead', pasteNotes), tbtn('dup', 'Repeat the picked notes after themselves', dupNotes),
       tbtn('quant', 'Snap notes to the grid', quantize, 'Snap'), tbtn('up', 'Up a semitone', () => transp(1)), tbtn('down', 'Down a semitone', () => transp(-1)),
       h('button', { class: 'tb', title: 'Up an octave', onclick: () => transp(12) }, '+8'), h('button', { class: 'tb', title: 'Down an octave', onclick: () => transp(-12) }, '-8'),
       h('button', { class: 'tb', title: 'Pick all notes', onclick: () => { c.notes.forEach((n, i) => Sel.notes.add(n)); draw(); } }, 'All'),
@@ -2329,12 +2350,17 @@ function noteEditor(pb, c) {
 }
 
 /* ---------- piano roll ---------- */
-const KW = 46, RT = 18;
+const KW = 46, RT = 18, SB = 22;
+/* left/right scroll bar along the bottom of the note panels */
+function sbGeo(W, x0, total) { const vis = W - x0, tot = Math.max(total, vis + 1), tw = Math.max(44, (W - x0) * vis / tot), max = tot - vis; return { x0, vis, tot, tw, max, tx: x0 + (W - x0 - tw) * (max > 0 ? R.sx / max : 0) }; }
+function drawSB(g, W, H, q) { const y = H - SB; g.fillStyle = '#141518'; g.fillRect(0, y, W, SB); g.fillStyle = '#2a2c31'; g.fillRect(0, y, W, 1); g.fillStyle = '#8d919a'; g.font = '10px system-ui,sans-serif'; g.textBaseline = 'middle'; g.fillText('Scroll', 6, y + SB / 2 + 1); g.fillStyle = R.sbDrag ? '#7a7f89' : '#4d515a'; g.fillRect(q.tx, y + 5, q.tw, SB - 9); g.fillStyle = '#9ea2aa'; for (let i = -1; i <= 1; i++) g.fillRect(q.tx + q.tw / 2 + i * 4, y + 8, 1, SB - 15); }
+function sbDown(p, q, draw) { const grab = p.x >= q.tx && p.x <= q.tx + q.tw ? p.x - q.tx : q.tw / 2; const mv = x => { const f = (x - grab - q.x0) / Math.max(1, (q.vis - q.tw)); R.sx = clamp(f, 0, 1) * q.max; draw(); }; R.sbDrag = true; mv(p.x); return { kind: 'sb', mv }; }
+function rollTotal(c, W) { return Math.max(c.len + song.sig * 2, ...c.notes.map(n => n.t + n.d + song.sig)) * R.rz; }
 const velH = H => H > 230 ? 46 : 0;
 function drawRoll(g, W, H, dpr, c, tr) {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const kh = R.kh, vh = velH(H), gh = H - RT - vh;
-  R.sy = clamp(R.sy, 0, Math.max(0, 128 * kh - gh)); R.sx = Math.max(0, R.sx);
+  const kh = R.kh, vh = velH(H - SB), gh = H - RT - vh - SB;
+  R.sy = clamp(R.sy, 0, Math.max(0, 128 * kh - gh)); R.sx = clamp(R.sx, 0, Math.max(0, rollTotal(c, W) - (W - KW)));
   g.fillStyle = '#0e0f11'; g.fillRect(0, 0, W, H);
   const mTop = 127 - Math.floor(R.sy / kh), mBot = 127 - Math.floor((R.sy + gh) / kh);
   const ny = m => RT + (127 - m) * kh - R.sy;
@@ -2379,9 +2405,9 @@ function drawRoll(g, W, H, dpr, c, tr) {
   g.fillStyle = '#2a2c31'; g.fillRect(KW - 1, RT, 1, gh);
   // velocity lane
   if (vh) {
-    const vy = H - vh; g.fillStyle = '#121315'; g.fillRect(0, vy, W, vh); g.fillStyle = '#2a2c31'; g.fillRect(0, vy, W, 1);
+    const vy = H - SB - vh; g.fillStyle = '#121315'; g.fillRect(0, vy, W, vh); g.fillStyle = '#2a2c31'; g.fillRect(0, vy, W, 1);
     g.fillStyle = '#8d919a'; g.font = '10px system-ui,sans-serif'; g.textBaseline = 'middle'; g.fillText('Velocity', 4, vy + vh / 2);
-    for (const n of c.notes) { const x = nx(n.t); if (x < KW || x > W) continue; const hh = (vh - 8) * n.v; g.fillStyle = Sel.notes.has(n) ? '#fff' : tr.color; g.fillRect(x, H - 4 - hh, 3, hh); g.fillRect(x, H - 4 - hh, 8, 2); }
+    for (const n of c.notes) { const x = nx(n.t); if (x < KW || x > W) continue; const hh = (vh - 8) * n.v; g.fillStyle = Sel.notes.has(n) ? '#fff' : tr.color; g.fillRect(x, H - SB - 4 - hh, 3, hh); g.fillRect(x, H - SB - 4 - hh, 8, 2); }
   }
   // ruler
   g.fillStyle = '#16171a'; g.fillRect(0, 0, W, RT); g.fillStyle = '#2a2c31'; g.fillRect(0, RT - 1, W, 1);
@@ -2390,7 +2416,8 @@ function drawRoll(g, W, H, dpr, c, tr) {
   g.fillStyle = '#16171a'; g.fillRect(0, 0, KW, RT);
   // playhead
   const pb = (AC ? beatNow() : T.pos) - c.start;
-  if (pb >= 0 && pb <= c.len) { const x = nx(pb); if (x >= KW) { g.fillStyle = '#ff5a4d'; g.fillRect(x, 0, 1.5, H); } }
+  if (pb >= 0 && pb <= c.len) { const x = nx(pb); if (x >= KW) { g.fillStyle = '#ff5a4d'; g.fillRect(x, 0, 1.5, H - SB); } }
+  drawSB(g, W, H, sbGeo(W, KW, rollTotal(c, W)));
 }
 function rollInput(cv, c, tr, draw) {
   const ptrs = new Map(); let act = null, lastTap = { t: 0, n: null };
@@ -2400,12 +2427,14 @@ function rollInput(cv, c, tr, draw) {
   cv.addEventListener('pointerdown', e => {
     cv.setPointerCapture(e.pointerId); const p = pos(e); ptrs.set(e.pointerId, p);
     if (ptrs.size === 2) { if (act && act.kind === 'new' && act.made) { c.notes = c.notes.filter(n => !act.made.includes(n)); } const [a, b] = [...ptrs.values()]; act = { kind: 'pinch', dx0: Math.abs(a.x - b.x) || 1, dy0: Math.abs(a.y - b.y) || 1, rz0: R.rz, kh0: R.kh, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, bx: toB((a.x + b.x) / 2), my: ((a.y + b.y) / 2 - RT + R.sy) / R.kh }; return; }
-    const vh = velH(p.H);
+    const vh = velH(p.H - SB);
+    if (p.y > p.H - SB) { act = sbDown(p, sbGeo(p.W, KW, rollTotal(c, p.W)), draw); return; }
     if (p.y < RT) { act = { kind: 'seek' }; T.pos = Math.max(0, c.start + rsnap(toB(p.x))); if (T.playing) seek(T.pos); draw(); drawTimeline(); return; }
-    if (vh && p.y > p.H - vh) { act = { kind: 'vel' }; velAt(p); return; }
+    if (vh && p.y > p.H - SB - vh) { act = { kind: 'vel' }; velAt(p); return; }
     if (p.x < KW) { const m = toM(p.y); R.down = m; liveOn(m, Ed.vel, 'rk'); act = { kind: 'keys', y0: p.y, sy0: R.sy, m }; draw(); return; }
     const n = noteAt(p.x, p.y);
     if (Ed.tool === 'pan') { act = { kind: 'pan', x0: p.x, y0: p.y, sx0: R.sx, sy0: R.sy }; return; }
+    if (Ed.tool === 'erase') { act = { kind: 'erase', gone: 0 }; eraseAt(p); return; }
     if (n) {
       const now = performance.now();
       if (now - lastTap.t < 330 && lastTap.n === n) { c.notes = c.notes.filter(x => x !== n); Sel.notes.delete(n); commit(); draw(); drawTimeline(); act = null; lastTap = { t: 0 }; return; }
@@ -2426,11 +2455,14 @@ function rollInput(cv, c, tr, draw) {
     ensureAudio(); for (const q of made) audition(tr, q.m, q.v, 0.3);
     draw(); drawTimeline();
   });
-  const velAt = p => { const b = toB(p.x), vh = velH(p.H); const v = clamp((p.H - 4 - p.y) / (vh - 8), 0.02, 1); let best = null, bd = 1e9; for (const n of c.notes) { const d = Math.abs(n.t - b) * R.rz; if (d < 12 && d < bd && (!Sel.notes.size || Sel.notes.has(n))) { bd = d; best = n; } } if (best) { for (const n of c.notes) if (Math.abs(n.t - best.t) < 1e-6 && (!Sel.notes.size || Sel.notes.has(n))) n.v = v; draw(); } };
+  const eraseAt = p => { const n = noteAt(p.x, p.y); if (!n) return; c.notes = c.notes.filter(x => x !== n); Sel.notes.delete(n); act.gone++; draw(); drawTimeline(); };
+  const velAt = p => { const b = toB(p.x), vh = velH(p.H - SB); const v = clamp((p.H - SB - 4 - p.y) / (vh - 8), 0.02, 1); let best = null, bd = 1e9; for (const n of c.notes) { const d = Math.abs(n.t - b) * R.rz; if (d < 12 && d < bd && (!Sel.notes.size || Sel.notes.has(n))) { bd = d; best = n; } } if (best) { for (const n of c.notes) if (Math.abs(n.t - best.t) < 1e-6 && (!Sel.notes.size || Sel.notes.has(n))) n.v = v; draw(); } };
   cv.addEventListener('pointermove', e => {
     if (!ptrs.has(e.pointerId) || !act) return; const p = pos(e); ptrs.set(e.pointerId, p);
     if (act.kind === 'pinch') { if (ptrs.size < 2) return; const [a, b] = [...ptrs.values()]; const dx = Math.abs(a.x - b.x) || 1, dy = Math.abs(a.y - b.y) || 1, cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2; if (act.dx0 > 40) R.rz = clamp(act.rz0 * dx / act.dx0, 12, 600); if (act.dy0 > 40) R.kh = clamp(act.kh0 * dy / act.dy0, 7, 40); R.sx = act.bx * R.rz - (cx - KW); R.sy = act.my * R.kh - (cy - RT); draw(); return; }
     if (act.kind === 'seek') { T.pos = Math.max(0, c.start + rsnap(toB(p.x))); draw(); drawTimeline(); return; }
+    if (act.kind === 'sb') { act.mv(p.x); return; }
+    if (act.kind === 'erase') { eraseAt(p); return; }
     if (act.kind === 'vel') { velAt(p); return; }
     if (act.kind === 'keys') { const m = toM(p.y); if (m !== act.m) { liveOff('rk'); liveOn(m, Ed.vel, 'rk'); act.m = m; R.down = m; draw(); } return; }
     if (act.kind === 'pan') { R.sx = Math.max(0, act.sx0 - (p.x - act.x0)); R.sy = act.sy0 - (p.y - act.y0); draw(); return; }
@@ -2450,12 +2482,13 @@ function rollInput(cv, c, tr, draw) {
   const end = e => {
     ptrs.delete(e.pointerId); if (!act) return;
     if (act.kind === 'pinch') { if (!ptrs.size) act = null; return; }
+    if (act.kind === 'sb') { R.sbDrag = false; draw(); }
+    if (act.kind === 'erase' && act.gone) commit();
     if (act.kind === 'keys') { liveOff('rk'); R.down = null; draw(); }
     if (act.kind === 'seek' && T.playing) seek(T.pos);
     if (act.kind === 'box') { R.box = null; draw(); }
-    if (act.kind === 'new') { Ed.len = act.made[0] ? (act.moved ? act.made[0].d : Ed.len) : Ed.len; const e2 = Math.max(...c.notes.map(n => n.t + n.d)); if (e2 > c.len) c.len = Math.ceil(e2 / song.sig) * song.sig; commit(); drawTimeline(); }
+    if (act.kind === 'new') { const e2 = Math.max(...c.notes.map(n => n.t + n.d)); if (e2 > c.len) c.len = Math.ceil(e2 / song.sig) * song.sig; commit(); drawTimeline(); }
     if ((act.kind === 'move' || act.kind === 'resize' || act.kind === 'vel') && (act.moved || act.kind === 'vel')) { const e2 = Math.max(0, ...c.notes.map(n => n.t + n.d)); if (e2 > c.len) c.len = Math.ceil(e2 / song.sig) * song.sig; commit(); drawTimeline(); }
-    if ((act.kind === 'move' || act.kind === 'resize') && act.moved && act.kind === 'resize') Ed.len = act.n.d;
     act = null;
   };
   cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
@@ -2466,10 +2499,10 @@ function rollInput(cv, c, tr, draw) {
 const DNW = 92;
 function drawDrums(g, W, H, dpr, c, tr) {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const st = R.dstep || 0.25, n = DRUM_ROWS.length, rh = Math.max(18, Math.min(34, (H - RT) / n)), cw = R.dz * (st / 0.25);
-  R.dsy = clamp(R.dsy || 0, 0, Math.max(0, n * rh - (H - RT)));
+  const st = R.dstep || 0.25, n = DRUM_ROWS.length, rh = Math.max(18, Math.min(34, (H - RT - SB) / n)), cw = R.dz * (st / 0.25);
+  R.dsy = clamp(R.dsy || 0, 0, Math.max(0, n * rh - (H - RT - SB)));
   const steps = Math.ceil(c.len / st - 1e-6);
-  R.sx = clamp(R.sx, 0, Math.max(0, steps * cw - (W - DNW) + 20));
+  R.sx = clamp(R.sx, 0, Math.max(0, steps * cw + 20 - (W - DNW)));
   g.fillStyle = '#0e0f11'; g.fillRect(0, 0, W, H);
   const hits = new Map(); for (const q of c.notes) { const k = DRUM_NOTES.indexOf(q.m) + ':' + Math.round(q.t / st); hits.set(k, q); }
   for (let r = 0; r < n; r++) {
@@ -2490,11 +2523,12 @@ function drawDrums(g, W, H, dpr, c, tr) {
   g.font = '10.5px system-ui,sans-serif';
   for (let s = 0; s < steps; s++) { const b = s * st; if (Math.abs(b % 1) > 1e-6) continue; const x = DNW + s * cw - R.sx; if (x < DNW) continue; g.fillStyle = Math.abs(b % song.sig) < 1e-6 ? '#c9ccd2' : '#62666e'; g.fillText(Math.abs(b % song.sig) < 1e-6 ? String(Math.floor((c.start + b) / song.sig) + 1) : String(Math.floor(b % song.sig) + 1), x + 3, 9); }
   const pb = (AC ? beatNow() : T.pos) - c.start;
-  if (pb >= 0 && pb <= c.len) { const x = DNW + pb / st * cw - R.sx; if (x >= DNW) { g.fillStyle = '#ff5a4d'; g.fillRect(x, 0, 1.5, H); } }
+  if (pb >= 0 && pb <= c.len) { const x = DNW + pb / st * cw - R.sx; if (x >= DNW) { g.fillStyle = '#ff5a4d'; g.fillRect(x, 0, 1.5, H - SB); } }
+  drawSB(g, W, H, sbGeo(W, DNW, steps * cw + 20));
 }
 function drumInput(cv, c, tr, draw) {
   let act = null; const ptrs = new Map();
-  const geo = () => { const r = cv.getBoundingClientRect(); const st = R.dstep || 0.25, rh = Math.max(18, Math.min(34, (r.height - RT) / DRUM_ROWS.length)); return { r, st, rh, cw: R.dz * (st / 0.25) }; };
+  const geo = () => { const r = cv.getBoundingClientRect(); const st = R.dstep || 0.25, rh = Math.max(18, Math.min(34, (r.height - RT - SB) / DRUM_ROWS.length)); return { r, st, rh, cw: R.dz * (st / 0.25) }; };
   const cell = (e) => { const { r, st, rh, cw } = geo(); const x = e.clientX - r.left, y = e.clientY - r.top; return { x, y, row: Math.floor((y - RT + (R.dsy || 0)) / rh), s: Math.floor((x - DNW + R.sx) / cw), st }; };
   const setHit = (row, s, st, on) => {
     if (row < 0 || row >= DRUM_ROWS.length || s < 0 || s * st >= c.len - 1e-6) return;
@@ -2505,6 +2539,7 @@ function drumInput(cv, c, tr, draw) {
   cv.addEventListener('pointerdown', e => {
     cv.setPointerCapture(e.pointerId); const p = cell(e); ptrs.set(e.pointerId, p);
     if (ptrs.size === 2) { act = { kind: 'pan', x0: p.x, y0: p.y, sx0: R.sx, sy0: R.dsy || 0 }; return; }
+    { const r = cv.getBoundingClientRect(); if (p.y > r.height - SB) { const { cw, st } = geo(); act = sbDown(p, sbGeo(r.width, DNW, Math.ceil(c.len / st - 1e-6) * cw + 20), draw); return; } }
     if (p.y < RT) { act = { kind: 'seek' }; T.pos = c.start + Math.max(0, p.s * p.st); if (T.playing) seek(T.pos); draw(); drawTimeline(); return; }
     if (p.x < DNW) { if (p.row >= 0 && p.row < DRUM_ROWS.length) { R.ddown = p.row; audition(tr, DRUM_NOTES[p.row], Ed.vel); draw(); } act = { kind: 'name', y0: p.y, sy0: R.dsy || 0 }; return; }
     const m = DRUM_NOTES[p.row], on = !c.notes.some(q => q.m === m && Math.abs(q.t - p.s * p.st) < p.st / 2);
@@ -2514,11 +2549,12 @@ function drumInput(cv, c, tr, draw) {
   cv.addEventListener('pointermove', e => {
     if (!act || !ptrs.has(e.pointerId)) return; const p = cell(e); ptrs.set(e.pointerId, p);
     if (act.kind === 'pan') { R.sx = Math.max(0, act.sx0 - (p.x - act.x0)); R.dsy = Math.max(0, act.sy0 - (p.y - act.y0)); draw(); return; }
+    if (act.kind === 'sb') { act.mv(p.x); return; }
     if (act.kind === 'name') { R.dsy = Math.max(0, act.sy0 - (p.y - act.y0)); draw(); return; }
     if (act.kind === 'seek') { T.pos = c.start + Math.max(0, p.s * p.st); draw(); drawTimeline(); return; }
     if (act.kind === 'paint') { const k = p.row + ':' + p.s; if (k !== act.last) { act.last = k; act.painted = true; setHit(p.row, p.s, p.st, act.on); draw(); } }
   });
-  const end = e => { ptrs.delete(e.pointerId); if (!act) return; if (act.kind === 'paint') { commit(); drawTimeline(); } if (act.kind === 'name') { R.ddown = null; draw(); } if (act.kind === 'seek' && T.playing) seek(T.pos); if (!ptrs.size) act = null; };
+  const end = e => { ptrs.delete(e.pointerId); if (!act) return; if (act.kind === 'paint') { commit(); drawTimeline(); } if (act.kind === 'name') { R.ddown = null; draw(); } if (act.kind === 'seek' && T.playing) seek(T.pos); if (act.kind === 'sb') { R.sbDrag = false; draw(); } if (!ptrs.size) act = null; };
   cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
   cv.addEventListener('wheel', e => { e.preventDefault(); if (e.ctrlKey) R.dz = clamp(R.dz * Math.exp(-e.deltaY * 0.003), 12, 80); else if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) R.sx = Math.max(0, R.sx + (e.deltaX || e.deltaY)); else R.dsy = (R.dsy || 0) + e.deltaY; draw(); }, { passive: false });
 }
@@ -2874,17 +2910,32 @@ function audioEditor(pb, c) {
 function iconEl(n) { const d = document.createElement('span'); d.innerHTML = icon(n); return d.firstChild; }
 
 /* ================= export (WAV), song files ================= */
-const Exp = { range: 'song', bits: 16, sr: 48000, tail: 2.5, stems: false };
+const Exp = { range: 'song', fmt: 'wav', bits: 16, sr: 48000, kbps: 256, tail: 2.5, stems: false };
+const FORMATS = { wav: ['WAV', 'Best quality, works everywhere'], flac: ['FLAC', 'Same quality as WAV, about half the size'], mp3: ['MP3', 'Small file, plays everywhere'], mp4: ['MP4', 'Small file (AAC sound), plays on phones and video sites'], m4a: ['M4A', 'Small file (AAC sound), for music players'], ogg: ['OGG', 'Small file (Opus sound)'], aiff: ['AIFF', 'Best quality, for Apple apps'] };
 function exportDialog() {
   const end = songEnd();
   if (end <= 0) { msgBox('Nothing to export', 'Add some notes or sounds first.'); return; }
   const b = h('div');
   b.append(row('Part', segBox({ value: Exp.range, options: [{ v: 'song', l: 'Whole song' }, { v: 'loop', l: 'Loop part' }], onChange: v => Exp.range = v })));
-  b.append(row('Quality', segBox({ value: Exp.bits, options: [{ v: 16, l: '16-bit' }, { v: 24, l: '24-bit' }, { v: 32, l: '32-bit float' }], onChange: v => Exp.bits = v })));
-  b.append(row('Sample rate', segBox({ value: Exp.sr, options: [{ v: 44100, l: '44.1 kHz' }, { v: 48000, l: '48 kHz' }, { v: 96000, l: '96 kHz' }], onChange: v => Exp.sr = v })));
+  const fmtNote = h('div', { class: 'note', style: { margin: '2px 0 6px 104px' } });
+  const opts = h('div');
+  const lossy = f => f === 'mp3' || f === 'mp4' || f === 'm4a' || f === 'ogg';
+  const showOpts = () => {
+    fmtNote.textContent = FORMATS[Exp.fmt][1]; opts.innerHTML = '';
+    if (lossy(Exp.fmt)) opts.append(row('Quality', segBox({ value: Exp.kbps, options: [128, 192, 256, 320].map(v => ({ v, l: v + ' kbps' })), onChange: v => Exp.kbps = v })));
+    else {
+      const bitsOpts = [{ v: 16, l: '16-bit' }, { v: 24, l: '24-bit' }].concat(Exp.fmt === 'wav' ? [{ v: 32, l: '32-bit float' }] : []);
+      if (!bitsOpts.some(o => o.v === Exp.bits)) Exp.bits = 24;
+      opts.append(row('Quality', segBox({ value: Exp.bits, options: bitsOpts, onChange: v => Exp.bits = v })));
+      opts.append(row('Sample rate', segBox({ value: Exp.sr, options: [{ v: 44100, l: '44.1 kHz' }, { v: 48000, l: '48 kHz' }, { v: 96000, l: '96 kHz' }], onChange: v => Exp.sr = v })));
+    }
+  };
+  const fsg = segBox({ value: Exp.fmt, options: Object.keys(FORMATS).map(k => ({ v: k, l: FORMATS[k][0] })), onChange: v => { Exp.fmt = v; showOpts(); } }); fsg.classList.add('wrap');
+  b.append(row('Format', fsg), fmtNote, opts);
+  showOpts();
   b.append(rangeRow('Ending', { value: Exp.tail, min: 0, max: 10, step: 0.5, suf: 's', onInput: v => Exp.tail = v }));
   b.append(row('', checkBox('Each track as its own file too', Exp.stems, v => Exp.stems = v)));
-  b.append(h('div', { class: 'note', style: { marginTop: '6px' } }, 'Saves a WAV file. Ending adds time after the last note so the reverb can fade out.'));
+  b.append(h('div', { class: 'note', style: { marginTop: '6px' } }, 'Ending adds time after the last note so the reverb can fade out.'));
   modal('Export audio', b, [{ l: 'Cancel' }, { l: 'Export', pri: 1, onClick: () => { runExport(); } }]);
 }
 async function runExport() {
@@ -2896,20 +2947,31 @@ async function runExport() {
   const m = modal('Exporting', h('div', null, lab, h('div', { class: 'prog' }, bar)), [], { noX: true });
   try {
     await Promise.all(song.tracks.filter(t => t.kind !== 'audio').map(tr => { const pr = getPreset(tr.preset), ms = new Set(); for (const c of song.clips) if (c.tr === tr.id && c.notes) for (const n of c.notes) ms.add(n.m + (pr.e === 'drum' ? 0 : tr.oct * 12)); return preload(pr, ms); }));
-    const name = (song.name || 'song').replace(/[\\/:*?"<>|]+/g, '').trim() || 'song';
-    const jobs = [{ label: song.name, only: null, file: name + '.wav' }];
-    if (Exp.stems) for (const tr of song.tracks) jobs.push({ label: tr.name, only: tr.id, file: name + ' - ' + tr.name.replace(/[\\/:*?"<>|]+/g, '') + '.wav' });
+    const name = (song.name || 'song').replace(/[\\/:*?"<>|]+/g, '').trim() || 'song', ext = '.' + Exp.fmt;
+    const lossy = ['mp3', 'mp4', 'm4a', 'ogg'].includes(Exp.fmt);
+    let codec = null;
+    if (Exp.fmt === 'mp3') await loadLame();
+    else if (lossy) { codec = await lossyCodec(Exp.fmt === 'ogg' ? 'opus' : 'aac'); if (!codec) throw new Error('This browser cannot make ' + FORMATS[Exp.fmt][0] + ' files. Pick WAV or FLAC instead.'); }
+    const jobs = [{ label: song.name, only: null, file: name + ext }];
+    if (Exp.stems) for (const tr of song.tracks) jobs.push({ label: tr.name, only: tr.id, file: name + ' - ' + tr.name.replace(/[\\/:*?"<>|]+/g, '') + ext });
     for (let j = 0; j < jobs.length; j++) {
       lab.textContent = 'Rendering ' + jobs[j].label + (jobs.length > 1 ? ' (' + (j + 1) + ' of ' + jobs.length + ')' : '') + '…';
-      const buf = await renderOffline(fromB, toB, jobs[j].only, p => bar.style.width = ((j + p) / jobs.length * 100) + '%');
-      download(new Blob([wavBytes(buf, Exp.bits)], { type: 'audio/wav' }), jobs[j].file);
+      const buf = await renderOffline(fromB, toB, jobs[j].only, p => bar.style.width = ((j + p * 0.85) / jobs.length * 100) + '%', lossy ? 48000 : Exp.sr);
+      lab.textContent = 'Saving ' + jobs[j].file + '…'; await sleep(30);
+      let blob;
+      if (Exp.fmt === 'wav') blob = new Blob([wavBytes(buf, Exp.bits)], { type: 'audio/wav' });
+      else if (Exp.fmt === 'flac') blob = new Blob([flacBytes(buf, Exp.bits)], { type: 'audio/flac' });
+      else if (Exp.fmt === 'aiff') blob = new Blob([aiffBytes(buf, Exp.bits)], { type: 'audio/aiff' });
+      else if (Exp.fmt === 'mp3') blob = mp3Blob(buf, Exp.kbps);
+      else { const e = await encodeAudio(buf, codec, Exp.kbps); blob = Exp.fmt === 'ogg' ? oggBlob(e) : mp4Blob(e, Exp.fmt === 'm4a'); }
+      download(blob, jobs[j].file);
       await sleep(400);
     }
     m.close(); toast('Exported');
   } catch (e) { m.close(); msgBox('Export failed', String(e && e.message || e)); }
 }
-async function renderOffline(fromB, toB, only, prog) {
-  const sp = 60 / song.bpm, len = (toB - fromB) * sp + Exp.tail, sr = Exp.sr;
+async function renderOffline(fromB, toB, only, prog, sr = Exp.sr) {
+  const sp = 60 / song.bpm, len = (toB - fromB) * sp + Exp.tail;
   const ctx = new OfflineAudioContext(2, Math.ceil(len * sr), sr);
   makeBus(ctx, song);
   const solo = song.tracks.some(t => t.solo);
@@ -2981,6 +3043,201 @@ async function openProjectFile(file) {
   } catch (e) { msgBox('Could not open', String(e.message || e)); }
 }
 
+/* ================= MP4 writer (same as Nautic Editor's), used for MP4 / M4A sound ================= */
+const MUX = (() => {
+  const B = () => { const a = []; return { a, u8: v => a.push(v & 255), u16: v => a.push((v >>> 8) & 255, v & 255), i16: v => { v = v < 0 ? v + 65536 : v; a.push((v >>> 8) & 255, v & 255); }, u24: v => a.push((v >>> 16) & 255, (v >>> 8) & 255, v & 255), u32: v => { v = Math.floor(v); a.push(Math.floor(v / 16777216) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255); }, u64: v => { const hi = Math.floor(v / 4294967296), lo = v - hi * 4294967296; const b = []; for (const x of [hi, lo]) b.push(Math.floor(x / 16777216) & 255, (x >>> 16) & 255, (x >>> 8) & 255, x & 255); a.push(...b); }, str: s => { for (const ch of s) a.push(ch.charCodeAt(0)); }, bytes: u => { for (let i = 0; i < u.length; i++) a.push(u[i]); }, zeros: n => { for (let i = 0; i < n; i++) a.push(0); } }; };
+  function box(type, fill) { const b = B(); fill && fill(b); const body = b.a; const out = new Uint8Array(8 + body.length); const dv = new DataView(out.buffer); dv.setUint32(0, out.length); for (let i = 0; i < 4; i++) out[4 + i] = type.charCodeAt(i); out.set(body, 8); return out; }
+  function fbox(type, ver, flags, fill) { return box(type, b => { b.u8(ver); b.u24(flags); fill && fill(b); }); }
+  const kids = (b, ...bs) => { for (const x of bs) if (x) b.bytes(x); };
+  const MATRIX = b => { for (const v of [0x00010000, 0, 0, 0, 0x00010000, 0, 0, 0, 0x40000000]) b.u32(v); };
+  function desc(tag, bytes) { return [tag, 0x80, 0x80, 0x80, bytes.length, ...bytes]; }
+  function sampleEntry(tr) {
+    if (tr.kind === 'video') {
+      const inner = tr.codec === 'avc' ? box('avcC', b => b.bytes(tr.desc)) : tr.codec === 'hevc' ? box('hvcC', b => b.bytes(tr.desc))
+        : fbox('vpcC', 1, 0, b => { b.u8(tr.vp.profile); b.u8(tr.vp.level); b.u8((tr.vp.bitDepth << 4) | (1 << 1) | 0); b.u8(1); b.u8(1); b.u8(1); b.u16(0); });
+      const type = tr.codec === 'avc' ? 'avc1' : tr.codec === 'hevc' ? 'hvc1' : 'vp09';
+      return box(type, b => { b.zeros(6); b.u16(1); b.u16(0); b.u16(0); b.zeros(12); b.u16(tr.w); b.u16(tr.h); b.u32(0x00480000); b.u32(0x00480000); b.u32(0); b.u16(1); b.zeros(32); b.u16(0x18); b.i16(-1); kids(b, inner, box('pasp', x => { x.u32(1); x.u32(1); })); });
+    }
+    if (tr.codec === 'aac') {
+      const asc = tr.desc && tr.desc.length ? Array.from(tr.desc) : [0x11, 0x90];
+      const es = desc(3, [0, 1, 0, ...desc(4, [0x40, 0x15, 0, 0, 0, ...u32a(tr.bitrate), ...u32a(tr.bitrate), ...desc(5, asc)]), ...desc(6, [2])]);
+      return box('mp4a', b => { b.zeros(6); b.u16(1); b.zeros(8); b.u16(tr.ch); b.u16(16); b.u16(0); b.u16(0); b.u32(tr.sr * 65536); kids(b, fbox('esds', 0, 0, x => x.bytes(es))); });
+    }
+    let pre = 312; if (tr.desc && tr.desc.length >= 12 && String.fromCharCode(...tr.desc.slice(0, 8)) === 'OpusHead') pre = tr.desc[10] | (tr.desc[11] << 8);
+    return box('Opus', b => { b.zeros(6); b.u16(1); b.zeros(8); b.u16(tr.ch); b.u16(16); b.u16(0); b.u16(0); b.u32(48000 * 65536); kids(b, box('dOps', x => { x.u8(0); x.u8(tr.ch); x.u16(pre); x.u32(tr.sr); x.i16(0); x.u8(0); })); });
+  }
+  const u32a = v => [(v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255];
+  function trak(tr, id, offsets, movieDur) {
+    const n = tr.samples.length, ts = tr.timescale;
+    const ticks = tr.samples.map(s => Math.round(s.ts * ts / 1e6));
+    const durs = ticks.map((t, i) => i < n - 1 ? Math.max(1, ticks[i + 1] - t) : Math.max(1, Math.round(tr.samples[i].dur * ts / 1e6) || (ticks[i] - (ticks[i - 1] || 0)) || 1));
+    const mediaDur = durs.reduce((a, b) => a + b, 0);
+    const stts = []; for (const d of durs) { const l = stts[stts.length - 1]; if (l && l[1] === d) l[0]++; else stts.push([1, d]); }
+    const isV = tr.kind === 'video';
+    const stbl = box('stbl', b => kids(b,
+      fbox('stsd', 0, 0, x => { x.u32(1); x.bytes(sampleEntry(tr)); }),
+      fbox('stts', 0, 0, x => { x.u32(stts.length); for (const [c, d] of stts) { x.u32(c); x.u32(d); } }),
+      isV ? fbox('stss', 0, 0, x => { const k = []; tr.samples.forEach((s, i) => s.key && k.push(i + 1)); x.u32(k.length); for (const v of k) x.u32(v); }) : null,
+      fbox('stsc', 0, 0, x => { x.u32(1); x.u32(1); x.u32(1); x.u32(1); }),
+      fbox('stsz', 0, 0, x => { x.u32(0); x.u32(n); for (const s of tr.samples) x.u32(s.data.length); }),
+      fbox('co64', 0, 0, x => { x.u32(n); for (let i = 0; i < n; i++) x.u64(offsets ? offsets[i] : 0); })));
+    const minf = box('minf', b => kids(b, isV ? fbox('vmhd', 0, 1, x => x.zeros(8)) : fbox('smhd', 0, 0, x => x.zeros(4)),
+      box('dinf', x => x.bytes(fbox('dref', 0, 0, y => { y.u32(1); y.bytes(fbox('url ', 0, 1)); }))), stbl));
+    const mdia = box('mdia', b => kids(b,
+      fbox('mdhd', 0, 0, x => { x.u32(0); x.u32(0); x.u32(ts); x.u32(mediaDur); x.u16(0x55c4); x.u16(0); }),
+      fbox('hdlr', 0, 0, x => { x.u32(0); x.str(isV ? 'vide' : 'soun'); x.zeros(12); x.str(isV ? 'Nautic video' : 'Nautic Music'); x.u8(0); }), minf));
+    const tdur = Math.round(mediaDur / ts * 1000);
+    movieDur.v = Math.max(movieDur.v, tdur);
+    return box('trak', b => kids(b,
+      fbox('tkhd', 0, 3, x => { x.u32(0); x.u32(0); x.u32(id); x.u32(0); x.u32(tdur); x.zeros(8); x.u16(0); x.u16(0); x.u16(isV ? 0 : 0x0100); x.u16(0); MATRIX(x); x.u32(isV ? tr.w * 65536 : 0); x.u32(isV ? tr.h * 65536 : 0); }), mdia));
+  }
+  function build(tracks, m4a) {
+    // interleave samples by time in mdat
+    const all = []; tracks.forEach((tr, ti) => tr.samples.forEach((s, si) => all.push({ ti, si, ts: s.ts, s })));
+    all.sort((a, b) => a.ts - b.ts || a.ti - b.ti);
+    const rel = tracks.map(tr => new Array(tr.samples.length)); let off = 0;
+    for (const e of all) { rel[e.ti][e.si] = off; off += e.s.data.length; }
+    const ftyp = m4a ? box('ftyp', b => { b.str('M4A '); b.u32(512); b.str('M4A '); b.str('isom'); b.str('iso2'); b.str('mp41'); }) : box('ftyp', b => { b.str('isom'); b.u32(512); b.str('isom'); b.str('iso2'); b.str('mp41'); });
+    const mk = offs => { const md = { v: 0 }; const traks = tracks.map((tr, i) => trak(tr, i + 1, offs && offs[i], md)); return box('moov', b => kids(b, fbox('mvhd', 0, 0, x => { x.u32(0); x.u32(0); x.u32(1000); x.u32(md.v); x.u32(0x00010000); x.u16(0x0100); x.zeros(10); MATRIX(x); x.zeros(24); x.u32(tracks.length + 1); }), ...traks)); };
+    const moov0 = mk(null);
+    const base = ftyp.length + moov0.length + 16;
+    const moov = mk(rel.map(r => r.map(o => o + base)));
+    const mh = new Uint8Array(16); const dv = new DataView(mh.buffer); dv.setUint32(0, 1); mh.set([109, 100, 97, 116], 4); const sz = 16 + off; dv.setUint32(8, Math.floor(sz / 4294967296)); dv.setUint32(12, sz >>> 0);
+    return new Blob([ftyp, moov, mh, ...all.map(e => e.s.data)], { type: m4a ? 'audio/mp4' : 'video/mp4' });
+  }
+  return { build };
+})();
+
+
+/* ================= sound file writers: FLAC, AIFF, MP4/M4A (AAC), OGG (Opus) ================= */
+function toInt(x, bits) { const m = bits === 24 ? 8388607 : 32767; const v = Math.round(Math.max(-1, Math.min(1, x)) * m); return v; }
+
+/* ---------- FLAC (lossless): fixed predictors + Rice coding ---------- */
+function flacBytes(buf, bits) {
+  const ch = Math.min(2, buf.numberOfChannels), n = buf.length, sr = buf.sampleRate, BS = 4096;
+  const data = []; for (let c = 0; c < ch; c++) { const d = buf.getChannelData(c), a = new Int32Array(n); for (let i = 0; i < n; i++) a[i] = toInt(d[i] + (bits === 16 ? (Math.random() - Math.random()) / 32768 : 0), bits); data.push(a); }
+  // bit writer
+  let out = new Uint8Array(1 << 20), pos = 0, acc = 0, nb = 0;
+  const grow = () => { if (pos + 64 > out.length) { const o = new Uint8Array(out.length * 2); o.set(out); out = o; } };
+  const put = (v, k) => { // k <= 32
+    while (k > 0) { const take = Math.min(k, 8); k -= take; const part = Math.floor(v / Math.pow(2, k)) & ((1 << take) - 1); acc = (acc << take) | part; nb += take; while (nb >= 8) { grow(); nb -= 8; out[pos++] = (acc >>> nb) & 255; } acc &= (1 << nb) - 1; }
+  };
+  const align = () => { if (nb) put(0, 8 - nb); };
+  const unary = q => { while (q >= 24) { put(0, 24); q -= 24; } put(1, q + 1); };
+  // CRCs
+  const crc8 = (a, s, e) => { let c = 0; for (let i = s; i < e; i++) { c ^= a[i]; for (let k = 0; k < 8; k++) c = c & 0x80 ? ((c << 1) ^ 0x07) & 255 : (c << 1) & 255; } return c; };
+  const T16 = new Uint16Array(256); for (let i = 0; i < 256; i++) { let c = i << 8; for (let k = 0; k < 8; k++) c = c & 0x8000 ? ((c << 1) ^ 0x8005) & 0xffff : (c << 1) & 0xffff; T16[i] = c; }
+  const crc16 = (a, s, e) => { let c = 0; for (let i = s; i < e; i++) c = ((c << 8) & 0xffff) ^ T16[((c >> 8) ^ a[i]) & 255]; return c; };
+  // header: fLaC + STREAMINFO (last block)
+  for (const ch2 of 'fLaC') put(ch2.charCodeAt(0), 8);
+  put(0x80, 8); put(34, 24); put(BS, 16); put(BS, 16); put(0, 24); put(0, 24);
+  put(sr, 20); put(ch - 1, 3); put(bits - 1, 5); put(Math.floor(n / 4294967296), 4); put(n >>> 0, 32); for (let i = 0; i < 16; i++) put(0, 8);
+  const srCode = { 44100: 9, 48000: 10, 96000: 11, 88200: 0, 32000: 8, 22050: 7 }[sr] || 0, ssCode = bits === 24 ? 6 : 4;
+  const res = new Int32Array(BS);
+  for (let f = 0, start = 0; start < n; f++, start += BS) {
+    const len = Math.min(BS, n - start), fstart = pos;
+    put(0x3FFE, 14); put(0, 1); put(0, 1);
+    put(len === BS ? 12 : 7, 4); put(srCode, 4); put(ch === 2 ? 1 : 0, 4); put(ssCode, 3); put(0, 1);
+    // frame number, UTF-8 style
+    if (f < 0x80) put(f, 8); else if (f < 0x800) { put(0xC0 | (f >> 6), 8); put(0x80 | (f & 63), 8); } else if (f < 0x10000) { put(0xE0 | (f >> 12), 8); put(0x80 | ((f >> 6) & 63), 8); put(0x80 | (f & 63), 8); } else { put(0xF0 | (f >> 18), 8); put(0x80 | ((f >> 12) & 63), 8); put(0x80 | ((f >> 6) & 63), 8); put(0x80 | (f & 63), 8); }
+    if (len !== BS) put(len - 1, 16);
+    if (!srCode) { /* sample rate from STREAMINFO */ }
+    put(crc8(out, fstart, pos), 8);
+    for (let c = 0; c < ch; c++) {
+      const x = data[c].subarray(start, start + len);
+      // choose fixed predictor order by smallest residual sum
+      let best = 0, bestSum = Infinity;
+      for (let o = 0; o <= Math.min(4, len - 1); o++) { let s = 0; for (let i = o; i < len; i++) { const r = o === 0 ? x[i] : o === 1 ? x[i] - x[i - 1] : o === 2 ? x[i] - 2 * x[i - 1] + x[i - 2] : o === 3 ? x[i] - 3 * x[i - 1] + 3 * x[i - 2] - x[i - 3] : x[i] - 4 * x[i - 1] + 6 * x[i - 2] - 4 * x[i - 3] + x[i - 4]; s += Math.abs(r); } if (s < bestSum) { bestSum = s; best = o; } }
+      const o = best;
+      for (let i = o; i < len; i++) res[i - o] = o === 0 ? x[i] : o === 1 ? x[i] - x[i - 1] : o === 2 ? x[i] - 2 * x[i - 1] + x[i - 2] : o === 3 ? x[i] - 3 * x[i - 1] + 3 * x[i - 2] - x[i - 3] : x[i] - 4 * x[i - 1] + 6 * x[i - 2] - 4 * x[i - 3] + x[i - 4];
+      const m = len - o; const mean = bestSum / Math.max(1, m);
+      let k = mean > 0 ? Math.max(0, Math.min(30, Math.floor(Math.log2(mean * Math.LN2)))) : 0;
+      put(0, 1); put(8 | o, 6); put(0, 1); // SUBFRAME_FIXED, order o
+      for (let i = 0; i < o; i++) put(x[i] & ((1 << bits) - 1), bits);
+      put(1, 2); put(0, 4); put(k, 5); // RICE2, partition order 0, parameter
+      for (let i = 0; i < m; i++) { const r = res[i], u = r >= 0 ? r * 2 : -r * 2 - 1, q = Math.floor(u / Math.pow(2, k)); unary(q); if (k) put(u - q * Math.pow(2, k), k); }
+    }
+    align();
+    const c16 = crc16(out, fstart, pos); put(c16, 16);
+  }
+  align();
+  return out.slice(0, pos);
+}
+
+/* ---------- AIFF ---------- */
+function aiffBytes(buf, bits) {
+  const ch = buf.numberOfChannels, n = buf.length, bps = bits / 8, dataLen = n * ch * bps;
+  const ab = new ArrayBuffer(54 + dataLen), dv = new DataView(ab);
+  const ws = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'FORM'); dv.setUint32(4, 46 + dataLen); ws(8, 'AIFF'); ws(12, 'COMM'); dv.setUint32(16, 18); dv.setUint16(20, ch); dv.setUint32(22, n); dv.setUint16(26, bits);
+  // 80-bit extended sample rate
+  let sr = buf.sampleRate, e = 16383 + 31; while (sr < 0x80000000) { sr *= 2; e--; } dv.setUint16(28, e); dv.setUint32(30, sr >>> 0); dv.setUint32(34, 0);
+  ws(38, 'SSND'); dv.setUint32(42, 8 + dataLen); dv.setUint32(46, 0); dv.setUint32(50, 0);
+  const d = []; for (let c = 0; c < ch; c++) d.push(buf.getChannelData(c));
+  let o = 54;
+  for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { const v = toInt(d[c][i], bits); if (bits === 24) { dv.setUint8(o, (v >> 16) & 255); dv.setUint8(o + 1, (v >> 8) & 255); dv.setUint8(o + 2, v & 255); o += 3; } else { dv.setInt16(o, v); o += 2; } }
+  return ab;
+}
+
+/* ---------- lossy: AAC in MP4/M4A, Opus in OGG ---------- */
+async function lossyCodec(prefer) {
+  if (!window.AudioEncoder) return null;
+  const list = prefer === 'opus' ? [['opus', 'opus']] : [['aac', 'mp4a.40.2'], ['opus', 'opus']];
+  for (const [kind, codec] of list) { try { const s = await AudioEncoder.isConfigSupported({ codec, sampleRate: 48000, numberOfChannels: 2, bitrate: 192000 }); if (s.supported) return kind; } catch (e) { } }
+  return null;
+}
+async function encodeAudio(buf, kind, kbps) {
+  const sr = buf.sampleRate, chs = Math.min(2, buf.numberOfChannels), samples = []; let desc = null, err = null;
+  const enc = new AudioEncoder({ output: (chunk, meta) => { const d = new Uint8Array(chunk.byteLength); chunk.copyTo(d); if (meta && meta.decoderConfig && meta.decoderConfig.description && !desc) { const ds = meta.decoderConfig.description; desc = new Uint8Array(ds.buffer ? ds.buffer.slice(ds.byteOffset || 0, (ds.byteOffset || 0) + ds.byteLength) : ds); } samples.push({ data: d, ts: chunk.timestamp, dur: chunk.duration || 0 }); }, error: e => err = e });
+  enc.configure({ codec: kind === 'aac' ? 'mp4a.40.2' : 'opus', sampleRate: sr, numberOfChannels: chs, bitrate: kbps * 1000 });
+  const L = buf.length, F = 4800;
+  for (let i = 0; i < L; i += F) {
+    const n = Math.min(F, L - i), b = new Float32Array(n * chs); for (let c = 0; c < chs; c++) b.set(buf.getChannelData(c).subarray(i, i + n), c * n);
+    const ad = new AudioData({ format: 'f32-planar', sampleRate: sr, numberOfFrames: n, numberOfChannels: chs, timestamp: Math.round(i / sr * 1e6), data: b });
+    enc.encode(ad); ad.close();
+  }
+  await enc.flush(); enc.close();
+  if (err) throw err;
+  return { samples, desc, sr, ch: chs, kind, bitrate: kbps * 1000 };
+}
+function mp4Blob(e, m4a) { return MUX.build([{ kind: 'audio', codec: e.kind, ch: e.ch, sr: e.sr, bitrate: e.bitrate, timescale: e.kind === 'opus' ? 48000 : e.sr, samples: e.samples, desc: e.desc }], m4a); }
+function oggBlob(e) {
+  const T = new Uint32Array(256); for (let i = 0; i < 256; i++) { let c = i << 24; for (let k = 0; k < 8; k++) c = c & 0x80000000 ? (c << 1) ^ 0x04c11db7 : c << 1; T[i] = c >>> 0; }
+  const crc = a => { let c = 0; for (let i = 0; i < a.length; i++) c = ((c << 8) ^ T[((c >>> 24) ^ a[i]) & 255]) >>> 0; return c; };
+  const serial = (Math.random() * 0xffffffff) >>> 0, pages = []; let seq = 0;
+  const page = (pkt, gran, flags) => {
+    const segs = []; let r = pkt.length; while (r >= 255) { segs.push(255); r -= 255; } segs.push(r);
+    const p = new Uint8Array(27 + segs.length + pkt.length), dv = new DataView(p.buffer);
+    p.set([79, 103, 103, 83], 0); p[4] = 0; p[5] = flags;
+    dv.setUint32(6, gran % 4294967296, true); dv.setUint32(10, Math.floor(gran / 4294967296), true);
+    dv.setUint32(14, serial, true); dv.setUint32(18, seq++, true); dv.setUint32(22, 0, true); p[26] = segs.length; p.set(segs, 27); p.set(pkt, 27 + segs.length);
+    dv.setUint32(22, crc(p), true); pages.push(p);
+  };
+  const pre = 312;
+  const head = new Uint8Array(19), hv = new DataView(head.buffer); head.set([...'OpusHead'].map(c => c.charCodeAt(0))); head[8] = 1; head[9] = e.ch; hv.setUint16(10, pre, true); hv.setUint32(12, e.sr, true); hv.setInt16(16, 0, true); head[18] = 0;
+  page(head, 0, 2);
+  const vendor = 'Nautic Music', tags = new Uint8Array(8 + 4 + vendor.length + 4), tv = new DataView(tags.buffer); tags.set([...'OpusTags'].map(c => c.charCodeAt(0))); tv.setUint32(8, vendor.length, true); tags.set([...vendor].map(c => c.charCodeAt(0)), 12); tv.setUint32(12 + vendor.length, 0, true);
+  page(tags, 0, 0);
+  let gran = pre; const last = e.samples.length - 1;
+  e.samples.forEach((s, i) => { gran += Math.round((s.dur || 20000) * 48000 / 1e6); page(s.data, gran, i === last ? 4 : 0); });
+  return new Blob(pages, { type: 'audio/ogg' });
+}
+
+/* ---------- MP3 (LAME encoder, lame.min.js, loaded only when needed) ---------- */
+function loadLame() { if (window.lamejs) return Promise.resolve(); return new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'lame.min.js'; sc.onload = () => window.lamejs ? res() : rej(new Error('MP3 maker did not load')); sc.onerror = () => rej(new Error('The MP3 maker could not be loaded. Open the app once with internet, then try again.')); document.head.append(sc); }); }
+function mp3Blob(buf, kbps) {
+  const ch = Math.min(2, buf.numberOfChannels), enc = new lamejs.Mp3Encoder(ch, buf.sampleRate, kbps), out = [], N = 1152;
+  const L = buf.getChannelData(0), R = ch > 1 ? buf.getChannelData(1) : null, a = new Int16Array(N), b = new Int16Array(N);
+  for (let i = 0; i < buf.length; i += N) {
+    const n = Math.min(N, buf.length - i);
+    for (let k = 0; k < n; k++) { a[k] = toInt(L[i + k], 16); if (R) b[k] = toInt(R[i + k], 16); }
+    const m = R ? enc.encodeBuffer(a.subarray(0, n), b.subarray(0, n)) : enc.encodeBuffer(a.subarray(0, n));
+    if (m.length) out.push(new Uint8Array(m));
+  }
+  const e = enc.flush(); if (e.length) out.push(new Uint8Array(e));
+  return new Blob(out, { type: 'audio/mpeg' });
+}
+
 /* ================= start-up ================= */
 const APP_VER = 1;
 function starterSong() {
@@ -2991,7 +3248,7 @@ function starterSong() {
 function loadSong(s) {
   if (T.playing) stop(false);
   song = s;
-  for (const t of song.tracks) { t.fx = Object.assign(defFx(), t.fx || {}); }
+  for (const t of song.tracks) { t.fx = Object.assign(defFx(), t.fx || {}); if (t.preset && t.preset.startsWith('bass.') && t.fx.rev === 0.12) t.fx.rev = 0; }
   song.fx = Object.assign({ revType: 'hall', revLvl: 1, delTime: '1/8.', delFb: 0.35, glue: true }, song.fx || {});
   Sel.track = song.tracks[0] && song.tracks[0].id; Sel.clip = null; Sel.notes.clear();
   T.pos = 0; Ed.sx = 0; Ed.sy = 0;
