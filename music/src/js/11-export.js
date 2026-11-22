@@ -5,12 +5,15 @@ function exportDialog() {
   const end = songEnd();
   if (end <= 0) { msgBox('Nothing to export', 'Add some notes or sounds first.'); return; }
   const b = h('div');
+  let goBtn = null; const setGo = () => { if (goBtn) goBtn.textContent = 'Export ' + FORMATS[Exp.fmt][0]; };
+  const fsel = selectBox({ value: Exp.fmt, options: Object.keys(FORMATS).map(k => ({ v: k, l: FORMATS[k][0] + ' - ' + FORMATS[k][1].charAt(0).toLowerCase() + FORMATS[k][1].slice(1) })), onChange: v => { Exp.fmt = v; showOpts(); setGo(); } });
+  fsel.style.width = '100%';
+  b.append(row('Save as', fsel));
   b.append(row('Part', segBox({ value: Exp.range, options: [{ v: 'song', l: 'Whole song' }, { v: 'loop', l: 'Loop part' }], onChange: v => Exp.range = v })));
-  const fmtNote = h('div', { class: 'note', style: { margin: '2px 0 6px 104px' } });
   const opts = h('div');
   const lossy = f => f === 'mp3' || f === 'mp4' || f === 'm4a' || f === 'ogg';
   const showOpts = () => {
-    fmtNote.textContent = FORMATS[Exp.fmt][1]; opts.innerHTML = '';
+    opts.innerHTML = '';
     if (lossy(Exp.fmt)) opts.append(row('Quality', segBox({ value: Exp.kbps, options: [128, 192, 256, 320].map(v => ({ v, l: v + ' kbps' })), onChange: v => Exp.kbps = v })));
     else {
       const bitsOpts = [{ v: 16, l: '16-bit' }, { v: 24, l: '24-bit' }].concat(Exp.fmt === 'wav' ? [{ v: 32, l: '32-bit float' }] : []);
@@ -19,13 +22,13 @@ function exportDialog() {
       opts.append(row('Sample rate', segBox({ value: Exp.sr, options: [{ v: 44100, l: '44.1 kHz' }, { v: 48000, l: '48 kHz' }, { v: 96000, l: '96 kHz' }], onChange: v => Exp.sr = v })));
     }
   };
-  const fsg = segBox({ value: Exp.fmt, options: Object.keys(FORMATS).map(k => ({ v: k, l: FORMATS[k][0] })), onChange: v => { Exp.fmt = v; showOpts(); } }); fsg.classList.add('wrap');
-  b.append(row('Format', fsg), fmtNote, opts);
+  b.append(opts);
   showOpts();
   b.append(rangeRow('Ending', { value: Exp.tail, min: 0, max: 10, step: 0.5, suf: 's', onInput: v => Exp.tail = v }));
   b.append(row('', checkBox('Each track as its own file too', Exp.stems, v => Exp.stems = v)));
   b.append(h('div', { class: 'note', style: { marginTop: '6px' } }, 'Ending adds time after the last note so the reverb can fade out.'));
   modal('Export audio', b, [{ l: 'Cancel' }, { l: 'Export', pri: 1, onClick: () => { runExport(); } }]);
+  goBtn = $$('.modal .mf .btn.pri').pop(); setGo();
 }
 async function runExport() {
   if (T.playing) stop(false);

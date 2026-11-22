@@ -72,7 +72,7 @@ function sbGeo(W, x0, total) { const vis = W - x0, tot = Math.max(total, vis + 1
 function drawSB(g, W, H, q) { const y = H - SB; g.fillStyle = '#141518'; g.fillRect(0, y, W, SB); g.fillStyle = '#2a2c31'; g.fillRect(0, y, W, 1); g.fillStyle = '#8d919a'; g.font = '10px system-ui,sans-serif'; g.textBaseline = 'middle'; g.fillText('Scroll', 6, y + SB / 2 + 1); g.fillStyle = R.sbDrag ? '#7a7f89' : '#4d515a'; g.fillRect(q.tx, y + 5, q.tw, SB - 9); g.fillStyle = '#9ea2aa'; for (let i = -1; i <= 1; i++) g.fillRect(q.tx + q.tw / 2 + i * 4, y + 8, 1, SB - 15); }
 function sbDown(p, q, draw) { const grab = p.x >= q.tx && p.x <= q.tx + q.tw ? p.x - q.tx : q.tw / 2; const mv = x => { const f = (x - grab - q.x0) / Math.max(1, (q.vis - q.tw)); R.sx = clamp(f, 0, 1) * q.max; draw(); }; R.sbDrag = true; mv(p.x); return { kind: 'sb', mv }; }
 function rollTotal(c, W) { return Math.max(c.len + song.sig * 2, ...c.notes.map(n => n.t + n.d + song.sig)) * R.rz; }
-const velH = H => H > 230 ? 46 : 0;
+const velH = H => H > 330 ? 46 : 0;
 function drawRoll(g, W, H, dpr, c, tr) {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   const kh = R.kh, vh = velH(H - SB), gh = H - RT - vh - SB;

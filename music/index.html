@@ -569,7 +569,12 @@ function DSP_WORKER() {
       const f = f0 * Math.pow(2, (st ? (p.cdet || 4) * (st % 2 ? 1 : -1) : 0) / 1200) * (p.oct && st === 1 ? 2 : 1);
       const S = Math.min(0.5, Math.max(0.02, p.dark != null ? p.dark : 0.35)); // loop lowpass weight
       const rho = Math.pow(0.001, 1 / (f * T)) ;
-      const P = sr / f, Ni = Math.floor(P - S - 0.5), d = P - S - Ni; // fractional part via allpass
+      // bass strings lose their highs fast: a one-pole loop filter (its delay is taken off the loop length)
+      const lowStr = p.body === 'bass' || p.body === 'upright';
+      const lfc = p.lfc || (lowStr ? (p.tone || (p.body === 'upright' ? 1600 : 2500)) * 0.6 * Math.sqrt(f / 55) : 0);
+      const la = lfc ? 1 - Math.exp(-2 * Math.PI * lfc / sr) : 0, w0 = 2 * Math.PI * f / sr;
+      const lpd = lfc ? Math.atan2((1 - la) * Math.sin(w0), 1 - (1 - la) * Math.cos(w0)) / w0 : S;
+      const P = sr / f, Ni = Math.floor(P - lpd - 0.5), d = P - lpd - Ni; // fractional part via allpass
       const ac = (1 - d) / (1 + d);
       const buf = new Float32Array(Ni);
       // excitation: pick noise / smooth pluck, shaped by pick hardness and position
@@ -577,6 +582,7 @@ function DSP_WORKER() {
       const soft = p.pick != null ? p.pick : 0.5;
       for (let i = 0; i < ex.length; i++) ex[i] = nz();
       if (p.pluckShape) { for (let i = 0; i < ex.length; i++) { const t = i / ex.length; ex[i] = (t < 0.3 ? t / 0.3 : (1 - t) / 0.7) * 2 - 1 + nz() * 0.2; } }
+      if (lowStr) { const pk = 0.3 + nz() * 0.03; for (let i = 0; i < ex.length; i++) { const t = i / ex.length, tri = (t < pk ? t / pk : (1 - t) / (1 - pk)) * 2 - 1; ex[i] = tri * (0.55 + 0.45 * soft) * 1.6 + ex[i] * (0.45 - 0.45 * soft); } }
       let lp = 0; const lpa = 1 - soft * 0.92; for (let i = 0; i < ex.length; i++) { lp += lpa * (ex[i] - lp); ex[i] = lp; }
       const pp = Math.max(1, Math.floor((p.pos || 0.18) * Ni)); const ex2 = ex.slice(); for (let i = 0; i < ex.length; i++) ex[i] = ex2[i] - (i >= pp ? ex2[i - pp] : 0);
       let mean = 0; for (const v of ex) mean += v; mean /= ex.length; for (let i = 0; i < ex.length; i++) ex[i] -= mean;
@@ -585,7 +591,7 @@ function DSP_WORKER() {
       const buzz = p.buzz || 0, g = (st ? 0.6 : 1) / nstr;
       for (let i = 0; i < N; i++) {
         const v = buf[idx];
-        let y = ((1 - S) * v + S * x1) * rho; x1 = v;
+        let y; if (lfc) { x1 += la * (v - x1); y = x1 * rho; } else { y = ((1 - S) * v + S * x1) * rho; x1 = v; }
         const ap = ac * y + apx - ac * apy; apx = y; apy = ap;
         let w = ap;
         if (buzz) { const th = 0.02 * (1 - buzz); if (w > th) w = th + (w - th) * (1 - buzz * 0.85); }
@@ -1986,7 +1992,7 @@ let landOn = false, landFs = false;
 function noteLand(on) {
   if (on === landOn) return; landOn = on;
   if (on) {
-    setMax(true);
+    R.kh = Math.min(R.kh, 11); setMax(true);
     const de = document.documentElement, fs = document.fullscreenElement ? Promise.resolve() : de.requestFullscreen ? de.requestFullscreen({ navigationUI: 'hide' }).then(() => { landFs = true; }) : Promise.reject();
     fs.then(() => screen.orientation.lock('landscape')).catch(() => { }).then(() => setTimeout(() => { if (landOn && innerHeight > innerWidth) toast('Turn your phone sideways to see more keys'); }, 700));
   } else {
@@ -2356,7 +2362,7 @@ function sbGeo(W, x0, total) { const vis = W - x0, tot = Math.max(total, vis + 1
 function drawSB(g, W, H, q) { const y = H - SB; g.fillStyle = '#141518'; g.fillRect(0, y, W, SB); g.fillStyle = '#2a2c31'; g.fillRect(0, y, W, 1); g.fillStyle = '#8d919a'; g.font = '10px system-ui,sans-serif'; g.textBaseline = 'middle'; g.fillText('Scroll', 6, y + SB / 2 + 1); g.fillStyle = R.sbDrag ? '#7a7f89' : '#4d515a'; g.fillRect(q.tx, y + 5, q.tw, SB - 9); g.fillStyle = '#9ea2aa'; for (let i = -1; i <= 1; i++) g.fillRect(q.tx + q.tw / 2 + i * 4, y + 8, 1, SB - 15); }
 function sbDown(p, q, draw) { const grab = p.x >= q.tx && p.x <= q.tx + q.tw ? p.x - q.tx : q.tw / 2; const mv = x => { const f = (x - grab - q.x0) / Math.max(1, (q.vis - q.tw)); R.sx = clamp(f, 0, 1) * q.max; draw(); }; R.sbDrag = true; mv(p.x); return { kind: 'sb', mv }; }
 function rollTotal(c, W) { return Math.max(c.len + song.sig * 2, ...c.notes.map(n => n.t + n.d + song.sig)) * R.rz; }
-const velH = H => H > 230 ? 46 : 0;
+const velH = H => H > 330 ? 46 : 0;
 function drawRoll(g, W, H, dpr, c, tr) {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   const kh = R.kh, vh = velH(H - SB), gh = H - RT - vh - SB;
@@ -2916,12 +2922,15 @@ function exportDialog() {
   const end = songEnd();
   if (end <= 0) { msgBox('Nothing to export', 'Add some notes or sounds first.'); return; }
   const b = h('div');
+  let goBtn = null; const setGo = () => { if (goBtn) goBtn.textContent = 'Export ' + FORMATS[Exp.fmt][0]; };
+  const fsel = selectBox({ value: Exp.fmt, options: Object.keys(FORMATS).map(k => ({ v: k, l: FORMATS[k][0] + ' - ' + FORMATS[k][1].charAt(0).toLowerCase() + FORMATS[k][1].slice(1) })), onChange: v => { Exp.fmt = v; showOpts(); setGo(); } });
+  fsel.style.width = '100%';
+  b.append(row('Save as', fsel));
   b.append(row('Part', segBox({ value: Exp.range, options: [{ v: 'song', l: 'Whole song' }, { v: 'loop', l: 'Loop part' }], onChange: v => Exp.range = v })));
-  const fmtNote = h('div', { class: 'note', style: { margin: '2px 0 6px 104px' } });
   const opts = h('div');
   const lossy = f => f === 'mp3' || f === 'mp4' || f === 'm4a' || f === 'ogg';
   const showOpts = () => {
-    fmtNote.textContent = FORMATS[Exp.fmt][1]; opts.innerHTML = '';
+    opts.innerHTML = '';
     if (lossy(Exp.fmt)) opts.append(row('Quality', segBox({ value: Exp.kbps, options: [128, 192, 256, 320].map(v => ({ v, l: v + ' kbps' })), onChange: v => Exp.kbps = v })));
     else {
       const bitsOpts = [{ v: 16, l: '16-bit' }, { v: 24, l: '24-bit' }].concat(Exp.fmt === 'wav' ? [{ v: 32, l: '32-bit float' }] : []);
@@ -2930,13 +2939,13 @@ function exportDialog() {
       opts.append(row('Sample rate', segBox({ value: Exp.sr, options: [{ v: 44100, l: '44.1 kHz' }, { v: 48000, l: '48 kHz' }, { v: 96000, l: '96 kHz' }], onChange: v => Exp.sr = v })));
     }
   };
-  const fsg = segBox({ value: Exp.fmt, options: Object.keys(FORMATS).map(k => ({ v: k, l: FORMATS[k][0] })), onChange: v => { Exp.fmt = v; showOpts(); } }); fsg.classList.add('wrap');
-  b.append(row('Format', fsg), fmtNote, opts);
+  b.append(opts);
   showOpts();
   b.append(rangeRow('Ending', { value: Exp.tail, min: 0, max: 10, step: 0.5, suf: 's', onInput: v => Exp.tail = v }));
   b.append(row('', checkBox('Each track as its own file too', Exp.stems, v => Exp.stems = v)));
   b.append(h('div', { class: 'note', style: { marginTop: '6px' } }, 'Ending adds time after the last note so the reverb can fade out.'));
   modal('Export audio', b, [{ l: 'Cancel' }, { l: 'Export', pri: 1, onClick: () => { runExport(); } }]);
+  goBtn = $$('.modal .mf .btn.pri').pop(); setGo();
 }
 async function runExport() {
   if (T.playing) stop(false);

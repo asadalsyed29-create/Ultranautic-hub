@@ -105,7 +105,12 @@ function DSP_WORKER() {
       const f = f0 * Math.pow(2, (st ? (p.cdet || 4) * (st % 2 ? 1 : -1) : 0) / 1200) * (p.oct && st === 1 ? 2 : 1);
       const S = Math.min(0.5, Math.max(0.02, p.dark != null ? p.dark : 0.35)); // loop lowpass weight
       const rho = Math.pow(0.001, 1 / (f * T)) ;
-      const P = sr / f, Ni = Math.floor(P - S - 0.5), d = P - S - Ni; // fractional part via allpass
+      // bass strings lose their highs fast: a one-pole loop filter (its delay is taken off the loop length)
+      const lowStr = p.body === 'bass' || p.body === 'upright';
+      const lfc = p.lfc || (lowStr ? (p.tone || (p.body === 'upright' ? 1600 : 2500)) * 0.6 * Math.sqrt(f / 55) : 0);
+      const la = lfc ? 1 - Math.exp(-2 * Math.PI * lfc / sr) : 0, w0 = 2 * Math.PI * f / sr;
+      const lpd = lfc ? Math.atan2((1 - la) * Math.sin(w0), 1 - (1 - la) * Math.cos(w0)) / w0 : S;
+      const P = sr / f, Ni = Math.floor(P - lpd - 0.5), d = P - lpd - Ni; // fractional part via allpass
       const ac = (1 - d) / (1 + d);
       const buf = new Float32Array(Ni);
       // excitation: pick noise / smooth pluck, shaped by pick hardness and position
@@ -113,6 +118,7 @@ function DSP_WORKER() {
       const soft = p.pick != null ? p.pick : 0.5;
       for (let i = 0; i < ex.length; i++) ex[i] = nz();
       if (p.pluckShape) { for (let i = 0; i < ex.length; i++) { const t = i / ex.length; ex[i] = (t < 0.3 ? t / 0.3 : (1 - t) / 0.7) * 2 - 1 + nz() * 0.2; } }
+      if (lowStr) { const pk = 0.3 + nz() * 0.03; for (let i = 0; i < ex.length; i++) { const t = i / ex.length, tri = (t < pk ? t / pk : (1 - t) / (1 - pk)) * 2 - 1; ex[i] = tri * (0.55 + 0.45 * soft) * 1.6 + ex[i] * (0.45 - 0.45 * soft); } }
       let lp = 0; const lpa = 1 - soft * 0.92; for (let i = 0; i < ex.length; i++) { lp += lpa * (ex[i] - lp); ex[i] = lp; }
       const pp = Math.max(1, Math.floor((p.pos || 0.18) * Ni)); const ex2 = ex.slice(); for (let i = 0; i < ex.length; i++) ex[i] = ex2[i] - (i >= pp ? ex2[i - pp] : 0);
       let mean = 0; for (const v of ex) mean += v; mean /= ex.length; for (let i = 0; i < ex.length; i++) ex[i] -= mean;
@@ -121,7 +127,7 @@ function DSP_WORKER() {
       const buzz = p.buzz || 0, g = (st ? 0.6 : 1) / nstr;
       for (let i = 0; i < N; i++) {
         const v = buf[idx];
-        let y = ((1 - S) * v + S * x1) * rho; x1 = v;
+        let y; if (lfc) { x1 += la * (v - x1); y = x1 * rho; } else { y = ((1 - S) * v + S * x1) * rho; x1 = v; }
         const ap = ac * y + apx - ac * apy; apx = y; apy = ap;
         let w = ap;
         if (buzz) { const th = 0.02 * (1 - buzz); if (w > th) w = th + (w - th) * (1 - buzz * 0.85); }
