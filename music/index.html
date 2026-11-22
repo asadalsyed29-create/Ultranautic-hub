@@ -247,7 +247,6 @@ canvas{display:block;touch-action:none}
       <button class="tb" id="bPlay" title="Play / Stop (Space)" data-i="play"></button>
       <button class="tb rec" id="bRec" title="Record" data-i="rec"></button>
       <button class="tb" id="bLoop" title="Loop" data-i="loop"></button>
-      <button class="tb" id="bMetro" title="Metronome" data-i="metro"></button>
       <div id="clock">1.1.1</div>
       <div class="bpmw"><span>BPM</span><span id="bpmBox"></span></div>
     </div>
@@ -1545,7 +1544,7 @@ function newTrack(kind, preset, name) {
   return tr;
 }
 function newSong() {
-  const s = { v: 1, id: uid(), name: 'My song', bpm: 120, sig: 4, key: 0, scale: 'none', master: 0.85, fx: { revType: 'hall', revLvl: 1, delTime: '1/8.', delFb: 0.35, glue: true }, loop: { on: false, a: 0, b: 16 }, metro: false, tracks: [], clips: [], updated: Date.now() };
+  const s = { v: 1, id: uid(), name: 'My song', bpm: 120, sig: 4, key: 0, scale: 'none', master: 0.85, fx: { revType: 'hall', revLvl: 1, delTime: '1/8.', delFb: 0.35, glue: true }, loop: { on: false, a: 0, b: 16 }, tracks: [], clips: [], updated: Date.now() };
   return s;
 }
 let song = null;
@@ -1624,7 +1623,7 @@ const Sel = { track: null, clip: null, notes: new Set() };
 const selClip = () => song.clips.find(c => c.id === Sel.clip);
 const selTrack = () => song.tracks.find(t => t.id === Sel.track);
 
-/* ================= playback: scheduler, metronome, live playing, recording ================= */
+/* ================= playback: scheduler, live playing, recording ================= */
 function ensureAudio() {
   if (!AC) {
     AC = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
@@ -1694,8 +1693,6 @@ function schedRange(a, b) {
       fire(tr, pr, n.m + (pr.e === 'drum' ? 0 : tr.oct * 12), n.v, b2t(nb), dur, dest);
     }
   }
-  // metronome
-  if (song.metro) { for (let k = Math.ceil(a); k < b; k++) click(b2t(k), k % song.sig === 0); }
 }
 function fire(tr, pr, m, v, when, dur, dest, live) {
   const ent = soundFor(pr, m, true);
@@ -1754,11 +1751,6 @@ function playAudioClip(c, tr, s, fromB, atT, loopEnd, ctx = AC, destOverride) {
 }
 const REV = new WeakMap();
 function reversedBuf(s) { let r = REV.get(s.buf); if (r) return r; r = new AudioBuffer({ numberOfChannels: s.buf.numberOfChannels, length: s.buf.length, sampleRate: s.buf.sampleRate }); for (let c = 0; c < r.numberOfChannels; c++) { const d = s.buf.getChannelData(c).slice().reverse(); r.copyToChannel(d, c); } REV.set(s.buf, r); return r; }
-let CLICKS = null;
-function click(when, accent) {
-  if (!CLICKS) { const mk = f => { const n = Math.floor(AC.sampleRate * 0.05), b = AC.createBuffer(1, n, AC.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) { const t = i / AC.sampleRate; d[i] = (Math.sin(2 * Math.PI * f * t) * 0.8 + Math.sin(2 * Math.PI * f * 2.7 * t) * 0.2) * Math.exp(-t / 0.008); } return b; }; CLICKS = [mk(1500), mk(2400)]; }
-  const s = AC.createBufferSource(); s.buffer = CLICKS[accent ? 1 : 0]; const g = AC.createGain(); g.gain.value = 0.5; s.connect(g).connect(BUS.get(AC).lim); s.start(when);
-}
 function preloadSong() {
   for (const tr of song.tracks) {
     if (tr.kind === 'audio') continue;
@@ -1850,7 +1842,7 @@ const ICONS = {
   menu: 'M4 7h16M4 12h16M4 17h16', undo: 'M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3', redo: 'M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3',
   play: '<path class="f" d="M7 4.5v15l13-7.5z"/>', stop: '<path class="f" d="M6 6h12v12H6z"/>', rec: '<circle class="f" cx="12" cy="12" r="6.5"/>',
   start: '<path class="f" d="M18 5v14L8 12zM6 5h2v14H6z"/>', loop: 'M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4',
-  metro: 'M9 3h6l4 18H5zM12 17l5-11M8 14h8', export: 'M12 3v12M7 10l5 5 5-5M4 20h16', plus: 'M12 5v14M5 12h14',
+  export: 'M12 3v12M7 10l5 5 5-5M4 20h16', plus: 'M12 5v14M5 12h14',
   cut: 'M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12',
   dup: 'M8 8h12v12H8zM4 16V4h12', copy: 'M8 8h12v12H8zM4 16V4h12', paste: 'M9 4h6v3H9zM7 5H5v16h14V5h-2', trash: 'M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14',
   zin: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4M8 11h6M11 8v6', zout: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4M8 11h6',
@@ -1897,7 +1889,6 @@ function buildTop() {
     if (!Ed.kbd && tr) { Ed.kbd = true; if (Ed.tab !== 'edit') setTab('edit'); else renderPanel(); }
   };
   $('#bLoop').onclick = () => { song.loop.on = !song.loop.on; if (song.loop.b <= song.loop.a) song.loop.b = song.loop.a + song.sig * 4; commit(); updTransport(); drawAll(); };
-  $('#bMetro').onclick = () => { song.metro = !song.metro; commit(); updTransport(); };
   bpmField = numField({ value: 120, min: 30, max: 300, step: 1, dec: 1, onInput: (v, f) => { song.bpm = v; if (AC) updateBus(AC, song); drawAll(); if (f) commit(); } });
   $('#bpmBox').append(bpmField);
   $('#pname').addEventListener('change', e => { song.name = e.target.value.trim() || 'My song'; commit(); });
@@ -1917,7 +1908,6 @@ function updTransport() {
   $('#bPlay').innerHTML = icon(T.playing ? 'stop' : 'play');
   $('#bRec').classList.toggle('on', T.rec || Mic.on);
   $('#bLoop').classList.toggle('on', song.loop.on);
-  $('#bMetro').classList.toggle('on', song.metro);
 }
 function fmtPos(b) { const bar = Math.floor(b / song.sig) + 1, beat = Math.floor(b % song.sig) + 1, six = Math.floor((b % 1) * 4) + 1; return bar + '.' + beat + '.' + six; }
 let lastClock = '';

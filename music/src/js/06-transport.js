@@ -1,4 +1,4 @@
-/* ================= playback: scheduler, metronome, live playing, recording ================= */
+/* ================= playback: scheduler, live playing, recording ================= */
 function ensureAudio() {
   if (!AC) {
     AC = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
@@ -68,8 +68,6 @@ function schedRange(a, b) {
       fire(tr, pr, n.m + (pr.e === 'drum' ? 0 : tr.oct * 12), n.v, b2t(nb), dur, dest);
     }
   }
-  // metronome
-  if (song.metro) { for (let k = Math.ceil(a); k < b; k++) click(b2t(k), k % song.sig === 0); }
 }
 function fire(tr, pr, m, v, when, dur, dest, live) {
   const ent = soundFor(pr, m, true);
@@ -128,11 +126,6 @@ function playAudioClip(c, tr, s, fromB, atT, loopEnd, ctx = AC, destOverride) {
 }
 const REV = new WeakMap();
 function reversedBuf(s) { let r = REV.get(s.buf); if (r) return r; r = new AudioBuffer({ numberOfChannels: s.buf.numberOfChannels, length: s.buf.length, sampleRate: s.buf.sampleRate }); for (let c = 0; c < r.numberOfChannels; c++) { const d = s.buf.getChannelData(c).slice().reverse(); r.copyToChannel(d, c); } REV.set(s.buf, r); return r; }
-let CLICKS = null;
-function click(when, accent) {
-  if (!CLICKS) { const mk = f => { const n = Math.floor(AC.sampleRate * 0.05), b = AC.createBuffer(1, n, AC.sampleRate), d = b.getChannelData(0); for (let i = 0; i < n; i++) { const t = i / AC.sampleRate; d[i] = (Math.sin(2 * Math.PI * f * t) * 0.8 + Math.sin(2 * Math.PI * f * 2.7 * t) * 0.2) * Math.exp(-t / 0.008); } return b; }; CLICKS = [mk(1500), mk(2400)]; }
-  const s = AC.createBufferSource(); s.buffer = CLICKS[accent ? 1 : 0]; const g = AC.createGain(); g.gain.value = 0.5; s.connect(g).connect(BUS.get(AC).lim); s.start(when);
-}
 function preloadSong() {
   for (const tr of song.tracks) {
     if (tr.kind === 'audio') continue;
