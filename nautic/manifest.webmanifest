@@ -1,0 +1,16 @@
+{
+  "name": "Nautic Editor",
+  "short_name": "Nautic",
+  "description": "Free video editor that runs on your device",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0e0f11",
+  "theme_color": "#16171a",
+  "icons": [
+    { "src": "icons/nautic10-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/nautic10-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/nautic10-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
