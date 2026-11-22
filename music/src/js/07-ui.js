@@ -145,7 +145,7 @@ let landOn = false, landFs = false;
 function noteLand(on) {
   if (on === landOn) return; landOn = on;
   if (on) {
-    setMax(true);
+    R.kh = Math.min(R.kh, 11); setMax(true);
     const de = document.documentElement, fs = document.fullscreenElement ? Promise.resolve() : de.requestFullscreen ? de.requestFullscreen({ navigationUI: 'hide' }).then(() => { landFs = true; }) : Promise.reject();
     fs.then(() => screen.orientation.lock('landscape')).catch(() => { }).then(() => setTimeout(() => { if (landOn && innerHeight > innerWidth) toast('Turn your phone sideways to see more keys'); }, 700));
   } else {
