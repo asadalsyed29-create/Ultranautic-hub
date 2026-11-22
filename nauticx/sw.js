@@ -1,5 +1,5 @@
 /* NauticX offline helper: saves the app on your phone so it opens without internet */
-const CACHE='buildx-v8';
+const CACHE='buildx-v9';
 const FILES=['./','./index.html','./manifest.webmanifest','./icon2-192.png','./icon2-512.png','./icon2-maskable-192.png','./icon2-maskable-512.png','./apple-touch-icon2.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE&&k.startsWith('buildx-')).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});

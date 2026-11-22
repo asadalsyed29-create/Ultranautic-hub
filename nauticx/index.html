@@ -1377,6 +1377,7 @@ function startPlay(){if(G)return;playSnap=JSON.stringify({lighting:S.lighting,wo
  G.parts.forEach(P=>{if(P.o.code)attachScript(P,P.o.code);});
  if(window.bxBuildModels)bxBuildModels();
  S.items.forEach(o=>{if(o.cls==='Script'&&o.parent==='Scripts'){const P={kind:'script',o,f:{},beh:{},threads:[],handlers:[],signals:[],funcs:{}};attachScript(P,o.code);}});
+ if(window.bxModScripts)bxModScripts().forEach(m=>{const P={kind:'script',o:{name:'Mod: '+m.name},f:{},beh:{},threads:[],handlers:[],signals:[],funcs:{}};try{attachScript(P,m.code);}catch(e){out('Mod '+m.name+' has a problem: '+e.message);}});
  if(S.playerCode&&S.playerCode.trim())attachScript(G.player.script,S.playerCode);
  G.scripts.forEach(P=>fire(P,'on_start'));G.scripts.forEach(P=>fire(P,'on_spawn'));
  cam.dist=Math.min(cam.dist,22);cam.pitch=0.3;document.body.classList.add('playing');if(typeof applySettings==='function')applySettings();refreshBackpack();renderGuiButtons();out('▶ Play started — '+G.parts.length+' parts, '+G.bots.length+' bots');}
@@ -7680,5 +7681,47 @@ let __inst=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefau
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('#f_install');if(!b)return;document.getElementById('filemenu').style.display='none';
  if(__inst){__inst.prompt();__inst.userChoice.finally(()=>{__inst=null;b.style.display='none';});}});
 window.addEventListener('appinstalled',()=>{const b=document.getElementById('f_install');if(b)b.style.display='none';});
+</script>
+<style>
+#bxmods{position:fixed;inset:0;z-index:100001;background:#16181f;color:#e3e6ee;display:none;flex-direction:column;font:14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#bxmods.on{display:flex}
+#bxmods .hb{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #2c303c;background:#1d212c}
+#bxmods .hb b{flex:1;font-size:16px}
+#bxmods .mc{flex:1;overflow:auto;padding:10px 14px 40px}
+#bxmods .row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #2c303c;background:#1b1e27;margin-bottom:8px}
+#bxmods .row .t{flex:1;min-width:0}
+#bxmods .row .t span{display:block;color:#9aa3b5;font-size:12.5px}
+#bxmods .row .cat{color:#7fb2ff;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px}
+#bxmods button{font:600 13.5px system-ui,sans-serif;border:1px solid #3a4152;background:#232836;color:#e3e6ee;padding:8px 14px;cursor:pointer}
+#bxmods button.on{background:#3b6cff;border-color:#3b6cff;color:#fff}
+#bxmods .note{color:#9aa3b5;margin:4px 0 12px}
+</style>
+<script>
+/* ================= Mods: installed in UltraNautic Hub (Mods tab), switched on here, they run as extra scripts when you press Play ================= */
+(function(){
+const KEY='ultranautic.mods';
+const read=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){return{};}};
+const write=d=>{try{localStorage.setItem(KEY,JSON.stringify(d));}catch(e){}};
+const mine=()=>Object.values(read().installed||{}).filter(m=>m&&m.game==='nauticx'&&typeof m.code==='string');
+window.bxModScripts=()=>{const d=read(),on=(d.enabled||{}).nauticx||{};return mine().filter(m=>on[m.id]);};
+const P=document.createElement('div');P.id='bxmods';
+P.innerHTML='<div class="hb"><b>Mods</b><button id="bxmods_x">Close</button></div><div class="mc"></div>';
+document.body.appendChild(P);
+P.querySelector('#bxmods_x').onclick=()=>P.classList.remove('on');
+function render(){const c=P.querySelector('.mc');c.textContent='';const list=mine(),d=read(),on=((d.enabled||{}).nauticx)||{};
+ const n=document.createElement('p');n.className='note';n.textContent=list.length?'Mods that are on run in every game when you press Play.':'No mods installed yet.';c.appendChild(n);
+ for(const m of list){const r=document.createElement('div');r.className='row';const t=document.createElement('div');t.className='t';
+  const cat=document.createElement('div');cat.className='cat';cat.textContent=m.cat||'Mod';const b=document.createElement('b');b.textContent=m.name;const sp=document.createElement('span');sp.textContent=m.desc||'';t.append(cat,b,sp);
+  const tg=document.createElement('button');tg.textContent=on[m.id]?'On':'Off';tg.className=on[m.id]?'on':'';
+  tg.onclick=()=>{const d2=read();d2.enabled=d2.enabled||{};d2.enabled.nauticx=d2.enabled.nauticx||{};if(d2.enabled.nauticx[m.id])delete d2.enabled.nauticx[m.id];else d2.enabled.nauticx[m.id]=true;write(d2);render();};
+  r.append(t,tg);c.appendChild(r);}
+ const g=document.createElement('button');g.textContent='Get more mods in UltraNautic Hub';
+ g.onclick=()=>{if(window.parent!==window){window.parent.postMessage({t:'ultranautic',tab:'mods',game:'nauticx'},location.origin);}else location.href='../#mods';};c.appendChild(g);}
+window.bxMods=()=>{render();P.classList.add('on');};
+const hb=document.getElementById('b_help')||document.getElementById('b_settings');
+if(hb&&!document.getElementById('b_mods')){const b=document.createElement('button');b.className='tb';b.id='b_mods';b.title='Mods';
+ b.innerHTML='<span class="icw"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v3a2 2 0 1 0 4 0V3h2v6h-3a2 2 0 1 0 0 4h3v8h-6v-3a2 2 0 1 0-4 0v3H3v-8h3a2 2 0 1 0 0-4H3V3z"></path></svg></span><span class="lbl"> Mods</span>';
+ b.onclick=()=>bxMods();hb.parentNode.insertBefore(b,hb.nextSibling);}
+})();
 </script>
 </body></html>

@@ -46,6 +46,44 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
 #dlg h3{margin:0 0 8px;font-size:17px}
 #dlg p{margin:0 0 14px;color:var(--dim)}
 #dlg .row{display:flex;justify-content:flex-end}
+#tabs{display:flex;gap:0;margin-top:18px;border-bottom:1px solid var(--line);overflow-x:auto}
+#tabs button{border:0;border-bottom:3px solid transparent;min-height:46px;padding:10px 18px;color:var(--dim);flex:none}
+#tabs button.on{color:var(--tx);border-bottom-color:var(--acc)}
+.page{display:none}.page.on{display:block}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:18px}
+.seg{display:flex;border:1px solid var(--line)}
+.seg button{border:0;min-height:40px}
+.seg button.on{background:var(--acc);color:var(--acc2)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.chip{min-height:34px;padding:5px 12px;font-size:13.5px;font-weight:600}
+.chip.on{background:#1b4a6e;border-color:var(--acc)}
+.mods{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-top:14px}
+.mod{background:var(--panel);border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:10px}
+.mod h3{margin:0;font-size:18px}
+.mod p{margin:0;color:var(--dim)}
+.mod .kind{color:var(--acc);font-size:12px;font-weight:600;letter-spacing:.4px;text-transform:uppercase}
+.mod .code{margin:0;background:#061428;border:1px solid var(--line);padding:8px 10px;font:12.5px/1.45 ui-monospace,Consolas,monospace;color:#cfe3f5;white-space:pre-wrap;max-height:110px;overflow:auto}
+.mod .row{display:flex;gap:8px;align-items:center;margin-top:auto}
+.mod .row button{min-height:40px;padding:8px 14px}
+.mod .ok{color:var(--acc);font-weight:600;font-size:13.5px;margin-right:auto}
+.log{margin-top:18px}
+.log section{background:var(--panel);border:1px solid var(--line);padding:14px 16px;margin-bottom:12px}
+.log h3{margin:0;font-size:17px}.log .d{color:var(--acc);font-size:12.5px;font-weight:600}
+.log ul{margin:8px 0 0;padding-left:20px;color:var(--dim)}.log li{margin:3px 0}
+.log li b{color:var(--tx);font-weight:600}
+.ov{position:fixed;inset:0;z-index:10;background:var(--bg);display:none;flex-direction:column}
+.ov.on{display:flex}
+.ov .hd{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+.ov .hd h3{flex:1;margin:0;font-size:17px}
+.ov .bd{flex:1;overflow:auto;padding:12px 16px 30px;max-width:980px;width:100%;margin:0 auto}
+.ov label{display:block;color:var(--dim);font-size:13px;font-weight:600;margin:12px 0 4px}
+.ov input,.ov textarea{width:100%;font:15px system-ui,sans-serif;background:#061428;color:var(--tx);border:1px solid var(--line);padding:10px}
+.ov textarea{font:14px/1.5 ui-monospace,Consolas,monospace;min-height:170px;resize:vertical}
+.check{margin-top:6px;font-size:13.5px;white-space:pre-line;color:var(--dim)}.check.bad{color:#ff9d8a}.check.good{color:var(--acc)}
+.lines{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px}
+.lines .line{flex-direction:column;align-items:flex-start;gap:0;min-height:0;padding:7px 10px;text-align:left}
+.lines .line b{font:600 13px ui-monospace,Consolas,monospace;color:#cfe3f5}.lines .line span{font-weight:400;font-size:12.5px;color:var(--dim)}
+#dlgCode{margin:0 0 14px;background:#061428;border:1px solid var(--line);padding:8px;font:12px ui-monospace,monospace;word-break:break-all;white-space:pre-wrap;max-height:120px;overflow:auto;display:none}
 </style>
 </head>
 <body>
@@ -59,7 +97,9 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
     <button id="hubInstall" class="pri">Download</button>
   </header>
   <div id="dlState"></div>
+  <nav id="tabs"><button data-tab="apps" class="on">Apps</button><button data-tab="mods">Mods</button><button data-tab="updates">Updates</button><button data-tab="help">Help</button></nav>
 
+  <div class="page on" id="p-apps">
   <div class="apps">
     <section class="app">
       <div class="top"><img src="icons/nautic.png" alt=""><div><div class="kind">Video, drawing and photo</div><h2>Nautic Editor</h2></div></div>
@@ -83,11 +123,71 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
     </section>
   </div>
   <p class="note">On iPhone, use Safari: tap Share, then “Add to Home Screen”.</p>
+  </div>
+
+  <div class="page" id="p-mods">
+    <div class="bar"><div class="seg" id="modGame"><button data-g="nauticx" class="on">NauticX</button><button data-g="online">Nautic Online</button></div></div>
+    <div class="chips" id="modCats"></div>
+    <div class="bar"><button class="pri" id="modMake">Make a mod</button><button id="modAdd">Add a mod code</button></div>
+    <p class="note" id="modWhere"></p>
+    <div class="mods" id="modsList"></div>
+  </div>
+
+  <div class="page" id="p-updates"><div class="log">
+    <section><div class="d">22 November 2026</div><h3>Mods, servers and new hub tabs</h3><ul>
+      <li><b>Mods tab</b> in the hub. Install mods for NauticX and Nautic Online, sorted by type: Movement, World, Abilities, Fun and Visual.</li>
+      <li>Each game has 5 mods to start with. <b>Make your own</b> with NauticX code (one line like <code>#gravity = 0.5</code>), or use variables, #if, #every and events for bigger mods.</li>
+      <li>Share a mod with a mod code. Your friend adds it with “Add a mod code”.</li>
+      <li><b>Nautic Online servers</b>: make your own server and pick public, link only, or private with a password. A server pauses when everyone leaves and carries on when someone joins again.</li>
+      <li>Pick which mods a Nautic Online server uses when you make it.</li>
+      <li><b>NauticX</b> has a Mods button to turn installed mods on or off.</li>
+      <li>New <b>Updates</b> and <b>Help</b> tabs in the hub.</li>
+    </ul></section>
+    <section><div class="d">22 November 2026</div><h3>UltraNautic Hub</h3><ul>
+      <li>Download the hub once and every app inside it works, even offline.</li>
+      <li>BuildX is now <b>NauticX</b>, and Funz Online is now <b>Nautic Online</b>.</li>
+      <li><b>Nautic Music</b> joined the hub: 500 instrument sounds in 20 kinds, drums, a piano roll, audio cutting and export.</li>
+    </ul></section>
+    <section><div class="d">20 November 2026</div><h3>Nautic Editor</h3><ul>
+      <li>Video editing with many tracks, keyframes, a curve editor and speed up to 99,999x.</li>
+      <li>Export MP4 up to 4K at 60 frames a second. Drawing and photo editing in the same app.</li>
+    </ul></section>
+    <section><div class="d">15 to 16 November 2026</div><h3>NauticX</h3><ul>
+      <li>Export your game for Roblox Studio.</li>
+      <li>Item animations, game passes, and GUIs on parts.</li>
+      <li>A Help guide inside the app.</li>
+    </ul></section>
+  </div></div>
+
+  <div class="page" id="p-help"><div class="log">
+    <section><h3>Download the hub</h3><ul><li>Tap Download at the top. On iPhone use Safari, tap Share, then “Add to Home Screen”.</li><li>After that every app opens from the hub, even with no internet.</li></ul></section>
+    <section><h3>Go back to the hub</h3><ul><li>Use your phone's back button, or tap the small “Hub” tab at the top of the screen.</li></ul></section>
+    <section><h3>Install a mod</h3><ul><li>Open the Mods tab, pick NauticX or Nautic Online, and tap Install.</li><li>NauticX: mods are on right away. Turn them on or off with the Mods button in NauticX.</li><li>Nautic Online: pick the mods when you make a server.</li></ul></section>
+    <section><h3>Make a mod</h3><ul><li>Tap “Make a mod”, give it a name and write the code. Tap a line under the code box to add it.</li><li>Easy: <code>#gravity = 0.5</code> on its own is a whole mod.</li><li>Bigger mods: <code>#every = 10s</code> … <code>#end</code>, <code>#if = {score} &gt; 3</code>, <code>#set = score = 0</code>, and events like <code>#on_jump</code>.</li><li>The checker under the code tells you about mistakes before you save.</li></ul></section>
+    <section><h3>Servers in Nautic Online</h3><ul><li>Open Nautic Online and tap Servers. Public servers show in the list for everyone. Link only servers need the link. Private servers need the link and the password.</li><li>When everyone leaves, the server pauses. It carries on from the same spot when someone joins.</li></ul></section>
+  </div></div>
 </div>
 
-<div id="run"><button id="back">Hub</button></div>
-<div id="dlg"><div class="box"><h3 id="dlgT"></h3><p id="dlgP"></p><div class="row"><button id="dlgOk" class="pri">OK</button></div></div></div>
+<div class="ov" id="modEditor"><div class="hd"><h3 id="edTitle">Make a mod</h3><button id="edCancel">Cancel</button><button class="pri" id="edSave">Save</button></div><div class="bd">
+  <label>Game</label><div class="seg" id="edGame" style="display:inline-flex"><button data-g="nauticx">NauticX</button><button data-g="online">Nautic Online</button></div>
+  <label for="edName">Name</label><input id="edName" maxlength="40" autocomplete="off">
+  <label>Type</label><div class="chips" id="edCats" style="margin-top:0"></div>
+  <label for="edDesc">What it does</label><input id="edDesc" maxlength="200" autocomplete="off">
+  <label for="edCode">Code</label><textarea id="edCode" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+  <div class="check" id="edCheck"></div>
+  <label>Add a line</label><div class="lines" id="edHelp"></div>
+  <input id="edFind" placeholder="Find any NauticX command" autocomplete="off" style="margin-top:10px"><div class="chips" id="edFound"></div>
+  <div style="margin-top:22px"><button id="edDel">Delete this mod</button></div>
+</div></div>
+<div class="ov" id="modImport"><div class="hd"><h3>Add a mod code</h3><button id="impCancel">Cancel</button><button class="pri" id="impOk">Add</button></div><div class="bd">
+  <label for="impText">Paste the mod code</label><textarea id="impText" spellcheck="false" autocapitalize="off" style="min-height:120px"></textarea><div class="check bad" id="impMsg"></div>
+</div></div>
 
+<div id="run"><button id="back">Hub</button></div>
+<div id="dlg"><div class="box"><h3 id="dlgT"></h3><p id="dlgP"></p><pre id="dlgCode"></pre><div class="row"><button id="dlgOk" class="pri">OK</button></div></div></div>
+
+<script src="hub/online-lang.js"></script>
+<script src="hub/mods.js"></script>
 <script>
 let evt = null;
 const $ = id => document.getElementById(id);
@@ -112,7 +212,7 @@ async function getApps() {
 if (standalone) addEventListener('load', getApps);
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); evt = e; });
 addEventListener('appinstalled', () => { evt = null; $('hubInstall').style.display = 'none'; show('Downloaded', 'UltraNautic Hub is on your home screen now, with all its apps.'); getApps(); });
-function show(t, p) { $('dlgT').textContent = t; $('dlgP').textContent = p; $('dlg').classList.add('on'); }
+function show(t, p) { $('dlgT').textContent = t; $('dlgP').textContent = p; $('dlgCode').style.display = 'none'; $('dlg').classList.add('on'); }
 $('dlgOk').onclick = () => $('dlg').classList.remove('on');
 $('hubInstall').onclick = async () => {
   getApps();
@@ -120,6 +220,15 @@ $('hubInstall').onclick = async () => {
   if (ios) show('Download UltraNautic Hub', 'In Safari, tap the Share button, then “Add to Home Screen”.');
   else show('Download UltraNautic Hub', 'Open your browser menu (the ⋮ button in Chrome) and tap “Install app” or “Add to Home screen”.');
 };
+// tabs: Apps, Mods, Updates, Help (the address remembers the tab, like #mods)
+function tab(t) { if (!document.getElementById('p-' + t)) t = 'apps'; document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); document.querySelectorAll('.page').forEach(p => p.classList.toggle('on', p.id === 'p-' + t)); if (t === 'mods') HubMods.render(); }
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { tab(b.dataset.tab); history.replaceState(null, '', b.dataset.tab === 'apps' ? location.pathname : '#' + b.dataset.tab); });
+HubMods.init();
+// a Nautic Online server link (…/Ultranautic-hub/#online=abc123.xyz) opens that server
+function fromHash() { const h = location.hash.slice(1); const m = h.match(/^online=([a-z0-9]{6,16}(?:\.[A-Za-z0-9_-]+)?)$/); if (m) { history.replaceState(null, '', location.pathname); openApp('/Funz-online/?app=1&server=' + m[1]); } else tab(h); }
+fromHash(); addEventListener('hashchange', fromHash);
+// an app asks for the hub's Mods tab (NauticX's "Get more mods")
+addEventListener('message', e => { if (e.origin !== location.origin || !e.data || e.data.t !== 'ultranautic') return; if ($('run').classList.contains('on')) history.back(); if (e.data.tab) { tab(e.data.tab); if (e.data.game) HubMods.setGame(e.data.game); } });
 // when a new version of the hub has downloaded, reload once so new apps show right away
 if ('serviceWorker' in navigator && navigator.serviceWorker.controller) { let done = false; navigator.serviceWorker.addEventListener('controllerchange', () => { if (!done && !$('run').classList.contains('on')) { done = true; location.reload(); } }); }
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) addEventListener('load', () => navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => { }));
