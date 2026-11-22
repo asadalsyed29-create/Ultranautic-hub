@@ -10,6 +10,7 @@ function fam(id, name, list, base) {
   list.forEach((x, i) => {
     const [nm, e, p, ex] = x;
     const pr = Object.assign({ id: id + '.' + i, name: nm, fam: id, e, p: p || {}, rel: 0.3, vf: 0.6, gain: 1 }, base && base[e] || {}, ex || {});
+    if (id === 'bass') pr.tfx = Object.assign({ rev: 0 }, pr.tfx); // bass stays clean: no hall wash under it
     PRESETS[pr.id] = pr; f.items.push(pr);
   });
   FAMILIES.push(f);

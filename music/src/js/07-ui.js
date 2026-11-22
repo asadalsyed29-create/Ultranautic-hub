@@ -134,10 +134,25 @@ function buildTabs() {
   const pt = $('#ptabs'); pt.innerHTML = '';
   for (const [id, l, i] of TABS) { const b = h('button', { onclick: () => setTab(id) }); b.innerHTML = icon(i) + `<span>${l}</span>`; b.dataset.t = id; pt.append(b); }
   pt.append(h('div', { class: 'sp' }));
-  const mx = h('button', { title: 'Bigger editor', onclick: () => { Ed.max = !Ed.max; $('#app').classList.toggle('max', Ed.max); mx.innerHTML = icon(Ed.max ? 'min' : 'max'); resizeAll(); } }); mx.innerHTML = icon('max');
+  const mx = h('button', { id: 'maxBtn', title: 'Bigger editor', onclick: () => setMax(!Ed.max) }); mx.innerHTML = icon(Ed.max ? 'min' : 'max');
   pt.append(mx);
 }
 function setTab(t) { Ed.tab = t; renderPanel(); }
+function setMax(v) { Ed.max = v; $('#app').classList.toggle('max', v); const mx = $('#maxBtn'); if (mx) mx.innerHTML = icon(v ? 'min' : 'max'); resizeAll(); }
+/* on a phone the note editor turns the screen sideways and fills it, so all the keys fit */
+const isPhone = () => Math.min(innerWidth, innerHeight) <= 520 && matchMedia('(pointer:coarse)').matches;
+let landOn = false, landFs = false;
+function noteLand(on) {
+  if (on === landOn) return; landOn = on;
+  if (on) {
+    setMax(true);
+    const de = document.documentElement, fs = document.fullscreenElement ? Promise.resolve() : de.requestFullscreen ? de.requestFullscreen({ navigationUI: 'hide' }).then(() => { landFs = true; }) : Promise.reject();
+    fs.then(() => screen.orientation.lock('landscape')).catch(() => { }).then(() => setTimeout(() => { if (landOn && innerHeight > innerWidth) toast('Turn your phone sideways to see more keys'); }, 700));
+  } else {
+    setMax(false); try { screen.orientation.unlock(); } catch (e) { }
+    if (landFs && document.fullscreenElement) document.exitFullscreen().catch(() => { }); landFs = false;
+  }
+}
 function renderPanel() {
   $$('#ptabs button[data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === Ed.tab));
   const c = selClip(), tr = selTrack();
@@ -149,6 +164,7 @@ function renderPanel() {
   else if (Ed.tab === 'fx') fxPanel(pb);
   else if (Ed.tab === 'mixer') mixerPanel(pb);
   else if (Ed.tab === 'sounds') soundsPanel(pb);
+  if (isPhone()) noteLand(!!(Ed.tab === 'edit' && c && !c.sid));
 }
 let drawEditorHead = null;
 function resizeAll() { sizeTimeline(); drawAll(); if (typeof resizeEditor === 'function') resizeEditor(); }

@@ -838,6 +838,7 @@ function fam(id, name, list, base) {
   list.forEach((x, i) => {
     const [nm, e, p, ex] = x;
     const pr = Object.assign({ id: id + '.' + i, name: nm, fam: id, e, p: p || {}, rel: 0.3, vf: 0.6, gain: 1 }, base && base[e] || {}, ex || {});
+    if (id === 'bass') pr.tfx = Object.assign({ rev: 0 }, pr.tfx); // bass stays clean: no hall wash under it
     PRESETS[pr.id] = pr; f.items.push(pr);
   });
   FAMILIES.push(f);
@@ -1974,10 +1975,25 @@ function buildTabs() {
   const pt = $('#ptabs'); pt.innerHTML = '';
   for (const [id, l, i] of TABS) { const b = h('button', { onclick: () => setTab(id) }); b.innerHTML = icon(i) + `<span>${l}</span>`; b.dataset.t = id; pt.append(b); }
   pt.append(h('div', { class: 'sp' }));
-  const mx = h('button', { title: 'Bigger editor', onclick: () => { Ed.max = !Ed.max; $('#app').classList.toggle('max', Ed.max); mx.innerHTML = icon(Ed.max ? 'min' : 'max'); resizeAll(); } }); mx.innerHTML = icon('max');
+  const mx = h('button', { id: 'maxBtn', title: 'Bigger editor', onclick: () => setMax(!Ed.max) }); mx.innerHTML = icon(Ed.max ? 'min' : 'max');
   pt.append(mx);
 }
 function setTab(t) { Ed.tab = t; renderPanel(); }
+function setMax(v) { Ed.max = v; $('#app').classList.toggle('max', v); const mx = $('#maxBtn'); if (mx) mx.innerHTML = icon(v ? 'min' : 'max'); resizeAll(); }
+/* on a phone the note editor turns the screen sideways and fills it, so all the keys fit */
+const isPhone = () => Math.min(innerWidth, innerHeight) <= 520 && matchMedia('(pointer:coarse)').matches;
+let landOn = false, landFs = false;
+function noteLand(on) {
+  if (on === landOn) return; landOn = on;
+  if (on) {
+    setMax(true);
+    const de = document.documentElement, fs = document.fullscreenElement ? Promise.resolve() : de.requestFullscreen ? de.requestFullscreen({ navigationUI: 'hide' }).then(() => { landFs = true; }) : Promise.reject();
+    fs.then(() => screen.orientation.lock('landscape')).catch(() => { }).then(() => setTimeout(() => { if (landOn && innerHeight > innerWidth) toast('Turn your phone sideways to see more keys'); }, 700));
+  } else {
+    setMax(false); try { screen.orientation.unlock(); } catch (e) { }
+    if (landFs && document.fullscreenElement) document.exitFullscreen().catch(() => { }); landFs = false;
+  }
+}
 function renderPanel() {
   $$('#ptabs button[data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === Ed.tab));
   const c = selClip(), tr = selTrack();
@@ -1989,6 +2005,7 @@ function renderPanel() {
   else if (Ed.tab === 'fx') fxPanel(pb);
   else if (Ed.tab === 'mixer') mixerPanel(pb);
   else if (Ed.tab === 'sounds') soundsPanel(pb);
+  if (isPhone()) noteLand(!!(Ed.tab === 'edit' && c && !c.sid));
 }
 let drawEditorHead = null;
 function resizeAll() { sizeTimeline(); drawAll(); if (typeof resizeEditor === 'function') resizeEditor(); }
@@ -2470,9 +2487,8 @@ function rollInput(cv, c, tr, draw) {
     if (act.kind === 'keys') { liveOff('rk'); R.down = null; draw(); }
     if (act.kind === 'seek' && T.playing) seek(T.pos);
     if (act.kind === 'box') { R.box = null; draw(); }
-    if (act.kind === 'new') { Ed.len = act.made[0] ? (act.moved ? act.made[0].d : Ed.len) : Ed.len; const e2 = Math.max(...c.notes.map(n => n.t + n.d)); if (e2 > c.len) c.len = Math.ceil(e2 / song.sig) * song.sig; commit(); drawTimeline(); }
+    if (act.kind === 'new') { const e2 = Math.max(...c.notes.map(n => n.t + n.d)); if (e2 > c.len) c.len = Math.ceil(e2 / song.sig) * song.sig; commit(); drawTimeline(); }
     if ((act.kind === 'move' || act.kind === 'resize' || act.kind === 'vel') && (act.moved || act.kind === 'vel')) { const e2 = Math.max(0, ...c.notes.map(n => n.t + n.d)); if (e2 > c.len) c.len = Math.ceil(e2 / song.sig) * song.sig; commit(); drawTimeline(); }
-    if ((act.kind === 'move' || act.kind === 'resize') && act.moved && act.kind === 'resize') Ed.len = act.n.d;
     act = null;
   };
   cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
@@ -3232,7 +3248,7 @@ function starterSong() {
 function loadSong(s) {
   if (T.playing) stop(false);
   song = s;
-  for (const t of song.tracks) { t.fx = Object.assign(defFx(), t.fx || {}); }
+  for (const t of song.tracks) { t.fx = Object.assign(defFx(), t.fx || {}); if (t.preset && t.preset.startsWith('bass.') && t.fx.rev === 0.12) t.fx.rev = 0; }
   song.fx = Object.assign({ revType: 'hall', revLvl: 1, delTime: '1/8.', delFb: 0.35, glue: true }, song.fx || {});
   Sel.track = song.tracks[0] && song.tracks[0].id; Sel.clip = null; Sel.notes.clear();
   T.pos = 0; Ed.sx = 0; Ed.sy = 0;

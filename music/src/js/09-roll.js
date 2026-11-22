@@ -203,9 +203,8 @@ function rollInput(cv, c, tr, draw) {
     if (act.kind === 'keys') { liveOff('rk'); R.down = null; draw(); }
     if (act.kind === 'seek' && T.playing) seek(T.pos);
     if (act.kind === 'box') { R.box = null; draw(); }
-    if (act.kind === 'new') { Ed.len = act.made[0] ? (act.moved ? act.made[0].d : Ed.len) : Ed.len; const e2 = Math.max(...c.notes.map(n => n.t + n.d)); if (e2 > c.len) c.len = Math.ceil(e2 / song.sig) * song.sig; commit(); drawTimeline(); }
+    if (act.kind === 'new') { const e2 = Math.max(...c.notes.map(n => n.t + n.d)); if (e2 > c.len) c.len = Math.ceil(e2 / song.sig) * song.sig; commit(); drawTimeline(); }
     if ((act.kind === 'move' || act.kind === 'resize' || act.kind === 'vel') && (act.moved || act.kind === 'vel')) { const e2 = Math.max(0, ...c.notes.map(n => n.t + n.d)); if (e2 > c.len) c.len = Math.ceil(e2 / song.sig) * song.sig; commit(); drawTimeline(); }
-    if ((act.kind === 'move' || act.kind === 'resize') && act.moved && act.kind === 'resize') Ed.len = act.n.d;
     act = null;
   };
   cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
