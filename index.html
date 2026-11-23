@@ -108,7 +108,7 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
   </header>
   <div id="meShade"></div>
   <div id="dlState"></div>
-  <nav id="tabs"><button data-tab="apps" class="on">Apps</button><button data-tab="updates">Updates</button><button data-tab="help">Help</button></nav>
+  <nav id="tabs"><button data-tab="apps" class="on">Apps</button><button data-tab="mods">Mods</button><button data-tab="updates">Updates</button><button data-tab="help">Help</button></nav>
 
   <div class="page on" id="p-apps">
   <div class="apps">
@@ -140,6 +140,7 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
     <section><div class="d">23 November 2026</div><h3>Profile picture</h3><ul>
       <li>Your <b>profile picture</b> sits in the top corner. Tap it for Settings, Updates, Help and Sign out.</li>
       <li>In Settings, pick a picture, use your Google picture, or have none.</li>
+      <li><b>Mods</b> opens the new Mod Editor.</li>
     </ul></section>
     <section><div class="d">23 November 2026</div><h3>Accounts</h3><ul>
       <li>The <b>Mods</b> tab is gone.</li>
@@ -244,9 +245,9 @@ $('hubInstall').onclick = async () => {
   else show('Download UltraNautic Hub', 'Open your browser menu (the ⋮ button in Chrome) and tap “Install app” or “Add to Home screen”.');
 };
 // tabs: Apps, Updates, Help (the address remembers the tab, like #help)
-try { localStorage.removeItem('ultranautic.mods'); localStorage.removeItem('ultranautic.mods2'); } catch (e) { }
-function tab(t) { if (!document.getElementById('p-' + t)) t = 'apps'; document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); document.querySelectorAll('.page').forEach(p => p.classList.toggle('on', p.id === 'p-' + t)); HubSocial.shown(t); }
-document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { tab(b.dataset.tab); history.replaceState(null, '', b.dataset.tab === 'apps' ? location.pathname : '#' + b.dataset.tab); });
+try { localStorage.removeItem('ultranautic.mods'); } catch (e) { }
+function tab(t) { if (t === 'mods') { openApp('/Funz-online/modmaker/?app=1'); return; } if (!document.getElementById('p-' + t)) t = 'apps'; document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t)); document.querySelectorAll('.page').forEach(p => p.classList.toggle('on', p.id === 'p-' + t)); HubSocial.shown(t); }
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { tab(b.dataset.tab); if (b.dataset.tab === 'mods') return; history.replaceState(null, '', b.dataset.tab === 'apps' ? location.pathname : '#' + b.dataset.tab); });
 // a Nautic Online server link (…/Ultranautic-hub/#online=abc123.xyz) opens that server
 function fromHash() { const h = location.hash.slice(1); const m = h.match(/^online=([a-z0-9]{6,16}(?:\.[A-Za-z0-9_-]+)?)$/); if (m) { history.replaceState(null, '', location.pathname); openApp('/Funz-online/?app=1&server=' + m[1]); } else tab(h); }
 function goTab(t) { tab(t); history.replaceState(null, '', t === 'apps' ? location.pathname : '#' + t); }
