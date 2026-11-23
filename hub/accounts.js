@@ -2,7 +2,14 @@
 // Runs on Firebase (Auth + Firestore). Paste the project's firebaseConfig below.
 // The signed-in name is saved in localStorage 'ultranautic.account' so every app in the hub can read it.
 const HubAccount = (() => {
-  const FIREBASE_CONFIG = null; // { apiKey: '…', authDomain: '…', projectId: '…', appId: '…' }
+  const FIREBASE_CONFIG = {
+    apiKey: 'AIzaSyBXwHJ1hwndeNrAb4xEKImqFcFcyo_duZo',
+    authDomain: 'ultranautic-a5f48.firebaseapp.com',
+    projectId: 'ultranautic-a5f48',
+    storageBucket: 'ultranautic-a5f48.firebasestorage.app',
+    messagingSenderId: '204998280679',
+    appId: '1:204998280679:web:e084e8e19e2301ee722942'
+  };
   const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
   const KEY = 'ultranautic.account';
   const MAILDOMAIN = '@users.ultranautic.app'; // usernames sign in as name@users.ultranautic.app (no real email)
