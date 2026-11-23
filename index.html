@@ -108,7 +108,7 @@ button,.btn{font:600 15px system-ui,-apple-system,sans-serif;border:1px solid va
   </header>
   <div id="meShade"></div>
   <div id="dlState"></div>
-  <nav id="tabs"><button data-tab="apps" class="on">Apps</button><button data-tab="mods">Mods</button><button data-tab="updates">Updates</button><button data-tab="help">Help</button></nav>
+  <nav id="tabs"><button data-tab="apps" class="on">Apps</button><button data-tab="mods" id="modsTab" style="display:none">Mods</button><button data-tab="updates">Updates</button><button data-tab="help">Help</button></nav>
 
   <div class="page on" id="p-apps">
   <div class="apps">
@@ -253,6 +253,8 @@ function fromHash() { const h = location.hash.slice(1); const m = h.match(/^onli
 function goTab(t) { tab(t); history.replaceState(null, '', t === 'apps' ? location.pathname : '#' + t); }
 function confirmBox(q) { return new Promise(res => { show(q, ''); $('dlgNo').style.display = ''; const end = v => { $('dlg').classList.remove('on'); $('dlgNo').style.display = 'none'; $('dlgOk').onclick = () => $('dlg').classList.remove('on'); $('dlgNo').onclick = null; res(v); }; $('dlgOk').onclick = () => end(true); $('dlgNo').onclick = () => end(false); }); }
 HubSocial.init({ tab: goTab });
+// the Mods tab shows once the Mod Editor is online
+fetch('/Funz-online/modmaker/', { method: 'HEAD', cache: 'no-store' }).then(r => { if (r.ok) $('modsTab').style.display = ''; }).catch(() => { });
 HubAccount.init(() => { fromHash(); addEventListener('hashchange', fromHash); });
 // an app asks the hub to show one of its tabs
 addEventListener('message', e => { if (e.origin !== location.origin || !e.data || e.data.t !== 'ultranautic') return; if ($('run').classList.contains('on')) history.back(); if (e.data.tab) { tab(e.data.tab); } });
