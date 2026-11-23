@@ -1976,19 +1976,12 @@ function buildTabs() {
 }
 function setTab(t) { Ed.tab = t; renderPanel(); }
 function setMax(v) { Ed.max = v; $('#app').classList.toggle('max', v); const mx = $('#maxBtn'); if (mx) mx.innerHTML = icon(v ? 'min' : 'max'); resizeAll(); }
-/* on a phone the note editor turns the screen sideways and fills it, so all the keys fit */
+/* on a phone the note editor gets the whole panel area (it never turns the screen) */
 const isPhone = () => Math.min(innerWidth, innerHeight) <= 520 && matchMedia('(pointer:coarse)').matches;
-let landOn = false, landFs = false;
+let landOn = false;
 function noteLand(on) {
   if (on === landOn) return; landOn = on;
-  if (on) {
-    R.kh = Math.min(R.kh, 11); setMax(true);
-    const de = document.documentElement, fs = document.fullscreenElement ? Promise.resolve() : de.requestFullscreen ? de.requestFullscreen({ navigationUI: 'hide' }).then(() => { landFs = true; }) : Promise.reject();
-    fs.then(() => screen.orientation.lock('landscape')).catch(() => { }).then(() => setTimeout(() => { if (landOn && innerHeight > innerWidth) toast('Turn your phone sideways to see more keys'); }, 700));
-  } else {
-    setMax(false); try { screen.orientation.unlock(); } catch (e) { }
-    if (landFs && document.fullscreenElement) document.exitFullscreen().catch(() => { }); landFs = false;
-  }
+  if (on) { R.kh = Math.min(R.kh, 11); setMax(true); } else setMax(false);
 }
 function renderPanel() {
   $$('#ptabs button[data-t]').forEach(b => b.classList.toggle('on', b.dataset.t === Ed.tab));
