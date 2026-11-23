@@ -73,7 +73,7 @@ const HubSocial = (() => {
   }
   function mvButton(uid) {
     const b = el('button', 'mv'); if (!user || uid === user.uid) { b.style.display = 'none'; return b; }
-    const paint = () => { const on = following.has(uid); b.classList.toggle('on', on); b.innerHTML = ICON.multiverse; b.append(el('span', '', on ? 'In your multiverse' : 'Multiverse')); };
+    const paint = () => { const on = following.has(uid); b.classList.toggle('on', on); b.innerHTML = ICON.multiverse; b.append(el('span', '', on ? 'In multiverse' : 'Multiverse')); };
     paint(); b.dataset.mv = uid;
     b.onclick = async () => {
       const on = following.has(uid), ref = db.collection('follows').doc(user.uid + '_' + uid), u = db.collection('users').doc(uid), batch = db.batch();
@@ -143,7 +143,7 @@ const HubSocial = (() => {
   async function loadFeed(fresh) {
     if (feedBusy) return; const box = $('feedList');
     if (fresh) { box.innerHTML = ''; feedLast = null; feedDone = false; $('feedMore').style.display = 'none'; }
-    if (feedDone || !(await ready())) return; feedBusy = true;
+    if (feedDone) return; feedBusy = true; if (!(await ready())) { feedBusy = false; return; }
     try {
       let posts = [];
       if (feedMode === 'mv') {
@@ -163,13 +163,16 @@ const HubSocial = (() => {
   }
 
   // ---------- Users ----------
-  let usersLast = null, usersDone = false;
+  let usersLast = null, usersDone = false, usersBusy = false;
   async function userRow(p) {
     const r = el('div', 'urow'), who = el('button', 'who'); who.append(el('b', '', p.shown || p.name), el('span', '', p.bio || ((p.followers || 0) + ' in their multiverse')));
     who.onclick = () => openProfile(p.uid); const av = avatar(p, 44); av.onclick = who.onclick; av.style.cursor = 'pointer';
     r.append(av, who, mvButton(p.uid)); return r;
   }
   async function loadUsers(fresh) {
+    if (usersBusy) return; usersBusy = true; try { await loadUsers2(fresh); } finally { usersBusy = false; }
+  }
+  async function loadUsers2(fresh) {
     const box = $('usersList'), q0 = $('userSearch').value.trim().toLowerCase();
     if (fresh) { box.innerHTML = ''; usersLast = null; usersDone = false; }
     if (usersDone || !(await ready())) return;

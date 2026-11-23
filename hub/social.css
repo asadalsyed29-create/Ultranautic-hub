@@ -57,3 +57,6 @@ header{position:relative;padding-right:64px}
 .grid button{aspect-ratio:1;padding:0;min-height:0;background:#020a14 center/cover;border:0;color:var(--dim);font-size:12px;overflow:hidden}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--acc);padding:10px 16px;z-index:40;font-size:14px}
 @media (prefers-reduced-motion:reduce){#meMenu button,.gal svg{transition:none}}
+#profOv,#setOv{z-index:15}
+.post .ph .who b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.post .ph .mv,.urow .mv{padding:6px 10px;font-size:13.5px;min-height:36px;flex:none}
