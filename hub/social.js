@@ -90,7 +90,7 @@ const HubSocial = (() => {
     const b = el('button', 'gal'); let on = false, n = post.galaxies || 0;
     const paint = () => { b.classList.toggle('on', on); b.innerHTML = ICON.galaxy; b.append(el('span', '', n + (n === 1 ? ' galaxy' : ' galaxies'))); b.title = on ? 'Take your galaxy back' : 'Galaxy this post'; };
     paint();
-    if (user) db.collection('posts').doc(post.id).collection('galaxies').doc(user.uid).get().then(d => { on = d.exists; paint(); }).catch(() => { });
+    if (user && n > 0) db.collection('posts').doc(post.id).collection('galaxies').doc(user.uid).get().then(d => { on = d.exists; paint(); }).catch(() => { });
     b.onclick = async () => {
       if (!user) return; const ref = db.collection('posts').doc(post.id), g = ref.collection('galaxies').doc(user.uid), batch = db.batch();
       if (on) { batch.delete(g); batch.update(ref, { galaxies: FS.FieldValue.increment(-1) }); } else { batch.set(g, { at: FS.FieldValue.serverTimestamp() }); batch.update(ref, { galaxies: FS.FieldValue.increment(1) }); }
@@ -152,8 +152,8 @@ const HubSocial = (() => {
         for (let i = 0; i < ids.length; i += 30) { const q = await db.collection('posts').where('uid', 'in', ids.slice(i, i + 30)).limit(60).get(); q.forEach(d => posts.push(Object.assign({ id: d.id }, d.data()))); }
         posts.sort((a, b) => ((b.at && b.at.toMillis()) || 0) - ((a.at && a.at.toMillis()) || 0)); feedDone = true;
       } else {
-        let q = db.collection('posts').orderBy('at', 'desc').limit(8); if (feedLast) q = q.startAfter(feedLast);
-        const r = await q.get(); r.forEach(d => posts.push(Object.assign({ id: d.id }, d.data()))); feedLast = r.docs[r.docs.length - 1] || feedLast; if (r.size < 8) feedDone = true;
+        let q = db.collection('posts').orderBy('at', 'desc').limit(6); if (feedLast) q = q.startAfter(feedLast);
+        const r = await q.get(); r.forEach(d => posts.push(Object.assign({ id: d.id }, d.data()))); feedLast = r.docs[r.docs.length - 1] || feedLast; if (r.size < 6) feedDone = true;
       }
       if (fresh && !posts.length) box.append(el('div', 'empty', 'No posts yet. Be the first: tap Post.'));
       for (const p of posts) box.append(await card(p));
@@ -194,11 +194,11 @@ const HubSocial = (() => {
     return new Promise((res, rej) => {
       const u = URL.createObjectURL(file), i = new Image();
       i.onload = () => {
-        URL.revokeObjectURL(u); let w = i.naturalWidth, h = i.naturalHeight, k = Math.min(1, max / Math.max(w, h)), q = .85, out = '';
+        URL.revokeObjectURL(u); let w = i.naturalWidth, h = i.naturalHeight, k = Math.min(1, max / Math.max(w, h)), q = .8, out = '';
         for (let tries = 0; tries < 8; tries++) {
           const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
           const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height); x.drawImage(i, 0, 0, c.width, c.height);
-          out = c.toDataURL('image/jpeg', q); if (out.length <= maxBytes) break; if (q > .55) q -= .1; else k *= .8;
+          const wp = c.toDataURL('image/webp', q); out = wp.startsWith('data:image/webp') ? wp : c.toDataURL('image/jpeg', q); if (out.length <= maxBytes) break; if (q > .55) q -= .1; else k *= .8;
         }
         res(out);
       };
@@ -249,7 +249,7 @@ const HubSocial = (() => {
       people.delete(uid); const p = await person(uid); await loadFollowing();
       $('profTitle').textContent = p.shown || p.name;
       const top = el('div', 'prof'); top.append(avatar(p, 104), el('h2', '', p.shown || p.name)); if (p.bio) top.append(el('p', 'bio', p.bio));
-      const q = await db.collection('posts').where('uid', '==', uid).limit(90).get();
+      const q = await db.collection('posts').where('uid', '==', uid).limit(30).get();
       const posts = q.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => ((b.at && b.at.toMillis()) || 0) - ((a.at && a.at.toMillis()) || 0));
       const nums = el('div', 'nums'); [[posts.length, 'posts'], [p.followers || 0, 'in their multiverse'], [p.following || 0, 'multiverses']].forEach(([n, t]) => { const d = el('div'); d.append(el('b', '', String(Math.max(0, n))), t); nums.append(d); });
       top.append(nums);
@@ -305,7 +305,7 @@ const HubSocial = (() => {
     $('usersMore').onclick = () => loadUsers(false);
     let t = 0; $('userSearch').oninput = () => { clearTimeout(t); t = setTimeout(() => loadUsers(true), 300); };
     $('mkPickImg').onclick = () => $('mkFile').click();
-    $('mkFile').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { postImg = await fileToJpeg(f, 1280, 700000); $('mkPrev').src = postImg; $('mkPrev').style.display = 'block'; } catch (er) { $('mkMsg').textContent = 'That picture could not be opened.'; } };
+    $('mkFile').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { postImg = await fileToJpeg(f, 1080, 220000); $('mkPrev').src = postImg; $('mkPrev').style.display = 'block'; } catch (er) { $('mkMsg').textContent = 'That picture could not be opened.'; } };
     $('mkPickBuild').onclick = () => { const w = $('mkGamesWrap'); w.style.display = w.style.display === 'none' ? '' : 'none'; paintGames(); };
     $('mkSend').onclick = sendPost;
     $('profBack').onclick = () => history.back();
