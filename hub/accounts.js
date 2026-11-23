@@ -51,7 +51,7 @@ const HubAccount = (() => {
   function lock(on) { busy = on; document.querySelectorAll('#acct button, #acct input').forEach(b => b.disabled = on); }
   function view(v) { ['acMain', 'acPick'].forEach(id => $(id).style.display = id === v ? '' : 'none'); msg(''); }
   function done(a) { save(a); $('acct').classList.remove('on'); paintBar(); if (onReady) { const f = onReady; onReady = null; f(a); } }
-  function paintBar() { const a = saved(); $('acWho').textContent = a ? a.name : ''; $('acBar').style.display = a ? '' : 'none'; }
+  function paintBar() { dispatchEvent(new CustomEvent('hubaccount', { detail: saved() })); }
 
   // write users/{uid} and usernames/{name} together; fails if the name is already someone's
   async function claim(user, name) {
@@ -60,7 +60,7 @@ const HubAccount = (() => {
     await db.runTransaction(async tx => {
       const got = await tx.get(ref);
       if (got.exists && got.data().uid !== user.uid) throw { code: 'taken' };
-      tx.set(db.collection('users').doc(user.uid), { name: low, shown: name, at: firebase.firestore.FieldValue.serverTimestamp() });
+      tx.set(db.collection('users').doc(user.uid), { name: low, shown: name, photo: /^https:\/\/lh\d\.googleusercontent\.com\//.test(user.photoURL || '') ? user.photoURL : '', bio: '', at: firebase.firestore.FieldValue.serverTimestamp() });
       tx.set(ref, { uid: user.uid });
     });
     return { uid: user.uid, name };
@@ -121,7 +121,6 @@ const HubAccount = (() => {
     paintBar();
     $('acSignUp').onclick = signUp; $('acLogIn').onclick = logIn; $('acGoogle').onclick = google; $('acPickOk').onclick = pick;
     $('acPickBack').onclick = () => { if (auth) auth.signOut(); view('acMain'); };
-    $('acOut').onclick = signOut;
     $('acPass').onkeydown = e => { if (e.key === 'Enter') logIn(); };
     $('acPickName').onkeydown = e => { if (e.key === 'Enter') pick(); };
     const a = saved();
@@ -130,5 +129,14 @@ const HubAccount = (() => {
     // coming back from a Google redirect
     try { if (await start()) { const r = await auth.getRedirectResult(); if (r && r.user) { lock(true); await afterGoogle(r.user); lock(false); } } } catch (e) { lock(false); msg(why(e)); }
   }
-  return { init, get: saved, signOut, checkName };
+  // the signed-in Firebase user (waits for Firebase to wake up); null if the sign-in ran out
+  async function user() {
+    if (!(await start())) return null;
+    if (auth.currentUser) return auth.currentUser;
+    return new Promise(res => { const off = auth.onAuthStateChanged(u => { off(); res(u); }); });
+  }
+  // the hub saved an account but Firebase forgot it: sign in again
+  async function needSignIn() { save(null); paintBar(); onReady = () => location.reload(); view('acMain'); $('acct').classList.add('on'); }
+  function rename(a) { save(Object.assign(saved() || {}, a)); paintBar(); }
+  return { init, get: saved, signOut, checkName, user, needSignIn, rename, start, get db() { return db; }, get fs() { return firebase.firestore; } };
 })();
